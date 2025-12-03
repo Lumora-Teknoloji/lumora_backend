@@ -1,5 +1,5 @@
 """
-AI servis modülü - LangChain klasöründeki ajan mantığını içerir.
+AI servis modülü - OpenAI ve Tavily entegrasyonu ile AI yanıt üretimi ve görsel oluşturma.
 """
 import os
 import json
@@ -20,10 +20,7 @@ logger = logging.getLogger(__name__)
 openai_client: Optional[OpenAI] = None
 tavily_client: Optional[TavilyClient] = None
 
-# FLUX API - AIMLAPI.com kullanıyoruz
-AIMLAPI_HOST = "https://api.aimlapi.com"  # AIMLAPI.com API host
 
-# İstemcileri başlat
 def initialize_ai_clients():
     """AI istemcilerini başlatır."""
     global openai_client, tavily_client
@@ -41,8 +38,8 @@ def initialize_ai_clients():
         logger.warning("Tavily API key not found - Internet search features will be disabled")
 
 
-# İstemcileri başlat
 initialize_ai_clients()
+
 
 # Tools schema
 tools_schema = [
@@ -371,11 +368,10 @@ def resim_olustur_sdxl_coklu(base_prompt: str, adet: int = 2, stil: str = "", oz
         "Content-Type": "application/json",
     }
     
-    logger.info(f"🔑 Stability AI SDXL API Key kullanılıyor: {settings.stability_api_key[:10]}...{settings.stability_api_key[-5:] if len(settings.stability_api_key) > 15 else 'kısa'}")
+    logger.debug(f"Stability AI API key kullanılıyor")
 
     try:
-        logger.info(f"🎨 {adet} adet görsel çiziliyor (SDXL)... (Beden: {body_type_prompt})")
-        logger.info(f"📝 Görsel prompt: {zenginlestirilmis_prompt[:200]}...")
+        logger.info(f"SDXL ile {adet} adet görsel üretiliyor")
         
         resim_linkleri = []
         
@@ -444,7 +440,7 @@ def resim_olustur_sdxl_coklu(base_prompt: str, adet: int = 2, stil: str = "", oz
                 backend_url = f"http://localhost:{settings.port}"
                 link = f"{backend_url}/static/{dosya_adi}"
                 resim_linkleri.append(link)
-                logger.info(f"✅ Görsel {i+1} üretildi ve kaydedildi: {dosya_adi}")
+                logger.info(f"Görsel {i+1} üretildi: {dosya_adi}")
                 
                 # Her görsel arasında kısa bir bekleme (rate limit için)
                 if i < min(adet, 4) - 1:
@@ -454,7 +450,7 @@ def resim_olustur_sdxl_coklu(base_prompt: str, adet: int = 2, stil: str = "", oz
                 logger.error(f"❌ Görsel kaydetme hatası: {e}")
                 continue
         
-        logger.info(f"✅ {len(resim_linkleri)} görsel üretildi (SDXL)")
+        logger.info(f"{len(resim_linkleri)} görsel başarıyla üretildi")
         return resim_linkleri
 
     except Exception as e:
@@ -503,13 +499,11 @@ def should_generate_images_for_message(user_message: str) -> bool:
     # Görsel isteği kontrolü - ÖNCELİKLİ (PROMPT'TA GÖRSEL İSTEDİYSE KESİNLİKLE ÜRET)
     for keyword in image_request_keywords:
         if keyword in message_lower:
-            logger.info(f"🎨 GÖRSEL ÜRETİMİ TETİKLENDİ (görsel isteği - KESİNLİKLE ÜRETİLECEK): '{keyword}'")
             return True
     
     # Kıyafet fikri isteği kontrolü - PROMPT'TA FİKİR İSTEDİYSE GÖRSEL ÜRET
     for keyword in fashion_idea_keywords:
         if keyword in message_lower:
-            logger.info(f"🎨 GÖRSEL ÜRETİMİ TETİKLENDİ (kıyafet fikri - KESİNLİKLE ÜRETİLECEK): '{keyword}'")
             return True
     
     # Soru cümleleri kontrolü (kıyafet hakkında) - PROMPT'TA SORU VARSA GÖRSEL ÜRET
@@ -519,10 +513,8 @@ def should_generate_images_for_message(user_message: str) -> bool:
     ]
     for pattern in question_patterns:
         if pattern in message_lower:
-            logger.info(f"🎨 GÖRSEL ÜRETİMİ TETİKLENDİ (soru kalıbı - KESİNLİKLE ÜRETİLECEK): '{pattern}'")
             return True
     
-    logger.info("📝 Görsel üretilmeyecek - normal cevap verilecek")
     return False
 
 
@@ -555,7 +547,6 @@ def should_generate_images_from_response(ai_response: str) -> bool:
     ]
     for marker in marker_variations:
         if marker in response_lower:
-            logger.info(f"🎨 AI cevabında görsel üretimi marker'ı bulundu: '{marker}'")
             return True
     
     # Marker yoksa, diğer ifadeleri kontrol et (DAHA GENİŞ KAPSAMLI)
@@ -577,7 +568,6 @@ def should_generate_images_from_response(ai_response: str) -> bool:
     
     for indicator in image_indicators:
         if indicator in response_lower:
-            logger.info(f"🎨 AI cevabında görsel üretimi gerektiren ifade bulundu: '{indicator}'")
             return True
     
     return False
@@ -614,10 +604,8 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
     # SADECE kullanıcı mesajında görsel/fikir isteği varsa görsel üret
     final_should_generate = generate_images or should_generate_from_message
     
-    logger.info(f"🔍 Görsel üretim kontrolü: user_message='{user_message[:50]}...', generate_images={generate_images}, should_generate_from_message={should_generate_from_message}, final_should_generate={final_should_generate}, stability_key={'SET' if settings.stability_api_key else 'NOT SET'}")
-    
     if should_generate_from_message:
-        logger.info("🎨 KULLANICI MESAJINDA GÖRSEL/FİKİR İSTEĞİ VAR - GÖRSEL ÜRETİLECEK!")
+        logger.info("Görsel üretimi tetiklendi: kullanıcı mesajında görsel/fikir isteği var")
     
     resim_linkleri = []
     if final_should_generate and settings.stability_api_key:
@@ -654,7 +642,7 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         if "büyük beden" in konu or "plus size" in konu or "xl" in konu or "büyük" in konu:
             ozel_durumlar = "plus size"
         
-        logger.info(f"🎨 Görsel üretiliyor (SDXL'a gönderiliyor): {base_prompt}")
+        logger.info("Görsel üretimi başlatılıyor")
         # Görsel üretimini thread pool'da çalıştır
         resim_linkleri = await loop.run_in_executor(
             None,
@@ -664,11 +652,9 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
             "Modern, Elegant, Commercial Fashion",
             ozel_durumlar
         )
-        logger.info(f"✅ {len(resim_linkleri)} görsel üretildi")
+        logger.info(f"{len(resim_linkleri)} görsel üretildi")
     elif final_should_generate and not settings.stability_api_key:
-        logger.warning("⚠️ Stability AI API key bulunamadı - görsel üretilemiyor (PROMPT'TA GÖRSEL İSTENMİŞTİ!)")
-    elif not final_should_generate:
-        logger.info("📝 Görsel üretilmeyecek - mesaj ve cevap analizi sonucu")
+        logger.warning("Stability AI API key bulunamadı - görsel üretilemiyor")
     
     return {
         "content": rapor,

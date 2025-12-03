@@ -15,17 +15,12 @@ from .ai_service import generate_ai_response
 
 logger = logging.getLogger(__name__)
 
-# Socket.IO server instance
 sio = socketio.AsyncServer(
-    cors_allowed_origins=settings.allowed_origins,  # CORS ayarları config'den alınıyor
+    cors_allowed_origins=settings.allowed_origins,
     async_mode='asgi'
 )
 
-# Misafir kullanıcılar için geçici conversation'lar (memory'de tutuluyor)
-# Format: {guest_id: {conversation_id: str, messages: list, last_activity: datetime}}
 guest_conversations: dict[str, dict] = {}
-
-# Misafir verilerinin otomatik temizlenme süresi (30 dakika)
 GUEST_DATA_TIMEOUT_MINUTES = 30
 
 
@@ -164,7 +159,7 @@ async def user_message(sid, data):
         try:
             # Görsel üretimi: Sadece kullanıcı görsel istediğinde veya kıyafet fikri sorduğunda
             # generate_ai_response fonksiyonu mesajı analiz edip otomatik karar verecek
-            generate_images = False  # Varsayılan olarak False, fonksiyon içinde analiz edilecek
+            generate_images = False
             ai_response = await generate_ai_response(message_text, generate_images=generate_images)
             ai_response_text = ai_response['content']
             ai_image_urls = ai_response.get('image_urls', [])
@@ -242,7 +237,7 @@ async def user_message(sid, data):
         try:
             # Görsel üretimi: Sadece kullanıcı görsel istediğinde veya kıyafet fikri sorduğunda
             # generate_ai_response fonksiyonu mesajı analiz edip otomatik karar verecek
-            generate_images = False  # Varsayılan olarak False, fonksiyon içinde analiz edilecek
+            generate_images = False
             ai_response = await generate_ai_response(message_text, generate_images=generate_images)
             ai_response_text = ai_response['content']
             ai_image_urls = ai_response.get('image_urls', [])

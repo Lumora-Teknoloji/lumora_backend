@@ -12,6 +12,11 @@ Bu servis, Lumora frontend'i için kimlik doğrulama, kullanıcı profili ve soh
 - Konuşma oluşturma ve listeleme
 - Mesaj kaydetme ve listeleme
 - JWT access token
+- Socket.IO ile gerçek zamanlı sohbet
+- OpenAI GPT-4o ile AI yanıt üretimi
+- Tavily ile internet araması ve trend analizi
+- Stability AI SDXL ile görsel üretimi
+- Misafir kullanıcı desteği (geçici sohbetler)
 
 ## Kurulum
 
@@ -47,7 +52,7 @@ venv\Scripts\activate      # macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. **Ortam değişkenleri**
+4. **Ortam değişkenleri**
 
 `env.template` dosyasını `.env` olarak kopyalayın ve değerleri güncelleyin.
 
@@ -61,17 +66,20 @@ copy env.template .env
 cp env.template .env
 ```
 
-`.env` dosyasını açın ve aşağıdaki değerleri güncelleyin:
-- `POSTGRESQL_HOST`: PostgreSQL sunucu adresi (Docker kullanıyorsanız: `localhost`)
-- `POSTGRESQL_PORT`: PostgreSQL portu (varsayılan: `5432`)
-- `POSTGRESQL_DATABASE`: Veritabanı adınız (Docker için varsayılan: `bediralvesil_db`)
-- `POSTGRESQL_USERNAME`: Veritabanı kullanıcı adınız (Docker için varsayılan: `postgres`)
-- `POSTGRESQL_PASSWORD`: Veritabanı şifreniz (Docker için varsayılan: `postgres123`)
-- `JWT_SECRET`: Güçlü bir secret key (production için mutlaka değiştirin!)
-- `CORS_ORIGINS`: Frontend URL'leri (virgülle ayrılmış)
+### `.env` Dosyası Yapılandırması
 
-**Docker kullanıyorsanız:** `docker-compose.yml` dosyasındaki varsayılan değerlerle uyumlu olması için `.env` dosyanızı şu şekilde ayarlayabilirsiniz:
+`.env` dosyasını açın ve aşağıdaki değerleri güncelleyin:
+
+#### Uygulama Ayarları
+```env
+APP_NAME=Lumora Backend
+API_PREFIX=/api
+APP_ENV=development
+PORT=8000
 ```
+
+#### PostgreSQL Veritabanı
+```env
 POSTGRESQL_HOST=localhost
 POSTGRESQL_PORT=5432
 POSTGRESQL_DATABASE=bediralvesil_db
@@ -79,13 +87,55 @@ POSTGRESQL_USERNAME=postgres
 POSTGRESQL_PASSWORD=postgres123
 ```
 
-4. **Veritabanı tablolarını oluşturma**
+**Docker kullanıyorsanız:** Yukarıdaki varsayılan değerleri kullanabilirsiniz.
+
+#### JWT (Kimlik Doğrulama)
+```env
+JWT_SECRET=change-me                    # Production için mutlaka güçlü bir secret key kullanın!
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=120
+```
+
+#### CORS (Frontend URL'leri)
+```env
+FRONTEND_URL=http://localhost:3000
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+```
+
+#### AI Servisleri API Key'leri
+
+**OpenAI API Key** (Zorunlu - AI yanıt üretimi için)
+```env
+OPENAI_API_KEY=sk-proj-...
+```
+- OpenAI API key almak için: https://platform.openai.com/api-keys
+- `gpt-4o` modeli kullanılıyor
+
+**Tavily API Key** (Zorunlu - İnternet araması için)
+```env
+TAVILY_API_KEY=tvly-dev-...
+```
+- Tavily API key almak için: https://tavily.com/
+- Trend ve pazar araştırmaları için kullanılıyor
+
+**Stability AI API Key** (Opsiyonel - Görsel üretimi için)
+```env
+STABILITY_API_KEY=sk-...
+```
+- Stability AI API key almak için: https://platform.stability.ai/account/keys
+- SDXL modeli ile görsel üretimi için kullanılıyor
+- Bakiye eklemeniz gerekiyor: https://platform.stability.ai/account/billing
+- Görsel üretimi yaklaşık $0.004-0.012/görsel maliyetinde
+
+**Not:** AI API key'leri olmadan da uygulama çalışır ancak AI özellikleri devre dışı kalır.
+
+5. **Veritabanı tablolarını oluşturma**
 
 ```bash
 python -m app.setup_database
 ```
 
-5. **Sunucuyu çalıştırma**
+6. **Sunucuyu çalıştırma**
 
 **Yöntem 1: Server script ile (önerilen)**
 ```bash
