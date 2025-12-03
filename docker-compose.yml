@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bediralvesil-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRESQL_DATABASE:-bediralvesil_db}
+      POSTGRES_USER: ${POSTGRESQL_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD:-postgres123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRESQL_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESQL_USERNAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bediralvesil-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bediralvesil-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      APP_NAME: ${APP_NAME:-Lumora Backend}
+      API_PREFIX: ${API_PREFIX:-/api}
+      APP_ENV: ${APP_ENV:-development}
+      PORT: ${PORT:-8000}
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_DATABASE: ${POSTGRESQL_DATABASE:-bediralvesil_db}
+      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME:-postgres}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:-postgres123}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-key-change-in-production-12345}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      STABILITY_API_KEY: ${STABILITY_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bediralvesil-network
+    volumes:
+      - .:/app
+    command: sh -c "python -m app.setup_database && python run_server.py"
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  bediralvesil-network:
+    driver: bridge
+

@@ -1,0 +1,70 @@
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from .. import models, schemas
+from ..database import get_db
+from ..dependencies import get_current_user
+
+router = APIRouter(prefix="/conversations", tags=["Conversations"])
+
+
+@router.get("/", response_model=List[schemas.ConversationOut])
+def list_conversations(
+    db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)
+):
+    """Kullanıcının tüm konuşmalarını listeler."""
+    conversations = (
+        db.query(models.Conversation)
+        .filter(models.Conversation.user_id == current_user.id)
+        .order_by(models.Conversation.created_at.desc())
+        .all()
+    )
+    return conversations
+
+
+@router.post("/", response_model=schemas.ConversationOut, status_code=status.HTTP_201_CREATED)
+def create_conversation(
+    payload: schemas.ConversationCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    conversation = models.Conversation(
+        title=payload.title or "Yeni Konuşma", user_id=current_user.id
+    )
+    db.add(conversation)
+    db.commit()
+    db.refresh(conversation)
+    return conversation
+
+
+@router.get("/{conversation_id}/messages", response_model=List[schemas.MessageOut])
+def get_messages(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Belirli bir konuşmanın mesajlarını getirir."""
+    conversation = (
+        db.query(models.Conversation)
+        .filter(
+            models.Conversation.id == conversation_id,
+            models.Conversation.user_id == current_user.id
+        )
+        .first()
+    )
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Konuşma bulunamadı"
+        )
+
+    messages = (
+        db.query(models.Message)
+        .filter(models.Message.conversation_id == conversation_id)
+        .order_by(models.Message.created_at.asc())
+        .all()
+    )
+    return messages
+
