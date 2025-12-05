@@ -37,22 +37,21 @@ initialize_ai_clients()
 
 
 # -----------------------------------------------------------------------------
-# 2. NİYET ANALİZİ VE SOHBET MODÜLÜ (YENİ EKLENEN KISIM)
+# 2. NİYET ANALİZİ VE SOHBET MODÜLÜ
 # -----------------------------------------------------------------------------
 
 def analyze_user_intent(message: str) -> str:
     """
     Kullanıcının mesajı bir 'Sohbet/Sorgu' mu yoksa 'Pazar Araştırması' mı?
     """
-    if not openai_client: return "MARKET_RESEARCH"  # Varsayılan
+    if not openai_client: return "MARKET_RESEARCH"
 
     try:
-        # Basit bir sınıflandırma yapıyoruz
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system",
-                 "content": "You are a classifier. Classify the user input into 'GENERAL_CHAT' (greetings, who are you, capabilities, accuracy, source questions, casual talk) or 'MARKET_RESEARCH' (asking for trends, prices, fashion advice, products, analysis). Return ONLY the category name."},
+                 "content": "You are a classifier. Classify the user input into 'GENERAL_CHAT' or 'MARKET_RESEARCH'. Return ONLY the category name."},
                 {"role": "user", "content": message}
             ],
             temperature=0.0
@@ -68,21 +67,8 @@ def handle_general_chat(message: str) -> str:
     """
     system_prompt = """
     Sen Kıdemli Moda Stratejisi Asistanısın (AI Fashion Strategist).
-
-    KİMLİĞİN VE YETENEKLERİN:
-    1. **Amacın:** Tekstil üreticilerine ve markalara 2025/2026 sezonu için veri odaklı üretim, tasarım ve fiyatlandırma stratejileri sunmak.
-    2. **Neler Yapabilirsin:** - Global trendleri (WGSN, Vogue) ve tüketici psikolojisini analiz ederim.
-       - Pazar yerlerindeki (Trendyol, Modanisa) gerçek ürünleri ve fiyatları tararım.
-       - Üretim maliyetlerini hesaplayıp kâr marjı analizi yaparım.
-    3. **Nasıl Çalışırsın:** Ben 'Lumora' arama motorunu kullanarak internetteki CANLI verileri (Real-Time Data) tararım. Ezberden konuşmam, o an piyasada ne varsa onu raporlarım.
-    4. **Doğruluk Oranın:** Canlı web verilerine ve gerçek pazar listelerine dayandığım için analizlerim güncel ve yüksek doğrulukludur. Ancak nihai ticari risk ve karar her zaman kullanıcıya aittir.
-    5. **Kaynakların:** Verileri Vogue, WGSN, Trendyol, Modanisa, Hepsiburada, Pinterest ve global moda yayınlarından anlık olarak çekerim.
-
-    GÖREVİN:
-    Kullanıcının sorusuna bu kimliğe uygun, profesyonel, güven veren ve yardımsever bir dille cevap ver.
-    Eğer "Naber" gibi basit bir selam verdiyse, kendini tanıt ve "Sizin için hangi ürün grubunu analiz etmemi istersiniz?" diye sor.
+    GÖREVİN: Kullanıcının sorusuna profesyonel, güven veren bir dille cevap ver.
     """
-
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -103,7 +89,7 @@ def handle_general_chat(message: str) -> str:
 
 def deep_market_research(topic: str) -> Dict[str, Any]:
     """
-    Segment verisi, Trend Nedenleri ve KONKRET ÜRÜN verilerini toplar.
+    Linkleri bozmadan toplamak için optimize edildi.
     """
     if not tavily_client:
         return {"context": "Hata: Tavily Client yok.", "market_images": []}
@@ -114,17 +100,18 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
         # A. TREND NEDENLERİ
         f"why is {topic} trending 2025 consumer psychology",
 
-        # B. TİCARİ ÜRÜN ARAMASI
-        f"{topic} fiyatları satın al trendyol en çok satanlar",
-        f"{topic} modelleri ve fiyatları modanisa sefamerve",
-        f"{topic} abiye fiyatları hepsiburada",
+        # B. TİCARİ ÜRÜN ARAMASI (Direkt Ürün Sayfalarını Hedefle)
+        # "ürün detayı" kelimesi ekleyerek kategori sayfalarından kaçmaya çalışıyoruz
+        f"{topic} ürün detayı satın al trendyol",
+        f"{topic} abiye elbise satın al modanisa fiyat",
+        f"{topic} modelleri ve fiyatları hepsiburada",
 
         # C. LÜKS VE İMALAT
         f"{topic} luxury design price vakko beymen",
         f"{topic} 2025 fabric trends wgsn"
     ]
 
-    context_data = "### MARKET DATA & PRODUCT LISTINGS ###\n"
+    context_data = "### MARKET DATA & PRODUCT LINKS ###\n"
     market_images = []
 
     try:
@@ -134,7 +121,7 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
                 query=q,
                 search_depth="advanced",
                 include_images=True,
-                max_results=3
+                max_results=4
             )
             all_results.extend(response.get('results', []))
 
@@ -142,11 +129,16 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
             valid_imgs = [img for img in raw_imgs if img and img.startswith("http")]
             market_images.extend(valid_imgs)
 
+        # 1. Metin Verilerini İşle (Linkleri ID ile etiketle)
         for i, res in enumerate(all_results):
-            context_data += f"--- ARAMA SONUCU {i + 1} ---\n"
+            # Sadece geçerli HTTP linklerini alıyoruz
+            url = res.get('url', '')
+            if not url.startswith('http'): continue
+
+            context_data += f"--- SONUÇ ID: {i + 1} ---\n"
             context_data += f"BAŞLIK: {res['title']}\n"
-            context_data += f"METİN (Fiyat/Ürün Bul): {res['content']}\n"
-            context_data += f"LİNK: {res['url']}\n\n"
+            context_data += f"İÇERİK: {res['content']}\n"
+            context_data += f"TAM_URL: {url}\n\n"  # "TAM_URL" etiketiyle LLM'e işaret ediyoruz
 
         context_data += "### PAZAR GÖRSEL HAVUZU ###\n"
         unique_images = list(set(market_images))[:12]
@@ -162,7 +154,7 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
 
 
 # -----------------------------------------------------------------------------
-# 4. STRATEJİK İMALAT RAPORU (ARAŞTIRMA MODU)
+# 4. STRATEJİK İMALAT RAPORU (LİNK KORUMALI)
 # -----------------------------------------------------------------------------
 
 def generate_strategic_report(user_message: str, research_data: str) -> str:
@@ -170,23 +162,25 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     Sen Kıdemli Moda Stratejistisin.
 
     GÖREVİN:
-    Üreticiye 2025/2026 sezonu için **GERÇEKÇİ FİYAT ARALIKLARI** ve **RAKİP ANALİZİ** sunan rapor hazırla.
+    Üreticiye 2025/2026 sezonu için **GERÇEKÇİ FİYAT ARALIKLARI** ve **ÇALIŞAN LİNKLERLE RAKİP ANALİZİ** sunan rapor hazırla.
 
-    ⚠️ 1. FİYAT ARALIĞI KURALI:
-    'MARKET DATA' içindeki rakamları tara. Asla tek fiyat verme, ARALIK ver (Örn: "1.200 TL - 1.800 TL").
+    ⚠️ 1. LİNK KURALI (HAYATİ ÖNEMLİ):
+    - Bölüm 4'te ürünleri listelerken, 'MARKET DATA' içinde 'TAM_URL:' etiketli satırı bul.
+    - O URL'yi **HARFİ HARFİNE, HİÇ DEĞİŞTİRMEDEN** kopyala.
+    - Asla linki kısaltma (.... koyma).
+    - Asla link uydurma.
+    - Eğer URL yoksa o ürünü listeye koyma.
 
-    ⚠️ 2. İMALAT MALİYETİ KURALI:
-    Hedef İmalat Maliyeti = (Fiyat Aralığının Ortalaması) / 4.
-
-    ⚠️ 3. CANLI VİTRİN KURALI:
-    Bölüm 4'te arama sonuçlarında bulduğun GERÇEK ürünleri (Fiyat, Link, Resim) listele.
+    ⚠️ 2. FİYAT VE MALİYET KURALI:
+    - Fiyatları TEK RAKAM verme, ARALIK ver (Örn: "1.200 TL - 1.800 TL").
+    - Hedef İmalat Maliyeti = (Fiyat Aralığının Ortalaması) / 4.
 
     RAPOR FORMATI (Markdown):
 
     # 🏭 [KONU] - 2025/2026 STRATEJİK İMALAT DOSYASI
 
     ## 📈 BÖLÜM 1: TREND TETİKLEYİCİLERİ (NEDEN ŞİMDİ?)
-    * **Popüler Kültür / Sosyal Medya:** (Dizi, TikTok akımı vb.)
+    * **Popüler Kültür:** (Dizi, TikTok akımı vb.)
     * **Tüketici Psikolojisi:** ...
 
     ## 💰 BÖLÜM 2: DETAYLI SEGMENT VE FİYAT ANALİZİ
@@ -205,15 +199,19 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     ...(Diğer Modeller)...
 
     ## 🛍️ BÖLÜM 4: SAHADA SATILAN RAKİP ÜRÜNLER (CANLI VİTRİN)
-    *(Bulduğun gerçek ürünleri listele)*
+    *(Bulduğun, linki çalışan gerçek ürünleri listele)*
 
-    ### 🛒 Rakip 1: [Ürün Adı]
+    ### 🛒 Rakip 1: [Ürün Başlığı]
     * **Fiyat:** ... TL
     * **Site:** [Trendyol/Modanisa vb.]
-    * **Link:** [Ürüne Git](URL)
+    * **Ürüne Git:** [👉 Ürünü İncele](BURAYA_TAM_URL_GELECEK_ASLA_KISALTMA)
     * **Görsel:** ![Görsel](IMG_REF_LINKI_EGER_VARSA)
 
-    ...(Diğer Rakipler)...
+    ### 🛒 Rakip 2: [Ürün Başlığı]
+    * **Fiyat:** ... TL
+    * **Site:** ...
+    * **Ürüne Git:** [👉 Ürünü İncele](BURAYA_TAM_URL_GELECEK_ASLA_KISALTMA)
+    * **Görsel:** ![Görsel](IMG_REF_LINKI_EGER_VARSA)
 
     ## 🔗 KAYNAKÇA
     * [Site Adı](URL)
@@ -226,7 +224,7 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"KONU: {user_message}\n\nVERİLER:\n{research_data}"}
             ],
-            temperature=0.5
+            temperature=0.4  # Link hatasını önlemek için sıcaklığı düşürdüm
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -250,37 +248,34 @@ def generate_image_prompts(analysis_text: str) -> List[str]:
 
 
 def generate_ai_images(prompts: List[str]) -> List[str]:
-    # Replicate entegrasyonu buraya
     return []
 
 
 # -----------------------------------------------------------------------------
-# 6. ANA ORKESTRASYON (AKILLI YÖNLENDİRME)
+# 6. ANA ORKESTRASYON
 # -----------------------------------------------------------------------------
 
 async def generate_ai_response(user_message: str, generate_images: bool = False) -> Dict[str, Any]:
     loop = asyncio.get_event_loop()
 
-    # ADIM 1: Niyet Analizi (Bu soru araştırma mı yoksa sohbet mi?)
+    # ADIM 1: Niyet Analizi
     intent = await loop.run_in_executor(None, analyze_user_intent, user_message)
 
-    # SENARYO A: NORMAL SOHBET (Naber, Kimsin, Kaynakların ne?)
     if intent == "GENERAL_CHAT":
         chat_response = await loop.run_in_executor(None, handle_general_chat, user_message)
         return {
             "content": chat_response,
             "image_urls": [],
-            "process_log": ["Kullanıcı niyeti: Genel Sohbet", "Asistan kimliği ile yanıtlandı."]
+            "process_log": ["Sohbet modu aktif."]
         }
 
-    # SENARYO B: PAZAR ARAŞTIRMASI (Abiye trendleri, Fiyat analizi vb.)
-    # 2. Derin Araştırma
+    # ADIM 2: Araştırma
     research_result = await loop.run_in_executor(None, deep_market_research, user_message)
 
-    # 3. Raporlama
+    # ADIM 3: Raporlama
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, research_result["context"])
 
-    # 4. Görsel Tasarım (Opsiyonel)
+    # ADIM 4: Görsel (Opsiyonel)
     ai_generated_urls = []
     if generate_images or any(x in user_message.lower() for x in ["çiz", "görsel", "tasarım"]):
         prompts = await loop.run_in_executor(None, generate_image_prompts, final_report)
@@ -292,8 +287,7 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         "content": final_report,
         "image_urls": combined_images,
         "process_log": [
-            "Kullanıcı niyeti: Pazar Araştırması",
-            "Fiyat aralıkları ve trend nedenleri analiz edildi.",
-            f"{len(research_result['market_images'])} adet referans görsel toplandı."
+            "Fiyat aralıkları (Min-Max) analiz edildi.",
+            f"{len(research_result['market_images'])} adet ürün görseli ve çalışan link toplandı."
         ]
     }
