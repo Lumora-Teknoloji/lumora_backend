@@ -1,7 +1,12 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        extra="ignore",
+        env_file=".env.local",
+        env_file_encoding="utf-8",
+    )  # Fazladan env key'leri görmezden gel ve .env.local oku
     app_name: str = "Lumora Backend"
     api_prefix: str = "/api"
     app_env: str = "development"
@@ -23,11 +28,7 @@ class Settings(BaseSettings):
     # AI API Keys (opsiyonel - yoksa AI özellikleri çalışmaz)
     openai_api_key: str = "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"
     tavily_api_key: str = "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"
-    stability_api_key: str = "sk-kjo9aoUlN8qeqYI8GPDgqjGpA3MCVr92nnBaQa7s5XHfvur0"  # Stability AI SDXL API key
-
-    class Config:
-        env_file = ".env.local"
-        env_file_encoding = "utf-8"
+    fal_api_key: str = "68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c"
 
     @property
     def allowed_origins(self) -> list[str]:

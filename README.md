@@ -118,14 +118,13 @@ TAVILY_API_KEY=tvly-dev-...
 - Tavily API key almak için: https://tavily.com/
 - Trend ve pazar araştırmaları için kullanılıyor
 
-**Stability AI API Key** (Opsiyonel - Görsel üretimi için)
+**FAL AI API Key** (Opsiyonel - Görsel üretimi için, Flux2-pro)
 ```env
-STABILITY_API_KEY=sk-...
+FAL_API_KEY=fal-...
 ```
-- Stability AI API key almak için: https://platform.stability.ai/account/keys
-- SDXL modeli ile görsel üretimi için kullanılıyor
-- Bakiye eklemeniz gerekiyor: https://platform.stability.ai/account/billing
-- Görsel üretimi yaklaşık $0.004-0.012/görsel maliyetinde
+- FAL (flux) API key almak için: https://fal.ai/
+- Flux2-pro modeli ile görsel üretimi için kullanılıyor
+- Ücretlendirme için fal.ai dokümantasyonuna bakın
 
 **Not:** AI API key'leri olmadan da uygulama çalışır ancak AI özellikleri devre dışı kalır.
 

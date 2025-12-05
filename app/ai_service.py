@@ -2,6 +2,7 @@ import os
 import logging
 import asyncio
 import requests
+import time
 import uuid
 import json
 from typing import List, Dict, Any, Optional
@@ -192,9 +193,11 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
 
     ## 🏆 BÖLÜM 3: ÜRETİLECEK TOP 5 MODEL
     ### 1. [Model Adı]
-    * **Tasarım:** ...
+    * **Tasarım (Normal):** ...
+    * **Tasarım (FLUX):** ...  <!-- FLUX/Flux2 için kısa, net görsel tanımı -->
     * **Kumaş:** ...
     * **Pazar Referansı:** (Varsa IMG_REF: ![Ref](IMG_REF_LINKI))
+    ******************olusturulacak modelin detayli tasarim bilgileri************************
 
     ...(Diğer Modeller)...
 
@@ -248,7 +251,68 @@ def generate_image_prompts(analysis_text: str) -> List[str]:
 
 
 def generate_ai_images(prompts: List[str]) -> List[str]:
-    return []
+    """
+    FAL (flux2-pro) üzerinden görsel üretir. Key yoksa boş döner.
+    """
+    api_key = settings.fal_api_key
+    if not api_key:
+        logger.info("❕ FAL_API_KEY yok, görsel üretimi atlanıyor.")
+        return []
+
+    headers = {
+        "Authorization": f"Key {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    def _run_prompt(prompt: str) -> Optional[str]:
+        try:
+            run_resp = requests.post(
+                "https://api.fal.ai/v1/run/fal-ai/flux-pro",
+                headers=headers,
+                json={"prompt": prompt},
+                timeout=30,
+            )
+            run_resp.raise_for_status()
+            req_id = run_resp.json().get("request_id")
+            if not req_id:
+                return None
+
+            # Poll result
+            for _ in range(15):  # ~30s max (2s * 15)
+                time.sleep(2)
+                res = requests.get(
+                    f"https://api.fal.ai/v1/get/fal-ai/flux-pro/{req_id}",
+                    headers=headers,
+                    timeout=20,
+                )
+                if res.status_code == 404:
+                    break
+                res.raise_for_status()
+                data = res.json()
+                status = data.get("status")
+                if status == "COMPLETED":
+                    images = data.get("images") or data.get("output", {}).get("images")
+                    if images:
+                        # image can be dict with url or direct url list
+                        if isinstance(images, list):
+                            first = images[0]
+                            if isinstance(first, dict):
+                                return first.get("url")
+                            return first
+                    break
+                if status in ("FAILED", "CANCELLED"):
+                    break
+            return None
+        except Exception as e:
+            logger.error(f"FAL görsel üretim hatası: {e}")
+            return None
+
+    urls: List[str] = []
+    for prompt in prompts[:3]:  # en fazla 3 görsel
+        url = _run_prompt(prompt)
+        if url:
+            urls.append(url)
+    return urls
 
 
 # -----------------------------------------------------------------------------
@@ -281,10 +345,19 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         prompts = await loop.run_in_executor(None, generate_image_prompts, final_report)
         ai_generated_urls = await loop.run_in_executor(None, generate_ai_images, prompts)
 
+    flux_urls_block = ""
+    if ai_generated_urls:
+        flux_urls_block = (
+            "\n\n### FLUX Görsel URL'leri (flux-pro çıktıları)\n"
+            + "\n".join(f"- (FLUX) {u}" for u in ai_generated_urls)
+        )
+
+    combined_report = final_report + flux_urls_block
+
     combined_images = research_result["market_images"] + ai_generated_urls
 
     return {
-        "content": final_report,
+        "content": combined_report,
         "image_urls": combined_images,
         "process_log": [
             "Fiyat aralıkları (Min-Max) analiz edildi.",
