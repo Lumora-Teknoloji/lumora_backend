@@ -21,12 +21,12 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"  # Virgülle ayrılmış origin listesi
 
     # AI API Keys (opsiyonel - yoksa AI özellikleri çalışmaz)
-    openai_api_key: str = ""
-    tavily_api_key: str = ""
-    stability_api_key: str = ""  # Stability AI SDXL API key
+    openai_api_key: str = "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"
+    tavily_api_key: str = "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"
+    stability_api_key: str = "sk-kjo9aoUlN8qeqYI8GPDgqjGpA3MCVr92nnBaQa7s5XHfvur0"  # Stability AI SDXL API key
 
     class Config:
-        env_file = ".env"
+        env_file = ".env.local"
         env_file_encoding = "utf-8"
 
     @property

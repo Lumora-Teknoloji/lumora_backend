@@ -5,8 +5,8 @@ echo "Bediralvesil Backend Başlatılıyor..."
 echo "========================================"
 echo ""
 
-# .env dosyası kontrolü
-if [ ! -f .env ]; then
+# .env.local dosyası kontrolü
+if [ ! -f .env.local ]; then
     echo ".env dosyası bulunamadı!"
     echo "env.template'den .env dosyası oluşturuluyor..."
     python3 setup_env.py

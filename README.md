@@ -58,12 +58,12 @@ pip install -r requirements.txt
 
 **Windows:**
 ```bash
-copy env.template .env
+copy env.template .env.local
 ```
 
 **macOS/Linux:**
 ```bash
-cp env.template .env
+cp env.template .env.local
 ```
 
 ### `.env` Dosyası Yapılandırması
