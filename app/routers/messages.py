@@ -39,5 +39,29 @@ def create_message(
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    # Sohbet geçmişini JSON olarak güncelle
+    history = conversation.history_json or []
+    history.append(
+        {
+            "id": message.id,
+            "sender": message.sender,
+            "content": message.content,
+            "image_url": message.image_url,
+            "created_at": message.created_at.isoformat() if message.created_at else None,
+        }
+    )
+
+    # İlk kullanıcı mesajı geldiyse otomatik takma ad üret
+    if not conversation.alias and message.sender == "user":
+        auto_alias = (message.content or "Sohbet").strip()
+        if len(auto_alias) > 40:
+            auto_alias = f"{auto_alias[:40]}..."
+        conversation.alias = auto_alias or "Sohbet"
+
+    conversation.history_json = history
+    db.add(conversation)
+    db.commit()
+    db.refresh(message)
     return message
 

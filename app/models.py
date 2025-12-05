@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, func, JSON
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -27,6 +27,8 @@ class Conversation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255))
+    alias = Column(String(255))
+    history_json = Column(JSON, nullable=True, default=list)  # Sohbet geçmişini JSON olarak sakla
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(

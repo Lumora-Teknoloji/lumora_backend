@@ -8,6 +8,7 @@ from socketio import ASGIApp
 
 from .config import settings
 from .database import Base, engine
+from .setup_database import ensure_conversation_history_columns
 from .routers import auth, users, conversations, messages
 from .socketio_handler import sio, cleanup_old_guest_data
 from fastapi.staticfiles import StaticFiles
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Veritabanı tablolarını oluştur (sadece development için)
 if settings.app_env == "development":
+    ensure_conversation_history_columns()
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized")
 

@@ -24,6 +24,17 @@ guest_conversations: dict[str, dict] = {}
 GUEST_DATA_TIMEOUT_MINUTES = 30
 
 
+def _create_guest_conversation(guest_id: str, alias: str | None = None) -> dict:
+    """Misafir için yeni conversation kaydı oluşturur."""
+    conv_id = f"guest_{uuid.uuid4()}"
+    return {
+        "id": conv_id,
+        "alias": alias or "Misafir Sohbeti",
+        "messages": [],
+        "last_activity": datetime.now(),
+    }
+
+
 async def get_user_from_token(token: Optional[str]) -> Optional[User]:
     """Token'dan kullanıcıyı alır."""
     if not token:
@@ -83,14 +94,79 @@ async def connect(sid, environ, auth):
             'username': f'Misafir-{guest_id[:8]}',
             'is_guest': True
         })
-        # Misafir için boş conversation oluştur
+        # Misafir için ilk conversation oluştur ve listeyi hazırla
+        first_conv = _create_guest_conversation(guest_id)
         guest_conversations[guest_id] = {
-            'conversation_id': f'guest_{guest_id}',
-            'messages': [],
-            'last_activity': datetime.now()
+            "conversations": {first_conv["id"]: first_conv},
+            "active_conversation_id": first_conv["id"],
+            "last_activity": datetime.now(),
         }
+        await sio.emit(
+            "guest_conversation_list",
+            {
+                "conversations": [
+                    {"id": first_conv["id"], "alias": first_conv["alias"]}
+                ]
+            },
+            room=sid,
+        )
     
     return True
+
+
+@sio.event
+async def guest_new_conversation(sid):
+    """Misafir için yeni bir boş sohbet oluşturur ve aktif yapar."""
+    session = await sio.get_session(sid)
+    guest_id = session.get("guest_id")
+    if not guest_id or guest_id not in guest_conversations:
+        await sio.emit("error", {"message": "Guest session not found"}, room=sid)
+        return
+
+    new_conv = _create_guest_conversation(guest_id)
+    guest_state = guest_conversations[guest_id]
+    guest_state["conversations"][new_conv["id"]] = new_conv
+    guest_state["active_conversation_id"] = new_conv["id"]
+    guest_state["last_activity"] = datetime.now()
+
+    await sio.emit(
+        "guest_conversation_created",
+        {"id": new_conv["id"], "alias": new_conv["alias"]},
+        room=sid,
+    )
+
+
+@sio.event
+async def guest_get_conversation(sid, data):
+    """Misafir için seçili sohbetin geçmişini döner."""
+    session = await sio.get_session(sid)
+    guest_id = session.get("guest_id")
+    if not guest_id or guest_id not in guest_conversations:
+        await sio.emit("error", {"message": "Guest session not found"}, room=sid)
+        return
+
+    conv_id = data.get("conversation_id") if data else None
+    guest_state = guest_conversations[guest_id]
+    conversations = guest_state["conversations"]
+
+    if not conv_id or conv_id not in conversations:
+        await sio.emit("error", {"message": "Guest conversation not found"}, room=sid)
+        return
+
+    guest_conv = conversations[conv_id]
+    guest_state["active_conversation_id"] = conv_id
+    guest_conv["last_activity"] = datetime.now()
+    guest_state["last_activity"] = datetime.now()
+
+    await sio.emit(
+        "guest_conversation_data",
+        {
+            "conversation_id": conv_id,
+            "alias": guest_conv.get("alias") or "Misafir Sohbeti",
+            "messages": guest_conv.get("messages", []),
+        },
+        room=sid,
+    )
 
 
 @sio.event
@@ -135,25 +211,42 @@ async def user_message(sid, data):
             await sio.emit('error', {'message': 'Guest session not found'}, room=sid)
             return
         
-        guest_conv = guest_conversations[guest_id]
-        guest_conv_id = guest_conv['conversation_id']
+        guest_state = guest_conversations[guest_id]
+        conversations = guest_state["conversations"]
+        active_conv_id = guest_state.get("active_conversation_id")
+
+        # conversation_id yoksa aktif olanı kullan; aktif de yoksa hata
+        if not conversation_id:
+            conversation_id = active_conv_id
+        if not conversation_id or conversation_id not in conversations:
+            await sio.emit('error', {'message': 'Guest conversation not found'}, room=sid)
+            return
+
+        guest_conv = conversations[conversation_id]
+        guest_alias = guest_conv.get('alias') or "Misafir Sohbeti"
         
         # Son aktivite zamanını güncelle
         guest_conv['last_activity'] = datetime.now()
-        
-        # Eğer frontend'den conversation_id gelmemişse veya null ise, guest_conv_id kullan
-        if not conversation_id:
-            conversation_id = guest_conv_id
+        guest_state['last_activity'] = datetime.now()
+        guest_state['active_conversation_id'] = conversation_id
         
         # Kullanıcı mesajını memory'ye ekle
         user_msg = {
-            'id': f'guest_msg_{len(guest_conv["messages"]) + 1}',
+            'id': f'{conversation_id}_msg_{len(guest_conv["messages"]) + 1}',
             'sender': 'user',
             'content': message_text,
             'image_url': image_url,
             'created_at': datetime.now().isoformat()
         }
         guest_conv['messages'].append(user_msg)
+
+        # İlk kullanıcı mesajından takma ad üret
+        if message_text:
+            auto_alias = message_text.strip()
+            if len(auto_alias) > 40:
+                auto_alias = f"{auto_alias[:40]}..."
+            guest_alias = auto_alias or guest_alias
+            guest_conv['alias'] = guest_alias
         
         # AI yanıtını üret
         try:
@@ -171,11 +264,14 @@ async def user_message(sid, data):
             ai_image_urls = []
         
         # AI mesajını memory'ye ekle
+        ai_image_url_combined = ";".join(ai_image_urls) if ai_image_urls else None
+
         ai_msg = {
-            'id': f'guest_msg_{len(guest_conv["messages"]) + 1}',
+            'id': f'{conversation_id}_msg_{len(guest_conv["messages"]) + 1}',
             'sender': 'ai',
             'content': ai_response_text,
             'image_urls': ai_image_urls,
+            'image_url': ai_image_url_combined,  # backward compatibility / persistence
             'created_at': datetime.now().isoformat()
         }
         guest_conv['messages'].append(ai_msg)
@@ -183,14 +279,15 @@ async def user_message(sid, data):
         # Kullanıcıya AI yanıtını gönder (tüm görselleri gönder)
         await sio.emit('ai_message', {
             'id': ai_msg['id'],
-            'conversation_id': guest_conv_id,
+            'conversation_id': conversation_id,
             'content': ai_msg['content'],
-            'image_url': ai_image_urls[0] if ai_image_urls else None,  # Backward compatibility için
+            'image_url': ai_image_url_combined,  # Tüm görseller ';' ile saklandı
             'image_urls': ai_image_urls,  # Tüm görselleri gönder
+            'alias': guest_alias,
             'created_at': ai_msg['created_at']
         }, room=sid)
-        
-        logger.info(f"Guest message processed: {guest_id}")
+
+        logger.info(f"Guest message processed: {guest_id} conversation {conversation_id}")
         return
     
     # Kayıtlı kullanıcı için işlem
@@ -248,8 +345,8 @@ async def user_message(sid, data):
                 ai_response_text += f"\nGörsel URL: {image_url}"
             ai_image_urls = []
         
-        # İlk görsel URL'ini database için kullan (backward compatibility)
-        ai_image_url = ai_image_urls[0] if ai_image_urls else None
+        # DB'de tek kolon olduğu için tüm görselleri ';' ile birleştirerek saklıyoruz
+        ai_image_url = ";".join(ai_image_urls) if ai_image_urls else None
         
         # AI mesajını kaydet
         ai_message = Message(
@@ -261,6 +358,43 @@ async def user_message(sid, data):
         db.add(ai_message)
         db.commit()
         db.refresh(ai_message)
+
+        # Sohbet geçmişini JSON olarak güncelle
+        history = conversation.history_json or []
+        history.extend(
+            [
+                {
+                    "id": user_message.id,
+                    "sender": user_message.sender,
+                    "content": user_message.content,
+                    "image_url": user_message.image_url,
+                    "created_at": user_message.created_at.isoformat()
+                    if user_message.created_at
+                    else None,
+                },
+                {
+                    "id": ai_message.id,
+                    "sender": ai_message.sender,
+                    "content": ai_message.content,
+                    "image_url": ai_message.image_url,
+                    "image_urls": ai_image_urls,
+                    "created_at": ai_message.created_at.isoformat()
+                    if ai_message.created_at
+                    else None,
+                },
+            ]
+        )
+
+        # İlk kullanıcı mesajından otomatik takma ad üret
+        if not conversation.alias and user_message.content:
+            auto_alias = user_message.content.strip()
+            if len(auto_alias) > 40:
+                auto_alias = f"{auto_alias[:40]}..."
+            conversation.alias = auto_alias or conversation.title or "Sohbet"
+
+        conversation.history_json = history
+        db.add(conversation)
+        db.commit()
         
         # Kullanıcıya AI yanıtını gönder (tüm görselleri gönder)
         await sio.emit('ai_message', {
@@ -290,8 +424,8 @@ async def cleanup_old_guest_data():
             now = datetime.now()
             expired_guests = []
             
-            for guest_id, conv_data in guest_conversations.items():
-                last_activity = conv_data.get('last_activity')
+            for guest_id, guest_state in guest_conversations.items():
+                last_activity = guest_state.get('last_activity')
                 if last_activity:
                     time_diff = now - last_activity
                     if time_diff > timedelta(minutes=GUEST_DATA_TIMEOUT_MINUTES):
