@@ -35,11 +35,14 @@ class Token(BaseModel):
 
 class ConversationCreate(BaseModel):
     title: Optional[str] = None
+    alias: Optional[str] = None
 
 
 class ConversationOut(BaseModel):
     id: int
     title: Optional[str]
+    alias: Optional[str]
+    history_json: Optional[List[dict]] = None
     created_at: datetime
 
     class Config:

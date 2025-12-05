@@ -31,23 +31,8 @@ services:
     ports:
       - "${PORT:-8000}:8000"
     environment:
-      APP_NAME: ${APP_NAME:-Lumora Backend}
-      API_PREFIX: ${API_PREFIX:-/api}
-      APP_ENV: ${APP_ENV:-development}
-      PORT: ${PORT:-8000}
       POSTGRESQL_HOST: postgres
       POSTGRESQL_PORT: 5432
-      POSTGRESQL_DATABASE: ${POSTGRESQL_DATABASE:-bediralvesil_db}
-      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME:-postgres}
-      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:-postgres123}
-      JWT_SECRET: ${JWT_SECRET:-super-secret-key-change-in-production-12345}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
-      STABILITY_API_KEY: ${STABILITY_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

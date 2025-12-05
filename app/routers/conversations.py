@@ -30,8 +30,15 @@ def create_conversation(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    generated_alias = payload.alias or payload.title
+    if not generated_alias:
+        generated_alias = "Yeni Konuşma"
+
     conversation = models.Conversation(
-        title=payload.title or "Yeni Konuşma", user_id=current_user.id
+        title=payload.title or generated_alias,
+        alias=generated_alias,
+        history_json=[],
+        user_id=current_user.id,
     )
     db.add(conversation)
     db.commit()
