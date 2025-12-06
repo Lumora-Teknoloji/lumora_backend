@@ -75,3 +75,26 @@ def get_messages(
     )
     return messages
 
+
+@router.delete("/{conversation_id}", status_code=status.HTTP_200_OK)
+def delete_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    convo = (
+        db.query(models.Conversation)
+        .filter(
+            models.Conversation.id == conversation_id,
+            models.Conversation.user_id == current_user.id
+        )
+        .first()
+    )
+    if not convo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Konuşma bulunamadı"
+        )
+    db.delete(convo)
+    db.commit()
+    return {"detail": "Konuşma silindi"}

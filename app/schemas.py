@@ -19,6 +19,11 @@ class UserLogin(BaseModel):
     password: str
 
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
+
+
 class UserOut(UserBase):
     id: int
     created_at: datetime
