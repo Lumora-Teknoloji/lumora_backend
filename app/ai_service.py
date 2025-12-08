@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from tavily import TavilyClient
 from .config import settings
+
 try:
     import fal_client  # type: ignore
 except Exception:
@@ -49,6 +50,98 @@ def _remove_non_http_images(markdown_text: str) -> str:
     """
     pattern = r'!\[[^\]]*\]\((?!https?://)[^)]+\)'
     return re.sub(pattern, '', markdown_text)
+
+
+# [MEVCUT] Görsel Kalite Filtresi (String Bazlı)
+def is_quality_fashion_image(url: str) -> bool:
+    """
+    Tavily'den gelen URL'in bir logo, ikon veya gereksiz grafik olup olmadığını kontrol eder.
+    Sadece potansiyel ürün fotoğraflarına izin verir.
+    """
+    if not url: return False
+    url_lower = url.lower()
+
+    # 1. Uzantı Kontrolü (Sadece statik resimler)
+    valid_extensions = ('.jpg', '.jpeg', '.png', '.webp')
+    if not any(url_lower.endswith(ext) for ext in valid_extensions):
+        if '.svg' in url_lower or '.gif' in url_lower:
+            return False
+
+    # 2. Yasaklı Kelimeler (Logolar, ikonlar, arayüz elemanları)
+    banned_keywords = [
+        'logo', 'icon', 'avatar', 'user', 'profile', 'banner',
+        'button', 'sprite', 'svg', 'loader', 'gif', 'promo',
+        'footer', 'header', 'favicon', 'thumbnail', 'pixel',
+        'sprite', 'blank', 'transparent', 'chart', 'size'
+    ]
+
+    if any(keyword in url_lower for keyword in banned_keywords):
+        return False
+
+    return True
+
+
+# [YENİ EKLENDİ] GPT-4o Vision ile Akıllı Görsel Doğrulama
+def validate_images_with_vision(image_urls: List[str]) -> List[str]:
+    """
+    GPT-4o Vision kullanarak resimlerin gerçekten moda/ürün fotoğrafı olup olmadığını kontrol eder.
+    Bütçeyi korumak için sadece en iyi 8 adayı kontrol eder.
+    """
+    if not image_urls or not openai_client:
+        return image_urls
+
+    # Maliyet optimizasyonu: Sadece ilk 8 görseli kontrol et
+    candidates = image_urls[:8]
+    logger.info(f"👁️ Vision API ile {len(candidates)} görsel taranıyor...")
+
+    # Vision Payload Hazırlığı
+    messages_content = [
+        {
+            "type": "text",
+            "text": (
+                "You are a strict image filter for a fashion sourcing app. "
+                "Analyze these images based on their index (0, 1, 2...)."
+                "Return the indices of images that are ONLY:\n"
+                "1. Clear fashion product photography (garments, models, mannequins).\n"
+                "2. High quality packshots.\n"
+                "EXCLUDE: Logos, text banners, size charts, blurry icons, irrelevant objects, or website UI elements.\n"
+                "Return ONLY a JSON list of integers. Example: [0, 2, 5]. If none are good, return []."
+            )
+        }
+    ]
+
+    for url in candidates:
+        messages_content.append({
+            "type": "image_url",
+            "image_url": {"url": url, "detail": "low"}  # 'low' mod token tasarrufu sağlar
+        })
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": messages_content}],
+            max_tokens=60,
+            temperature=0.0
+        )
+
+        result_text = response.choices[0].message.content.strip()
+
+        # JSON temizliği (Markdown taglerini kaldır)
+        clean_text = result_text.replace("```json", "").replace("```", "").strip()
+        indices = json.loads(clean_text)
+
+        if not isinstance(indices, list):
+            return candidates
+
+        # Seçilen indeksleri URL'e çevir
+        verified_urls = [candidates[i] for i in indices if isinstance(i, int) and 0 <= i < len(candidates)]
+        logger.info(f"✅ Vision Onaylı Görseller: {len(verified_urls)}/{len(candidates)}")
+
+        return verified_urls
+
+    except Exception as e:
+        logger.error(f"Vision filtre hatası: {e}. Filtre devre dışı bırakılıyor, ham liste dönülüyor.")
+        return candidates
 
 
 # -----------------------------------------------------------------------------
@@ -105,29 +198,30 @@ def handle_general_chat(message: str) -> str:
 def deep_market_research(topic: str) -> Dict[str, Any]:
     """
     Linkleri bozmadan toplamak için optimize edildi.
+    Görsel filtreleme eklendi (String + Vision).
     """
     if not tavily_client:
         return {"context": "Hata: Tavily Client yok.", "market_images": []}
 
     logger.info(f"🔍 Derin Pazar ve Ürün Analizi: {topic}")
 
+    # [GÜNCELLENDİ] Negatif anahtar kelimeler ile sorgu iyileştirme
     queries = [
         # A. TREND NEDENLERİ
         f"why is {topic} trending 2025 consumer psychology",
 
         # B. TİCARİ ÜRÜN ARAMASI (Direkt Ürün Sayfalarını Hedefle)
-        # "ürün detayı" kelimesi ekleyerek kategori sayfalarından kaçmaya çalışıyoruz
-        f"{topic} ürün detayı satın al trendyol",
-        f"{topic} abiye elbise satın al modanisa fiyat",
-        f"{topic} modelleri ve fiyatları hepsiburada",
+        f"{topic} ürün detayı satın al trendyol -logo -icon",
+        f"{topic} abiye elbise satın al modanisa fiyat -logo -icon",
+        f"{topic} modelleri ve fiyatları hepsiburada -logo -icon",
 
         # C. LÜKS VE İMALAT
-        f"{topic} luxury design price vakko beymen",
+        f"{topic} luxury design price vakko beymen product photography",
         f"{topic} 2025 fabric trends wgsn"
     ]
 
     context_data = "### MARKET DATA & PRODUCT LINKS ###\n"
-    market_images = []
+    raw_image_pool = []
 
     try:
         all_results = []
@@ -140,11 +234,27 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
             )
             all_results.extend(response.get('results', []))
 
+            # Ham görselleri havuza ekle
             raw_imgs = response.get('images', [])
-            valid_imgs = [img for img in raw_imgs if img and img.startswith("http")]
-            market_images.extend(valid_imgs)
+            raw_image_pool.extend(raw_imgs)
 
-        # 1. Metin Verilerini İşle (Linkleri ID ile etiketle)
+        # --- GÖRSEL FİLTRELEME İŞLEMİ (YENİ) ---
+
+        # 1. Adım: String Filtresi (Hızlı Eleme)
+        candidates_level_1 = [
+            img for img in raw_image_pool
+            if img and img.startswith("http") and is_quality_fashion_image(img)
+        ]
+
+        # Unique yap (Tekrarları temizle)
+        unique_candidates = list(set(candidates_level_1))
+
+        # 2. Adım: Vision Filtresi (Akıllı Eleme)
+        final_market_images = validate_images_with_vision(unique_candidates)
+
+        # ---------------------------------------
+
+        # Metin Verilerini İşle (Linkleri ID ile etiketle)
         for i, res in enumerate(all_results):
             # Sadece geçerli HTTP linklerini alıyoruz
             url = res.get('url', '')
@@ -155,13 +265,14 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
             context_data += f"İÇERİK: {res['content']}\n"
             context_data += f"TAM_URL: {url}\n\n"  # "TAM_URL" etiketiyle LLM'e işaret ediyoruz
 
-        context_data += "### PAZAR GÖRSEL HAVUZU ###\n"
-        unique_images = list(set(market_images))[:12]
+        context_data += "### PAZAR GÖRSEL HAVUZU (DOĞRULANMIŞ) ###\n"
+        # En fazla 12 görseli context'e ekle
+        limited_images = final_market_images[:12]
 
-        for i, img in enumerate(unique_images):
+        for i, img in enumerate(limited_images):
             context_data += f"IMG_REF_{i + 1}: {img}\n"
 
-        return {"context": context_data, "market_images": unique_images}
+        return {"context": context_data, "market_images": limited_images}
 
     except Exception as e:
         logger.error(f"Araştırma Hatası: {e}")
@@ -186,46 +297,44 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     - Asla link uydurma.
     - Eğer URL yoksa o ürünü listeye koyma.
 
-    ⚠️ 2. FİYAT VE MALİYET KURALI:
-    - Fiyatları TEK RAKAM verme, ARALIK ver (Örn: "1.200 TL - 1.800 TL").
-    - Hedef İmalat Maliyeti = (Fiyat Aralığının Ortalaması) / 4.
+    ⚠️ 2. GÖRSEL YERLEŞİM KURALI (AKICILIK İÇİN):
+    - Bölüm 3'te (TOP 5 MODEL) her modelin hemen altına görsel koymak için sadece bir YER TUTUCU (Placeholder) bırak.
+    - Asla doğrudan resim linki koyma.
+    - Kullanman gereken format tam olarak şudur: [[VISUAL_CARD_1]] (Birinci model için), [[VISUAL_CARD_2]] (İkinci model için)...
+    - Örnek:
+      ### 1. Asimetrik Kesim Elbise
+      * Kumaş: Saten
+      * Detay: ...
+      [[VISUAL_CARD_1]]
 
     RAPOR FORMATI (Markdown):
 
     # 🏭 [KONU] - 2025/2026 STRATEJİK İMALAT DOSYASI
 
-    ## 📈 BÖLÜM 1: TREND TETİKLEYİCİLERİ (NEDEN ŞİMDİ?)
-    * **Popüler Kültür:** (Dizi, TikTok akımı vb.)
+    ## 📈 BÖLÜM 1: TREND TETİKLEYİCİLERİ
+    * **Popüler Kültür:** ...
     * **Tüketici Psikolojisi:** ...
 
     ## 💰 BÖLÜM 2: DETAYLI SEGMENT VE FİYAT ANALİZİ
-    | Segment | Pazar Fiyat Aralığı (Min - Max) | Hedef İmalat Maliyeti (~1/4) | Kumaş & Kalite |
-    | :--- | :--- | :--- | :--- |
-    | **Giriş (Pazaryeri)** | ... - ... TL | ... TL | (Örn: Polyester) |
-    | **Orta (Markalı)** | ... - ... TL | ... TL | (Örn: Krep, Astarlı) |
-    | **Üst (Lüks)** | ... - ... TL | ... TL | (Örn: İpek, Tasarım) |
+    (Tablo Buraya Gelecek)
 
     ## 🏆 BÖLÜM 3: ÜRETİLECEK TOP 5 MODEL
     ### 1. [Model Adı]
     * **Kumaş:** ...
-    * **Pazar Referansı:** (Varsa IMG_REF: ![Ref](IMG_REF_LINKI))
+    * **Detay:** ...
+    [[VISUAL_CARD_1]]
 
-    ...(Diğer Modeller)...
+    ### 2. [Model Adı]
+    ...
+    [[VISUAL_CARD_2]]
+
+    ... (Diğer Modeller 5'e kadar)
 
     ## 🛍️ BÖLÜM 4: SAHADA SATILAN RAKİP ÜRÜNLER (CANLI VİTRİN)
-    *(Bulduğun, linki çalışan gerçek ürünleri listele)*
-
     ### 🛒 Rakip 1: [Ürün Başlığı]
     * **Fiyat:** ... TL
-    * **Site:** [Trendyol/Modanisa vb.]
-    * **Ürüne Git:** [👉 Ürünü İncele](BURAYA_TAM_URL_GELECEK_ASLA_KISALTMA)
-    * **Görsel:** ![Görsel](IMG_REF_LINKI_EGER_VARSA)
-
-    ### 🛒 Rakip 2: [Ürün Başlığı]
-    * **Fiyat:** ... TL
     * **Site:** ...
-    * **Ürüne Git:** [👉 Ürünü İncele](BURAYA_TAM_URL_GELECEK_ASLA_KISALTMA)
-    * **Görsel:** ![Görsel](IMG_REF_LINKI_EGER_VARSA)
+    * **Ürüne Git:** [👉 Ürünü İncele](TAM_URL)
 
     ## 🔗 KAYNAKÇA
     * [Site Adı](URL)
@@ -238,7 +347,7 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"KONU: {user_message}\n\nVERİLER:\n{research_data}"}
             ],
-            temperature=0.4  # Link hatasını önlemek için sıcaklığı düşürdüm
+            temperature=0.4
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -413,7 +522,7 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
     # ADIM 2: Araştırma
     research_result = await loop.run_in_executor(None, deep_market_research, user_message)
 
-    # ADIM 3: Raporlama
+    # ADIM 3: Raporlama (Artık Placeholder'lı formatta)
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, research_result["context"])
 
     # ADIM 4: Görsel (Opsiyonel)
@@ -421,27 +530,26 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
 
     ai_generated_items: List[Dict[str, str]] = []
     image_triggers = ["çiz", "görsel", "tasarım", "resim", "resimler", "foto", "fotoğraf", "image", "picture", "draw"]
-    # Talep üzerine market researchte her zaman görsel üret, fal_api_key varsa
-    should_generate_images = True if settings.fal_api_key else (generate_images or any(x in user_message.lower() for x in image_triggers))
+    should_generate_images = True if settings.fal_api_key else (
+            generate_images or any(x in user_message.lower() for x in image_triggers))
     ref_ids_ordered = list(ref_lookup.keys())
 
     if should_generate_images:
         prompt_items = await loop.run_in_executor(None, generate_image_prompts, final_report)
         logger.info(f"Görsel prompt sayısı: {len(prompt_items)}")
 
-        # Prompt çıkarılamazsa basit bir fallback prompt ekle
+        # Prompt çıkarılamazsa fallback prompt
         if not prompt_items:
             prompt_items = [{
                 "model_name": (user_message[:50] or "AI Model").strip(),
                 "ref_id": ref_ids_ordered[0] if ref_lookup else "",
                 "prompt": f"High-quality fashion product photo, {user_message}, studio lighting, 4k, detailed fabric texture"
             }]
-            logger.info("Prompt bulunamadı, fallback prompt ile görsel üretilecek.")
 
-        # Her promptu en yakın pazar referansıyla eşleştir (yoksa sırayla ata)
         normalized_prompts: List[Dict[str, str]] = []
         for idx, item in enumerate(prompt_items):
-            ref_id = (item.get("ref_id") or (ref_ids_ordered[idx % len(ref_ids_ordered)] if ref_ids_ordered else "")).strip()
+            ref_id = (item.get("ref_id") or (
+                ref_ids_ordered[idx % len(ref_ids_ordered)] if ref_ids_ordered else "")).strip()
             normalized_prompts.append({
                 "model_name": item.get("model_name", "").strip(),
                 "ref_id": ref_id,
@@ -451,43 +559,70 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         ai_generated_items = await loop.run_in_executor(None, generate_ai_images, normalized_prompts)
         logger.info(f"Üretilen AI görsel adedi: {len(ai_generated_items)}")
     else:
-        logger.info("Görsel üretimi atlandı (tetikleyici kelime yok veya generate_images=False).")
+        logger.info("Görsel üretimi atlandı.")
 
-    # Pazar referansı altına AI görsellerini yerleştir
-    paired_blocks: List[str] = []
-    for ref_id, ref_url in ref_lookup.items():
-        block = f"#### {ref_id}\n- Pazar Referansı: ![]({ref_url})"
-        matches = [m for m in ai_generated_items if m.get("ref_id") == ref_id and m.get("url")]
-        for m in matches:
-            model_name = m.get("model_name") or "AI Model"
-            block += f"\n- Önerimiz ({model_name}): ![]({m['url']})"
-        paired_blocks.append(block)
+    # -------------------------------------------------------------------------
+    # ADIM 5: SATIR İÇİ GÖRSEL ENTEGRASYONU (INLINE REPLACEMENT)
+    # -------------------------------------------------------------------------
+    # Rapor metnindeki [[VISUAL_CARD_X]] etiketlerini bulup,
+    # Pazar Referansı ve AI Tasarımını içeren bir Markdown Tablosu ile değiştiriyoruz.
 
-    pairing_section = ""
-    if paired_blocks:
-        pairing_section = "\n\n### Pazar Referansı + AI Model Görselleri\n" + "\n\n".join(paired_blocks)
-    elif ai_generated_items:
-        # Tavily kota hatası vb. durumlarda pazar referansı yoksa bile AI görsellerini göster
-        ai_only = []
-        for m in ai_generated_items:
-            url = m.get("url")
-            if not url:
-                continue
-            model_name = m.get("model_name") or "AI Model"
-            ai_only.append(f"- Önerimiz ({model_name}): ![]({url})")
-        if ai_only:
-            pairing_section = "\n\n### AI Model Görselleri\n" + "\n".join(ai_only)
+    final_content = final_report
 
-    combined_report = _remove_non_http_images(final_report + pairing_section)
+    # En fazla 5 modeli destekliyoruz (Raporda 5 model istedik)
+    for i in range(1, 6):
+        placeholder = f"[[VISUAL_CARD_{i}]]"
+
+        # Bu sıraya denk gelen AI görseli var mı? (Liste sırasına göre)
+        ai_item = None
+        if i <= len(ai_generated_items):
+            ai_item = ai_generated_items[i - 1]
+
+        replacement_block = ""
+
+        if ai_item:
+            ai_url = ai_item.get("url")
+            ref_id = ai_item.get("ref_id")
+            model_name = ai_item.get("model_name", "Model")
+            market_url = ref_lookup.get(ref_id, "")
+
+            # Markdown Tablosu Oluşturma
+            if market_url and ai_url:
+                replacement_block = f"""
+| 🛍️ Pazar Referansı | 🎨 AI Tasarımı ({model_name}) |
+| :---: | :---: |
+| ![]({market_url}) | ![]({ai_url}) |
+"""
+            elif ai_url:
+                replacement_block = f"""
+| 🎨 AI Tasarımı ({model_name}) |
+| :---: |
+| ![]({ai_url}) |
+"""
+
+        # Eğer placeholder metinde varsa değiştir
+        if placeholder in final_content:
+            if replacement_block:
+                final_content = final_content.replace(placeholder, replacement_block)
+            else:
+                # Görsel yoksa placeholder'ı sil
+                final_content = final_content.replace(placeholder, "")
+
+    # Kalan (kullanılmayan) placeholderları temizle (örn. 5 model istenmiş ama 3 tane gelmişse)
+    final_content = re.sub(r'\[\[VISUAL_CARD_\d+\]\]', '', final_content)
+
+    # Markdown temizliği (Kırık linkleri sil)
+    final_content = _remove_non_http_images(final_content)
 
     ai_generated_urls_only = [m["url"] for m in ai_generated_items if m.get("url")]
     combined_images = research_result["market_images"] + ai_generated_urls_only
 
     return {
-        "content": combined_report,
+        "content": final_content,
         "image_urls": combined_images,
         "process_log": [
             "Fiyat aralıkları (Min-Max) analiz edildi.",
-            f"{len(research_result['market_images'])} adet ürün görseli ve çalışan link toplandı."
+            f"{len(research_result['market_images'])} adet ürün görseli ve çalışan link toplandı.",
+            "Görseller raporun içine satır içi entegre edildi."
         ]
     }
