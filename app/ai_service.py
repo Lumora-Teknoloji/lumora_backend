@@ -192,32 +192,35 @@ def handle_general_chat(message: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-# 3. DERİN PAZAR ARAŞTIRMASI (ARAŞTIRMA MODU)
+# 3. DERİN PAZAR ARAŞTIRMASI (ARAŞTIRMA MODU - GÜNCELLENDİ)
 # -----------------------------------------------------------------------------
 
 def deep_market_research(topic: str) -> Dict[str, Any]:
     """
     Linkleri bozmadan toplamak için optimize edildi.
     Görsel filtreleme eklendi (String + Vision).
+    [GÜNCELLENDİ] Renk ve Psikoloji verileri için özel sorgular eklendi.
     """
     if not tavily_client:
         return {"context": "Hata: Tavily Client yok.", "market_images": []}
 
     logger.info(f"🔍 Derin Pazar ve Ürün Analizi: {topic}")
 
-    # [GÜNCELLENDİ] Negatif anahtar kelimeler ile sorgu iyileştirme
+    # [GÜNCELLENDİ] Sorgular artık Renk, Trend ve Psikolojiyi de kapsıyor
     queries = [
-        # A. TREND NEDENLERİ
-        f"why is {topic} trending 2025 consumer psychology",
+        # A. TREND VE RENK (Pantone, WGSN vb.)
+        f"{topic} 2025/2026 fashion color palette trends pantone wgsn",
 
-        # B. TİCARİ ÜRÜN ARAMASI (Direkt Ürün Sayfalarını Hedefle)
+        # B. TÜKETİCİ PSİKOLOJİSİ
+        f"why is {topic} trending 2025 consumer psychology buying behavior",
+
+        # C. TİCARİ ÜRÜN ARAMASI (Direkt Ürün Sayfalarını Hedefle)
         f"{topic} ürün detayı satın al trendyol -logo -icon",
         f"{topic} abiye elbise satın al modanisa fiyat -logo -icon",
         f"{topic} modelleri ve fiyatları hepsiburada -logo -icon",
 
-        # C. LÜKS VE İMALAT
+        # D. LÜKS VE İMALAT
         f"{topic} luxury design price vakko beymen product photography",
-        f"{topic} 2025 fabric trends wgsn"
     ]
 
     context_data = "### MARKET DATA & PRODUCT LINKS ###\n"
@@ -288,7 +291,7 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     Sen Kıdemli Moda Stratejistisin.
 
     GÖREVİN:
-    Üreticiye 2025/2026 sezonu için **GERÇEKÇİ FİYAT ARALIKLARI** ve **ÇALIŞAN LİNKLERLE RAKİP ANALİZİ** sunan rapor hazırla.
+    Üreticiye 2025/2026 sezonu için **GERÇEKÇİ FİYAT ARALIKLARI**, **ÇALIŞAN LİNKLERLE RAKİP ANALİZİ** ve **DERİNLEMESİNE TREND ANALİZİ** sunan rapor hazırla.
 
     ⚠️ 1. LİNK KURALI (HAYATİ ÖNEMLİ):
     - Bölüm 4'te ürünleri listelerken, 'MARKET DATA' içinde 'TAM_URL:' etiketli satırı bul.
@@ -301,19 +304,20 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     - Bölüm 3'te (TOP 5 MODEL) her modelin hemen altına görsel koymak için sadece bir YER TUTUCU (Placeholder) bırak.
     - Asla doğrudan resim linki koyma.
     - Kullanman gereken format tam olarak şudur: [[VISUAL_CARD_1]] (Birinci model için), [[VISUAL_CARD_2]] (İkinci model için)...
-    - Örnek:
-      ### 1. Asimetrik Kesim Elbise
-      * Kumaş: Saten
-      * Detay: ...
-      [[VISUAL_CARD_1]]
+
+    ⚠️ 3. TREND VE RENK ANALİZİ (GERÇEK VERİ):
+    - 'Trend Tetikleyicileri' bölümünü kafandan yazma. 'MARKET DATA' içindeki arama sonuçlarını analiz et.
+    - **Trend Renk Paleti:** Arama sonuçlarında geçen (Pantone, WGSN vb.) gerçek renk kodlarını veya isimlerini kullan.
+    - **Tüketici Psikolojisi:** Arama sonuçlarında belirtilen alım nedenlerini (sürdürülebilirlik, statü, rahatlık vb.) yaz.
 
     RAPOR FORMATI (Markdown):
 
     # 🏭 [KONU] - 2025/2026 STRATEJİK İMALAT DOSYASI
 
-    ## 📈 BÖLÜM 1: TREND TETİKLEYİCİLERİ
-    * **Popüler Kültür:** ...
-    * **Tüketici Psikolojisi:** ...
+    ## 📈 BÖLÜM 1: TREND TETİKLEYİCİLERİ (VERİ ODAKLI)
+    * **Popüler Kültür:** (Diziler, TikTok akımları, Ünlüler vb.)
+    * **Tüketici Psikolojisi:** (Alım motivasyonları)
+    * **Trend Renk Paleti:** (Sezonun öne çıkan renkleri)
 
     ## 💰 BÖLÜM 2: DETAYLI SEGMENT VE FİYAT ANALİZİ
     (Tablo Buraya Gelecek)
@@ -355,12 +359,12 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-# 5. GÖRSEL PROMPT (GÜNCELLENDİ - E-TİCARET & BOYDAN)
+# 5. GÖRSEL PROMPT (GÜNCELLENDİ - BOYDAN & E-TİCARET)
 # -----------------------------------------------------------------------------
 def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     """
     Rapor içindeki model isimlerini yakalar ve E-TİCARET'e uygun,
-    stüdyo ışıklı, temiz ve net promptlar üretir.
+    stüdyo ışıklı, boydan (full body) promptlar üretir.
     """
     # [GÜNCELLENDİ] Prompt Mühendisliği: Boydan, E-Ticaret ve Stüdyo Işığı Zorunluluğu
     system_prompt = """
@@ -370,8 +374,8 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     For each concept, create a highly detailed image prompt optimized for FLUX GENERATION.
 
     PROMPT RULES (STRICT E-COMMERCE STANDARDS):
-    1.  **START WITH:** "Full body e-commerce studio shot of..." (Always force full body).
-    2.  **FRAMING:** "Wide angle shot", "Head to toe visibility", "Model standing", "Shoes visible".
+    1.  **START WITH:** "Wide-angle full body e-commerce studio shot of..." (Must enforce full body).
+    2.  **FRAMING:** "Zoomed out", "Head to toe visibility", "Model standing", "Shoes visible", "No cropping".
     3.  **LIGHTING:** "High-key soft studio lighting", "Bright and evenly lit", "No harsh shadows", "Commercial look".
     4.  **BACKGROUND:** "Clean neutral studio background" or "Solid white background".
     5.  **DETAILS:** "Hyper-realistic fabric texture", "8k resolution", "Sharp focus".
@@ -599,16 +603,16 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
             }]
 
         # [MEVCUT] DİNAMİK STİL ENJEKSİYONU (Context Injection)
-        # 1. Kullanıcının isteğinden genel stili çıkar (Örn: Tesettür -> hijab, modest)
         dynamic_style_context = await loop.run_in_executor(None, extract_visual_style, user_message)
         logger.info(f"🎨 Çıkarılan Stil Bağlamı: {dynamic_style_context}")
 
-        # [GÜNCELLENDİ] Master Prefix (Ön Ek - Zorunlu Boydan Çekim)
-        master_prefix = "Full body wide shot, showing entire outfit from head to toe, "
+        # [GÜNCELLENDİ] Master Prefix (Ön Ek - Zorunlu Boydan Çekim ve Uzak Mesafe)
+        # Kamerayı uzaklaştırarak tüm vücudun kadraja girmesini garantiliyoruz.
+        master_prefix = "Wide-angle full body shot, camera zoomed out, showing entire outfit from head to toe including shoes, "
 
         # [GÜNCELLENDİ] Master Style Şablonu (E-Ticaret Stüdyo Kalitesi)
-        # "Cinematic" yerine "High-key studio lighting" eklendi.
-        master_style_suffix = ", high-key soft studio lighting, clean neutral background, award winning e-commerce photography, shot on Phase One IQ4, 85mm lens, f/1.8, extremely sharp focus, hyper-realistic, 8k, masterpiece, no artifacts, detailed fabric texture"
+        # "Cinematic" yerine "High-key studio lighting" ve "white background" eklendi.
+        master_style_suffix = ", high-key soft studio lighting, shadowless white background, professional e-commerce catalog photography, 8k, sharp focus, hyper-realistic texture"
 
         # 3. Hepsini Birleştir: Prefix + Prompt + Dinamik Stil + Suffix
         normalized_prompts: List[Dict[str, str]] = []
