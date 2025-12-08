@@ -81,7 +81,7 @@ def is_quality_fashion_image(url: str) -> bool:
     return True
 
 
-# [YENİ EKLENDİ] GPT-4o Vision ile Akıllı Görsel Doğrulama
+# [MEVCUT] GPT-4o Vision ile Akıllı Görsel Doğrulama
 def validate_images_with_vision(image_urls: List[str]) -> List[str]:
     """
     GPT-4o Vision kullanarak resimlerin gerçekten moda/ürün fotoğrafı olup olmadığını kontrol eder.
@@ -355,22 +355,30 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-# 5. GÖRSEL PROMPT (OPSİYONEL)
+# 5. GÖRSEL PROMPT (GÜNCELLENDİ - E-TİCARET & BOYDAN)
 # -----------------------------------------------------------------------------
 def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     """
-    Rapor içindeki model isimlerini ve IMG_REF kimliklerini yakalayıp
-    her biri için görsel üretim promptu döner.
+    Rapor içindeki model isimlerini yakalar ve E-TİCARET'e uygun,
+    stüdyo ışıklı, temiz ve net promptlar üretir.
     """
+    # [GÜNCELLENDİ] Prompt Mühendisliği: Boydan, E-Ticaret ve Stüdyo Işığı Zorunluluğu
     system_prompt = """
-    You are an AI Fashion Designer.
-    Extract up to 5 model concepts from the report.
-    For each concept return:
-    - model_name: a short name from the report (reuse existing wording)
-    - ref_id: the IMG_REF_* token nearest to that model if present (e.g., IMG_REF_1).
-              If none is present, leave it empty.
-    - prompt: vivid English prompt describing the garment for a diffusion model
-    Return JSON: {"items": [{"model_name": "...", "ref_id": "IMG_REF_1", "prompt": "..."}]}
+    You are an AI Fashion Photographer & Prompt Engineer.
+
+    TASK: Extract up to 5 model concepts from the report.
+    For each concept, create a highly detailed image prompt optimized for FLUX GENERATION.
+
+    PROMPT RULES (STRICT E-COMMERCE STANDARDS):
+    1.  **START WITH:** "Full body e-commerce studio shot of..." (Always force full body).
+    2.  **FRAMING:** "Wide angle shot", "Head to toe visibility", "Model standing", "Shoes visible".
+    3.  **LIGHTING:** "High-key soft studio lighting", "Bright and evenly lit", "No harsh shadows", "Commercial look".
+    4.  **BACKGROUND:** "Clean neutral studio background" or "Solid white background".
+    5.  **DETAILS:** "Hyper-realistic fabric texture", "8k resolution", "Sharp focus".
+    6.  **POSE:** "Standard e-commerce pose", "Frontal or 3/4 view", "Professional model".
+
+    Output JSON format: 
+    {"items": [{"model_name": "...", "ref_id": "IMG_REF_X", "prompt": "..."}]}
     """
     try:
         response = openai_client.chat.completions.create(
@@ -385,9 +393,47 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
         return []
 
 
+# [MEVCUT] Stil Bağlamı Çıkarıcı
+def extract_visual_style(user_text: str) -> str:
+    """
+    Kullanıcının mesajındaki genel stil ve görünüm kurallarını İngilizce prompt'a çevirir.
+    Örn: "Tesettürlü siyah abiye" -> "model wearing hijab, modest fashion, long sleeves, full coverage, elegant"
+    Örn: "Plaj için bikini" -> "beachwear, summer vibe, swimwear"
+    """
+    if not openai_client: return ""
+
+    system_msg = """
+    You are a 'Visual Style Extractor'. 
+    Analyze the user's fashion request and extract the CORE VISUAL CONSTRAINTS (e.g., modesty, specific era, subculture, environment).
+    Convert these into comma-separated English keywords for an image generator.
+
+    Examples:
+    - User: "Tesettürlü abiye" -> "model wearing hijab, modest fashion, long sleeves, full length dress, conservative style"
+    - User: "90lar grunge" -> "90s grunge fashion, plaid shirt, vintage vibe, edgy look"
+    - User: "Yazlık açık elbise" -> "summer dress, sleeveless, lightweight fabric, sunny vibe"
+
+    RETURN ONLY THE ENGLISH KEYWORDS. NO EXPLANATION.
+    """
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_text}
+            ],
+            temperature=0.0,
+            max_tokens=60
+        )
+        return response.choices[0].message.content.strip()
+    except Exception:
+        return ""
+
+
 def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
     FAL (flux2-pro) üzerinden görsel üretir. Key yoksa boş döner.
+    [GÜNCELLENDİ] 1080p Dikey + Yüksek Adım Sayısı (Inference Steps)
     """
     api_key = settings.fal_api_key
     if not api_key:
@@ -410,15 +456,22 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
     }
 
     def _run_prompt(prompt: str) -> Optional[str]:
+        # [YENİ AYARLAR] Kaliteyi artırmak için parametre optimizasyonu
+        fal_args = {
+            "prompt": prompt,
+            "image_size": "portrait_4_3",  # Yüksek çözünürlüklü dikey (Boydan foto için ideal)
+            "num_inference_steps": 40,  # [ÖNEMLİ] Adım sayısı arttı (Daha fazla detay)
+            "guidance_scale": 3.5,  # [ÖNEMLİ] Prompt sadakati arttı
+            "num_images": 1,
+            "enable_safety_checker": False
+        }
+
         # Önce SDK dene, hata olursa HTTP fallback
         if use_sdk:
             try:
                 handler = fal_client.submit(
                     model_path,
-                    arguments={
-                        "prompt": prompt,
-                        "num_images": 1,
-                    },
+                    arguments=fal_args,
                 )
                 result = handler.get()
                 images = result.get("images") or result.get("output", {}).get("images")
@@ -434,7 +487,7 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
             run_resp = requests.post(
                 run_url,
                 headers=headers,
-                json={"prompt": prompt},
+                json=fal_args,  # Aynı argümanları HTTP için de kullanıyoruz
                 timeout=30,
             )
             run_resp.raise_for_status()
@@ -522,7 +575,7 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
     # ADIM 2: Araştırma
     research_result = await loop.run_in_executor(None, deep_market_research, user_message)
 
-    # ADIM 3: Raporlama (Artık Placeholder'lı formatta)
+    # ADIM 3: Raporlama (Placeholder'lı formatta)
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, research_result["context"])
 
     # ADIM 4: Görsel (Opsiyonel)
@@ -538,22 +591,40 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         prompt_items = await loop.run_in_executor(None, generate_image_prompts, final_report)
         logger.info(f"Görsel prompt sayısı: {len(prompt_items)}")
 
-        # Prompt çıkarılamazsa fallback prompt
         if not prompt_items:
             prompt_items = [{
                 "model_name": (user_message[:50] or "AI Model").strip(),
                 "ref_id": ref_ids_ordered[0] if ref_lookup else "",
-                "prompt": f"High-quality fashion product photo, {user_message}, studio lighting, 4k, detailed fabric texture"
+                "prompt": f"Fashion photography of {user_message}"
             }]
 
+        # [MEVCUT] DİNAMİK STİL ENJEKSİYONU (Context Injection)
+        # 1. Kullanıcının isteğinden genel stili çıkar (Örn: Tesettür -> hijab, modest)
+        dynamic_style_context = await loop.run_in_executor(None, extract_visual_style, user_message)
+        logger.info(f"🎨 Çıkarılan Stil Bağlamı: {dynamic_style_context}")
+
+        # [GÜNCELLENDİ] Master Prefix (Ön Ek - Zorunlu Boydan Çekim)
+        master_prefix = "Full body wide shot, showing entire outfit from head to toe, "
+
+        # [GÜNCELLENDİ] Master Style Şablonu (E-Ticaret Stüdyo Kalitesi)
+        # "Cinematic" yerine "High-key studio lighting" eklendi.
+        master_style_suffix = ", high-key soft studio lighting, clean neutral background, award winning e-commerce photography, shot on Phase One IQ4, 85mm lens, f/1.8, extremely sharp focus, hyper-realistic, 8k, masterpiece, no artifacts, detailed fabric texture"
+
+        # 3. Hepsini Birleştir: Prefix + Prompt + Dinamik Stil + Suffix
         normalized_prompts: List[Dict[str, str]] = []
         for idx, item in enumerate(prompt_items):
             ref_id = (item.get("ref_id") or (
                 ref_ids_ordered[idx % len(ref_ids_ordered)] if ref_ids_ordered else "")).strip()
+
+            raw_prompt = item.get("prompt", "").strip()
+
+            # Dinamik stili ve boydan zorunluluğunu her prompta ekle
+            enhanced_prompt = f"{master_prefix}{raw_prompt}, {dynamic_style_context}{master_style_suffix}"
+
             normalized_prompts.append({
                 "model_name": item.get("model_name", "").strip(),
                 "ref_id": ref_id,
-                "prompt": item.get("prompt", "").strip()
+                "prompt": enhanced_prompt
             })
 
         ai_generated_items = await loop.run_in_executor(None, generate_ai_images, normalized_prompts)
@@ -562,18 +633,13 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         logger.info("Görsel üretimi atlandı.")
 
     # -------------------------------------------------------------------------
-    # ADIM 5: SATIR İÇİ GÖRSEL ENTEGRASYONU (INLINE REPLACEMENT)
+    # ADIM 5: SATIR İÇİ GÖRSEL ENTEGRASYONU
     # -------------------------------------------------------------------------
-    # Rapor metnindeki [[VISUAL_CARD_X]] etiketlerini bulup,
-    # Pazar Referansı ve AI Tasarımını içeren bir Markdown Tablosu ile değiştiriyoruz.
-
     final_content = final_report
 
-    # En fazla 5 modeli destekliyoruz (Raporda 5 model istedik)
     for i in range(1, 6):
         placeholder = f"[[VISUAL_CARD_{i}]]"
 
-        # Bu sıraya denk gelen AI görseli var mı? (Liste sırasına göre)
         ai_item = None
         if i <= len(ai_generated_items):
             ai_item = ai_generated_items[i - 1]
@@ -586,7 +652,6 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
             model_name = ai_item.get("model_name", "Model")
             market_url = ref_lookup.get(ref_id, "")
 
-            # Markdown Tablosu Oluşturma
             if market_url and ai_url:
                 replacement_block = f"""
 | 🛍️ Pazar Referansı | 🎨 AI Tasarımı ({model_name}) |
@@ -600,18 +665,13 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
 | ![]({ai_url}) |
 """
 
-        # Eğer placeholder metinde varsa değiştir
         if placeholder in final_content:
             if replacement_block:
                 final_content = final_content.replace(placeholder, replacement_block)
             else:
-                # Görsel yoksa placeholder'ı sil
                 final_content = final_content.replace(placeholder, "")
 
-    # Kalan (kullanılmayan) placeholderları temizle (örn. 5 model istenmiş ama 3 tane gelmişse)
     final_content = re.sub(r'\[\[VISUAL_CARD_\d+\]\]', '', final_content)
-
-    # Markdown temizliği (Kırık linkleri sil)
     final_content = _remove_non_http_images(final_content)
 
     ai_generated_urls_only = [m["url"] for m in ai_generated_items if m.get("url")]
@@ -623,6 +683,6 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         "process_log": [
             "Fiyat aralıkları (Min-Max) analiz edildi.",
             f"{len(research_result['market_images'])} adet ürün görseli ve çalışan link toplandı.",
-            "Görseller raporun içine satır içi entegre edildi."
+            "Görseller 'Full Body' ve 'E-Ticaret Stüdyo' modunda üretildi."
         ]
     }
