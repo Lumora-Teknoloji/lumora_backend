@@ -48,7 +48,7 @@ class Message(Base):
     conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
     sender = Column(String(20), nullable=False)  # "user" | "ai"
     content = Column(Text)
-    image_url = Column(String(500))
+    image_url = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     conversation = relationship("Conversation", back_populates="messages")

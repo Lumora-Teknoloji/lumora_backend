@@ -22,6 +22,14 @@ def ensure_conversation_history_columns():
                 "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS history_json JSONB"
             )
         )
+        # messages tablosundaki image_url kolonunu TEXT tipine dönüştür
+        try:
+            conn.execute(
+                text("ALTER TABLE messages ALTER COLUMN image_url TYPE TEXT")
+            )
+        except Exception as e:
+            # Tablo henüz oluşmamış olabilir, hata vermeden devam et
+            logger.info(f"image_url kolon tipi değiştirme uyarısı: {e}")
 
 
 def setup_database():
