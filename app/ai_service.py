@@ -30,13 +30,11 @@ logger = logging.getLogger(__name__)
 openai_client: Optional[OpenAI] = None
 tavily_client: Optional[TavilyClient] = None
 
-
 def initialize_ai_clients():
     global openai_client, tavily_client
     try:
         if settings.openai_api_key:
-            # Timeout süresini artırdık
-            openai_client = OpenAI(api_key=settings.openai_api_key, timeout=40.0)
+            openai_client = OpenAI(api_key=settings.openai_api_key, timeout=25.0)  # Timeout eklendi
             logger.info("✅ OpenAI Hazır")
         if settings.tavily_api_key:
             tavily_client = TavilyClient(api_key=settings.tavily_api_key)
@@ -44,9 +42,7 @@ def initialize_ai_clients():
     except Exception as e:
         logger.error(f"❌ Başlatma Hatası: {e}")
 
-
 initialize_ai_clients()
-
 
 # Yardımcı: HTTP olmayan markdown image'larını temizle
 def _remove_non_http_images(markdown_text: str) -> str:
@@ -56,7 +52,6 @@ def _remove_non_http_images(markdown_text: str) -> str:
     if not markdown_text: return ""
     pattern = r'!\[[^\]]*\]\((?!https?://)[^)]+\)'
     return re.sub(pattern, '', markdown_text)
-
 
 # [MEVCUT] Görsel Kalite Filtresi (String Bazlı)
 def is_quality_fashion_image(url: str) -> bool:
@@ -76,10 +71,9 @@ def is_quality_fashion_image(url: str) -> bool:
         return False
 
     if not has_valid_ext:
-        # Uzantı yoksa bile bazı CDN'ler resim döner, o yüzden çok katı olmayalım
         pass
 
-    # 2. Yasaklı Kelimeler
+    # 2. Yasaklı Kelimeler (Logolar, ikonlar, arayüz elemanları)
     banned_keywords = [
         'logo', 'icon', 'avatar', 'user', 'profile', 'banner',
         'button', 'sprite', 'svg', 'loader', 'gif', 'promo',
@@ -93,7 +87,6 @@ def is_quality_fashion_image(url: str) -> bool:
 
     return True
 
-
 # [YENİ] SerpApi ile Görsel Doğrulama (Varlık Kontrolü)
 def verify_image_with_serp(image_url: str) -> bool:
     """
@@ -104,13 +97,11 @@ def verify_image_with_serp(image_url: str) -> bool:
         return True # Anahtar tanımlı değilse bu adımı atla (Güvenli geçiş)
 
     try:
-        # logger.info(f"🔎 SerpApi ile görsel kontrol ediliyor: {image_url}")
         params = {
             "engine": "google_reverse_image",
             "image_url": image_url,
             "api_key": settings.serp_api_key
         }
-        # 3 saniye timeout yeterli, sistemi yavaşlatmayalım
         response = requests.get("https://serpapi.com/search.json", params=params, timeout=3)
         
         if response.status_code == 200:
@@ -126,11 +117,11 @@ def verify_image_with_serp(image_url: str) -> bool:
         logger.warning(f"SerpApi bağlantı hatası: {e}")
         return True # Hata durumunda akışı bozma
 
-
-# [YENİ] SerpApi ile Görsel Kaynak Sayfasını Bulma
+# [YENİ] SerpApi ile Görsel Kaynak Sayfasını Bulma (Ürün Sayfası Odaklı)
 def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
     """
     SerpApi (Google Reverse Image) kullanarak görselin gerçek kaynak sayfasını bulur.
+    Ürün sayfasına öncelik verir (kategori/ana sayfa yerine).
     Returns: Kaynak sayfa URL'si veya None
     """
     if not settings.serp_api_key:
@@ -148,36 +139,103 @@ def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
         if response.status_code == 200:
             data = response.json()
             
-            # SerpApi response yapısına göre kaynak sayfayı bul
-            # Önce "inline_images" içinde ara
+            # Ürün sayfası göstergeleri (Türkçe ve İngilizce)
+            product_indicators = [
+                '/urun/', '/product/', '/item/', '/p/', '/pd/', '/products/',
+                'urun-detay', 'product-detail', 'item-detail', 'product-page',
+                'trendyol.com/butik', 'hepsiburada.com/urun', 'n11.com/urun',
+                'gittigidiyor.com/urun', 'amazon.com/dp/', 'amazon.com.tr/dp/'
+            ]
+            
+            # Kategori/ana sayfa göstergeleri (bunları tercih etmeyelim)
+            category_indicators = [
+                '/kategori/', '/category/', '/c/', '/collections/', '/collection/',
+                '/butik/', '/brand/', '/marka/', '/store/', '/magaza/',
+                '/anasayfa', '/home', '/index', '/main'
+            ]
+            
+            def is_product_page(url: str) -> bool:
+                """URL'nin ürün sayfası olup olmadığını kontrol et"""
+                url_lower = url.lower()
+                has_category = any(ind in url_lower for ind in category_indicators)
+                has_product = any(ind in url_lower for ind in product_indicators)
+                
+                if has_category and not has_product:
+                    return False
+                
+                return has_product or len(url.split('/')) > 5
+            
+            def score_url(url: str) -> int:
+                """URL'nin ürün sayfası olma skorunu hesapla (yüksek = daha iyi)"""
+                url_lower = url.lower()
+                score = 0
+                
+                if any(ind in url_lower for ind in product_indicators):
+                    score += 10
+                
+                if any(ind in url_lower for ind in category_indicators):
+                    score -= 5
+                
+                if len(url.split('/')) > 5:
+                    score += 3
+                
+                ecommerce_domains = ['trendyol.com', 'hepsiburada.com', 'n11.com', 
+                                    'gittigidiyor.com', 'amazon.com', 'zara.com', 
+                                    'mango.com', 'hm.com', 'lcwaikiki.com']
+                if any(domain in url_lower for domain in ecommerce_domains):
+                    score += 2
+                
+                return score
+            
+            # Tüm olası URL'leri topla
+            candidate_urls = []
+            
+            # 1. "inline_images" içinde ara
             inline_images = data.get('inline_images', [])
-            if inline_images and len(inline_images) > 0:
-                first_result = inline_images[0]
-                source_url = first_result.get('link') or first_result.get('source') or first_result.get('url')
-                if source_url and source_url.startswith('http'):
-                    logger.info(f"✅ SerpApi kaynak bulundu (inline_images): {source_url}")
-                    return source_url
+            for img_result in inline_images:
+                url = img_result.get('link') or img_result.get('source') or img_result.get('url')
+                if url and url.startswith('http'):
+                    candidate_urls.append(url)
             
-            # Alternatif: "results" içinde ara
+            # 2. "results" içinde ara
             results = data.get('results', [])
-            if results and len(results) > 0:
-                first_result = results[0]
-                source_url = first_result.get('link') or first_result.get('url')
-                if source_url and source_url.startswith('http'):
-                    logger.info(f"✅ SerpApi kaynak bulundu (results): {source_url}")
-                    return source_url
+            for result in results:
+                url = result.get('link') or result.get('url')
+                if url and url.startswith('http'):
+                    candidate_urls.append(url)
             
-            # Alternatif: "visual_matches" içinde ara
+            # 3. "visual_matches" içinde ara
             visual_matches = data.get('visual_matches', [])
-            if visual_matches and len(visual_matches) > 0:
-                first_match = visual_matches[0]
-                source_url = first_match.get('link') or first_match.get('url')
-                if source_url and source_url.startswith('http'):
-                    logger.info(f"✅ SerpApi kaynak bulundu (visual_matches): {source_url}")
-                    return source_url
+            for match in visual_matches:
+                url = match.get('link') or match.get('url')
+                if url and url.startswith('http'):
+                    candidate_urls.append(url)
             
-            logger.warning(f"SerpApi'de kaynak bulunamadı: {image_url[:80]}...")
-            return None
+            if not candidate_urls:
+                logger.warning(f"SerpApi'de hiç URL bulunamadı: {image_url[:80]}...")
+                return None
+            
+            # URL'leri skorla ve en yüksek skorlu olanı seç
+            scored_urls = [(url, score_url(url)) for url in candidate_urls]
+            scored_urls.sort(key=lambda x: x[1], reverse=True)  # Yüksekten düşüğe sırala
+            
+            best_url, best_score = scored_urls[0]
+            
+            # Eğer en iyi URL ürün sayfası gibi görünüyorsa veya skor yeterince yüksekse kullan
+            if is_product_page(best_url) or best_score >= 5:
+                logger.info(f"✅ SerpApi ürün sayfası bulundu (skor: {best_score}): {best_url}")
+                return best_url
+            elif len(scored_urls) > 1:
+                # İkinci en iyi seçeneği dene
+                second_url, second_score = scored_urls[1]
+                if second_score > best_score - 2:  # Skor çok farklı değilse
+                    logger.info(f"✅ SerpApi alternatif ürün sayfası bulundu (skor: {second_score}): {second_url}")
+                    return second_url
+            
+            # Hiçbiri ürün sayfası gibi görünmüyorsa en yüksek skorlu olanı kullan
+            logger.info(f"⚠️ SerpApi genel sayfa bulundu (skor: {best_score}): {best_url}")
+            return best_url
+            
         elif response.status_code == 401:
             logger.warning("SerpApi yetkilendirme hatası (API Key geçersiz).")
             return None
@@ -189,49 +247,31 @@ def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
         logger.warning(f"SerpApi bağlantı hatası: {e}")
         return None
 
-
-# [GÜNCELLENDİ] GPT-4o Vision ile Akıllı Görsel Doğrulama
+# [MEVCUT] GPT-4o Vision ile Akıllı Görsel Doğrulama
 def validate_images_with_vision(image_urls: List[str]) -> List[str]:
     """
     GPT-4o Vision kullanarak resimlerin gerçekten moda/ürün fotoğrafı olup olmadığını kontrol eder.
-    [YENİ ÖZELLİK]: MIME Type Check (HEAD Request) ile bozuk formatları OpenAI'ya göndermeden eler.
+    SOSYAL MEDYA LİNKLERİ FİLTRELENDİ (Hata Önleyici).
     """
     if not image_urls or not openai_client:
         return image_urls
 
-    # 1. Adım: Riskli Domainleri Ele
+    # [İYİLEŞTİRME] OpenAI'ın erişemediği ve 400 hatası verdiren domainleri baştan ele.
+    safe_candidates = []
     risky_domains = ['instagram.com', 'facebook.com', 'cdn.instagram', 'fbcdn.net', 'tiktok.com', 'pinterest']
-    initial_candidates = [url for url in image_urls if not any(d in url.lower() for d in risky_domains)][:10]
-
-    # 2. Adım: [YENİ] Gerçek Dosya Türü Kontrolü (HEAD Request)
-    valid_candidates = []
-    logger.info("📡 Görsellerin gerçek formatları (MIME Type) kontrol ediliyor...")
-
-    for url in initial_candidates:
-        try:
-            # Sadece başlık bilgisini çekiyoruz (Dosyayı indirmez, çok hızlıdır)
-            head_response = requests.head(url, timeout=1.5, allow_redirects=True)
-            if head_response.status_code == 200:
-                content_type = head_response.headers.get('Content-Type', '').lower()
-                # OpenAI sadece bunları destekler: png, jpeg, gif, webp
-                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
-                if any(t in content_type for t in allowed_types):
-                    # [EKLEME] SerpApi Kontrolü
-                    if verify_image_with_serp(url):
-                        valid_candidates.append(url)
-                else:
-                    pass
-        except Exception:
+    for url in image_urls:
+        if not any(d in url.lower() for d in risky_domains):
+            safe_candidates.append(url)
+        else:
             pass
 
-    # Eğer hiç geçerli resim kalmadıysa orijinal listeyi (riskli olsa da) dönelim
-    if not valid_candidates:
-        logger.info("MIME kontrolünden geçen görsel olmadı, ham liste kullanılıyor.")
-        return image_urls[:8]
+    # Maliyet optimizasyonu: Sadece en iyi 8 adayı kontrol et
+    candidates = safe_candidates[:8]
+    if not candidates:
+        logger.info("Vision için uygun aday URL bulunamadı (Tümü riskli domain).")
+        return image_urls[:8]  # Filtreleme yapmadan ilk 8'i dön
 
-    # En fazla 8 tanesini Vision'a gönder
-    final_check_list = valid_candidates[:8]
-    logger.info(f"👁️ Vision API'ye {len(final_check_list)} adet temizlenmiş görsel gönderiliyor...")
+    logger.info(f"👁️ Vision API ile {len(candidates)} görsel taranıyor...")
 
     # Vision Payload Hazırlığı
     messages_content = [
@@ -249,10 +289,10 @@ def validate_images_with_vision(image_urls: List[str]) -> List[str]:
         }
     ]
 
-    for url in final_check_list:
+    for url in candidates:
         messages_content.append({
             "type": "image_url",
-            "image_url": {"url": url, "detail": "low"}
+            "image_url": {"url": url, "detail": "low"}  # 'low' mod token tasarrufu sağlar
         })
 
     try:
@@ -264,35 +304,36 @@ def validate_images_with_vision(image_urls: List[str]) -> List[str]:
         )
 
         result_text = response.choices[0].message.content.strip()
+        # JSON temizliği
         clean_text = result_text.replace("```json", "").replace("```", "").strip()
-        
         if not clean_text or clean_text == "[]":
             return []
 
         try:
             indices = json.loads(clean_text)
         except json.JSONDecodeError:
-            logger.error(f"Vision JSON parse hatası: {clean_text}")
-            return final_check_list
+            return candidates
 
         if not isinstance(indices, list):
-            return final_check_list
+            return candidates
 
-        verified_urls = [final_check_list[i] for i in indices if isinstance(i, int) and 0 <= i < len(final_check_list)]
-        logger.info(f"✅ Vision Onaylı Görseller: {len(verified_urls)}/{len(final_check_list)}")
-
+        # Seçilen indeksleri URL'e çevir
+        verified_urls = [candidates[i] for i in indices if isinstance(i, int) and 0 <= i < len(candidates)]
+        logger.info(f"✅ Vision Onaylı Görseller: {len(verified_urls)}/{len(candidates)}")
         return verified_urls
 
     except Exception as e:
-        logger.error(f"Vision filtre hatası: {e}. Filtre devre dışı bırakılıyor.")
-        return final_check_list
-
+        logger.error(f"Vision filtre hatası: {e}. Filtre devre dışı bırakılıyor, ham liste dönülüyor.")
+        return candidates
 
 # -----------------------------------------------------------------------------
 # 2. NİYET ANALİZİ VE SOHBET MODÜLÜ
 # -----------------------------------------------------------------------------
 
 def analyze_user_intent(message: str) -> str:
+    """
+    Kullanıcının mesajı bir 'Sohbet/Sorgu' mu yoksa 'Pazar Araştırması' mı?
+    """
     if not openai_client: return "MARKET_RESEARCH"
 
     try:
@@ -310,8 +351,10 @@ def analyze_user_intent(message: str) -> str:
     except:
         return "MARKET_RESEARCH"
 
-
 def handle_general_chat(message: str) -> str:
+    """
+    Kullanıcının kimlik, yetenek ve doğruluk ile ilgili sorularını yanıtlar.
+    """
     system_prompt = """
     Sen Kıdemli Moda Stratejisi Asistanısın (AI Fashion Strategist).
     GÖREVİN: Kullanıcının sorusuna profesyonel, güven veren bir dille cevap ver.
@@ -330,33 +373,40 @@ def handle_general_chat(message: str) -> str:
         logger.error(f"Chat hatası: {e}")
         return "Üzgünüm, şu an yanıt veremiyorum."
 
-
 # -----------------------------------------------------------------------------
-# 3. DERİN PAZAR ARAŞTIRMASI (100+ YORUM ODAKLI)
+# 3. DERİN PAZAR ARAŞTIRMASI (ARAŞTIRMA MODU - GÜNCELLENDİ)
 # -----------------------------------------------------------------------------
 
 def deep_market_research(topic: str) -> Dict[str, Any]:
+    """
+    Linkleri bozmadan toplamak için optimize edildi.
+    Görsel filtreleme eklendi (String + Vision).
+    GÜNCELLEME: 'Çok Satanlar' (Best Sellers) için özel sorgular eklendi.
+    SerpApi ile görsel kaynak sayfaları bulunuyor.
+    """
     if not tavily_client:
         return {"context": "Hata: Tavily Client yok.", "market_images": []}
 
-    logger.info(f"🔍 Derin Pazar Analizi (100+ Yorum & Trend): {topic}")
+    logger.info(f"🔍 Derin Pazar ve Ürün Analizi: {topic}")
 
-    # [STRATEJİ] "100+ Yorum" ve "En Çok Değerlendirilen" Vurgusu
     queries = [
-        # A. YÜKSEK DEĞERLENDİRME SAYISI ODAKLI
-        f"{topic} 100+ yorum alan ürünler trendyol",
-        f"{topic} en çok değerlendirilen modeller 2025",
-        f"{topic} 1000+ reviews bestsellers",
-        # B. TİCARİ TRENDLER - FAST FASHION
-        f"site:zara.com {topic} bestsellers",
-        f"site:mango.com {topic} en çok satanlar",
-        f"site:hm.com {topic} top rated",
-        # C. KULLANICI DENEYİMİ
-        f"{topic} kullanıcı yorumları ve şikayetleri",
-        f"en beğenilen {topic} tavsiyeleri 2025",
+        # A. TREND VE RENK (Pantone, WGSN vb.)
+        f"{topic} 2025/2026 fashion color palette trends pantone wgsn",
+        # B. TÜKETİCİ PSİKOLOJİSİ
+        f"why is {topic} trending 2025 consumer psychology buying behavior",
+        # C. TİCARİ ÜRÜN ARAMASI
+        f"{topic} ürün detayı satın al trendyol -logo -icon",
+        f"{topic} abiye elbise satın al modanisa fiyat -logo -icon",
+        f"{topic} modelleri ve fiyatları hepsiburada -logo -icon",
+        # D. LÜKS VE İMALAT
+        f"{topic} luxury design price vakko beymen product photography",
+        f"{topic} best selling products 2025 fashion e-commerce",
+        f"top rated {topic} designs zara mango h&m best sellers",
+        f"{topic} en çok satan modeller trendyol çok değerlendirilenler",
+        f"{topic} best sellers product photography -logo -icon"
     ]
 
-    context_data = "### MARKET DATA (HIGH REVIEW COUNT > 100) & PRODUCT LINKS ###\n"
+    context_data = "### MARKET DATA & PRODUCT LINKS ###\n"
     raw_image_pool = []
     market_images_result = []
 
@@ -367,13 +417,11 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
         
         for q in queries:
             try:
-                # days=90: Yorumların birikmesi için biraz daha geniş zaman (3 ay) idealdir.
                 response = tavily_client.search(
                     query=q,
                     search_depth="advanced",
                     include_images=True,
-                    max_results=3,
-                    days=90
+                    max_results=4
                 )
                 query_results = response.get('results', [])
                 all_results.extend(query_results)
@@ -393,24 +441,26 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
                 logger.warning(f"Tavily sorgu hatası ({q}): {inner_e}")
                 continue
 
-        # --- GÖRSEL FİLTRELEME ---
+        # --- GÖRSEL FİLTRELEME İŞLEMİ ---
+        # 1. Adım: String Filtresi (Hızlı Eleme)
         candidates_level_1 = [
             img for img in raw_image_pool
             if img and img.startswith("http") and is_quality_fashion_image(img)
         ]
 
+        # Unique yap
         unique_candidates = list(set(candidates_level_1))
-        
-        # ADIM 1: Vision API ile görsellerin gerçekten resim olduğu ve moda/ürün fotoğrafı olduğu doğrulanmalı
+
+        # 2. Adım: Vision Filtresi (Akıllı Eleme - Güvenli Versiyon)
         logger.info(f"👁️ Vision API ile {len(unique_candidates)} görsel doğrulanıyor...")
         final_market_images = validate_images_with_vision(unique_candidates)
         logger.info(f"✅ Vision API doğrulaması tamamlandı: {len(final_market_images)} görsel onaylandı")
-        
-        # ADIM 2: Vision'dan geçen görseller için SerpApi reverse search ile gerçek kaynak sayfasını bul
+
+        # 3. Adım: Vision'dan geçen görseller için SerpApi reverse search ile gerçek kaynak sayfasını bul
         logger.info(f"🔍 SerpApi reverse search ile {len(final_market_images)} görsel için kaynak sayfası aranıyor...")
-        market_images_result = []
         serp_api_enabled = bool(settings.serp_api_key)
         
+        market_images_result = []
         for idx, img_url in enumerate(final_market_images):
             source_page = None
             
@@ -439,7 +489,8 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
         
         logger.info(f"✅ Tüm görseller için kaynak sayfalar bulundu: {len(market_images_result)} görsel hazır")
 
-        # Metin Verilerini İşle
+        # ---------------------------------------
+        # Metin Verilerini İşle (Linkleri ID ile etiketle)
         for i, res in enumerate(all_results):
             url = res.get('url', '')
             if not url.startswith('http'): continue
@@ -449,7 +500,7 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
             context_data += f"İÇERİK: {res.get('content', '')}\n"
             context_data += f"TAM_URL: {url}\n\n"
 
-        context_data += "### PAZAR GÖRSEL HAVUZU ###\n"
+        context_data += "### PAZAR GÖRSEL HAVUZU (DOĞRULANMIŞ) ###\n"
         limited_images = market_images_result[:12]
 
         for i, img_data in enumerate(limited_images):
@@ -460,11 +511,11 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Araştırma Hatası: {e}")
+        # Hata olsa bile toplanan veriyi dönmeye çalış
         return {"context": f"Kısmi veri (Hata: {e})\n{context_data}", "market_images": market_images_result}
 
-
 # -----------------------------------------------------------------------------
-# 4. STRATEJİK İMALAT RAPORU (100+ YORUM FİLTRESİ)
+# 4. STRATEJİK İMALAT RAPORU (LİNK KORUMALI)
 # -----------------------------------------------------------------------------
 
 def generate_strategic_report(user_message: str, research_data: str) -> str:
@@ -474,51 +525,56 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     Sen Kıdemli Moda Stratejistisin.
 
     GÖREVİN:
-    Üreticiye 2025/2026 sezonu için **ÇOK YÜKSEK ETKİLEŞİM ALAN (100+ YORUM)** ürünleri baz alan bir rapor hazırla.
+    Üreticiye 2025/2026 sezonu için **GERÇEKÇİ FİYAT ARALIKLARI**, **ÇALIŞAN LİNKLERLE RAKİP ANALİZİ** ve **DERİNLEMESİNE TREND ANALİZİ** sunan rapor hazırla.
 
-    ⚠️ 1. KRİTİK SEÇİM KURALI (100+ YORUM FİLTRESİ):
-    - Bölüm 4'te (Rakip Ürünler) rastgele ürün listeleme.
-    - 'MARKET DATA' içindeki metinleri tara.
-    - **ZORUNLU KRİTER:** Sadece metninde "100+ değerlendirme", "binlerce yorum", "çok satan" veya benzeri ifadeler geçen ürünleri seç.
-    - Eğer yorum sayısı net değilse ama "En çok satanlar" listesindeyse kabul et.
-    - Raporda her ürünün altına tahmini yorum/etkileşim durumunu yaz (Örn: "1500+ Değerlendirme").
+    ÖNEMLİ: Özellikle "Çok Satan" (Best Seller) olarak işaretlenen veya bu bağlamda bulunan ürünlere raporda öncelik ver.
 
-    ⚠️ 2. LİNK KURALI:
-    - SADECE 'TAM_URL'si olan, çalışan linkleri kullan.
-    - Link formatı: [👉 Ürünü İncele](TAM_URL)
+    ⚠️ 1. LİNK KURALI (HAYATİ ÖNEMLİ):
+    - Bölüm 4'te ürünleri listelerken, 'MARKET DATA' içinde 'TAM_URL:' etiketli satırı bul.
+    - O URL'yi **HARFİ HARFİNE, HİÇ DEĞİŞTİRMEDEN** kopyala.
+    - Asla linki kısaltma (.... koyma).
+    - Asla link uydurma.
+    - Eğer URL yoksa o ürünü listeye koyma.
 
-    ⚠️ 3. GÖRSEL YERLEŞİM KURALI:
-    - Bölüm 3'te modeller için [[VISUAL_CARD_1]], [[VISUAL_CARD_2]]... placeholderlarını kullan.
+    ⚠️ 2. GÖRSEL YERLEŞİM KURALI (AKICILIK İÇİN):
+    - Bölüm 3'te (TOP 5 MODEL) her modelin hemen altına görsel koymak için sadece bir YER TUTUCU (Placeholder) bırak.
+    - Asla doğrudan resim linki koyma.
+    - Kullanman gereken format tam olarak şudur: [[VISUAL_CARD_1]] (Birinci model için), [[VISUAL_CARD_2]] (İkinci model için)...
+
+    ⚠️ 3. TREND VE RENK ANALİZİ (GERÇEK VERİ):
+    - 'Trend Tetikleyicileri' bölümünü kafandan yazma. 'MARKET DATA' içindeki arama sonuçlarını analiz et.
+    - **Trend Renk Paleti:** Arama sonuçlarında geçen (Pantone, WGSN vb.) gerçek renk kodlarını veya isimlerini kullan.
+    - **Tüketici Psikolojisi:** Arama sonuçlarında belirtilen alım nedenlerini (sürdürülebilirlik, statü, rahatlık vb.) yaz.
 
     RAPOR FORMATI (Markdown):
 
-    # 🏭 [KONU] - YÜKSEK ETKİLEŞİMLİ (100+ YORUM) İMALAT DOSYASI
+    # 🏭 [KONU] - 2025/2026 STRATEJİK İMALAT DOSYASI
 
-    ## 📈 BÖLÜM 1: KİTLE ANALİZİ (YÜKSEK YORUM ALANLAR)
-    * **Neden Çok Yorum Aldı?:** (Fiyat/Performans, Trend, vb.)
-    * **Kullanıcıların Ortak Övgüleri:**
-    * **Kullanıcıların Ortak Şikayetleri:**
+    ## 📈 BÖLÜM 1: TREND TETİKLEYİCİLERİ (VERİ ODAKLI)
+    * **Popüler Kültür:** (Diziler, TikTok akımları, Ünlüler vb.)
+    * **Tüketici Psikolojisi:** (Alım motivasyonları)
+    * **Trend Renk Paleti:** (Sezonun öne çıkan renkleri)
 
-    ## 💰 BÖLÜM 2: FİYAT VE PERFORMANS ANALİZİ
-    (Tablo Buraya)
+    ## 💰 BÖLÜM 2: DETAYLI SEGMENT VE FİYAT ANALİZİ
+    (Tablo Buraya Gelecek)
 
-    ## 🏆 BÖLÜM 3: ÜRETİLECEK YILDIZ MODELLER (TOP 5)
+    ## 🏆 BÖLÜM 3: ÜRETİLECEK TOP 5 MODEL (BEST SELLER ODAKLI)
     ### 1. [Model Adı]
-    * **Neden Tutar:** ...
+    * **Kumaş:** ...
+    * **Detay:** ...
     [[VISUAL_CARD_1]]
 
-    ... (Devamı)
-
-    ## 🛍️ BÖLÜM 4: SAHADA KANITLANMIŞ RAKİPLER (100+ YORUMLU)
-    Bu bölümde 100 ve üzeri yorum almış, pazar lideri ürünler listelenir.
-
-    ### 🌟 Rakip 1: [Ürün Başlığı]
-    * **Etkileşim:** (Örn: 200+ Yorum / 4.8 Puan)
-    * **Fiyat:** ... TL
-    * **Link:** [👉 Ürünü İncele](TAM_URL)
-
-    ### 🌟 Rakip 2: [Ürün Başlığı]
+    ### 2. [Model Adı]
     ...
+    [[VISUAL_CARD_2]]
+
+    ... (Diğer Modeller 5'e kadar)
+
+    ## 🛍️ BÖLÜM 4: SAHADA SATILAN RAKİP ÜRÜNLER (CANLI VİTRİN)
+    ### 🛒 Rakip 1: [Ürün Başlığı]
+    * **Fiyat:** ... TL
+    * **Site:** ...
+    * **Ürüne Git:** [👉 Ürünü İncele](TAM_URL)
 
     ## 🔗 KAYNAKÇA
     * [Site Adı](URL)
@@ -538,9 +594,8 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
         logger.error(f"Rapor oluşturma hatası: {e}")
         return f"Rapor oluşturulurken bir hata oluştu: {e}"
 
-
 # -----------------------------------------------------------------------------
-# 5. GÖRSEL PROMPT
+# 5. GÖRSEL PROMPT (GÜNCELLENDİ - BOYDAN & E-TİCARET)
 # -----------------------------------------------------------------------------
 
 def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
@@ -552,6 +607,7 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     You are an AI Fashion Photographer & Prompt Engineer.
 
     TASK: Extract up to 5 model concepts from the report.
+
     For each concept, create a highly detailed image prompt optimized for FLUX GENERATION.
 
     PROMPT RULES (STRICT E-COMMERCE STANDARDS):
@@ -562,7 +618,7 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     5.  **DETAILS:** "Hyper-realistic fabric texture", "8k resolution", "Sharp focus".
     6.  **POSE:** "Standard e-commerce pose", "Frontal or 3/4 view", "Professional model".
 
-    Output JSON format: 
+    Output JSON format:
     {"items": [{"model_name": "...", "ref_id": "IMG_REF_X", "prompt": "..."}]}
     """
     try:
@@ -573,22 +629,31 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
         )
         content = response.choices[0].message.content
         if not content: return []
-        clean_content = content.replace("```json", "").replace("```", "").strip()
-        data = json.loads(clean_content)
+
+        data = json.loads(content)
         return data.get("items", [])
     except Exception as e:
         logger.error(f"Görsel prompt çıkarma hatası: {e}")
         return []
 
-
 # [MEVCUT] Stil Bağlamı Çıkarıcı
 def extract_visual_style(user_text: str) -> str:
+    """
+    Kullanıcının mesajındaki genel stil ve görünüm kurallarını İngilizce prompt'a çevirir.
+    """
     if not openai_client: return ""
 
     system_msg = """
-    You are a 'Visual Style Extractor'. 
+    You are a 'Visual Style Extractor'.
     Analyze the user's fashion request and extract the CORE VISUAL CONSTRAINTS (e.g., modesty, specific era, subculture, environment).
     Convert these into comma-separated English keywords for an image generator.
+
+    Examples:
+    - User: "Tesettürlü abiye" -> "model wearing hijab, modest fashion, long sleeves, full length dress, conservative style"
+    - User: "90lar grunge" -> "90s grunge fashion, plaid shirt, vintage vibe, edgy look"
+    - User: "Yazlık açık elbise" -> "summer dress, sleeveless, lightweight fabric, sunny vibe"
+
+    RETURN ONLY THE ENGLISH KEYWORDS. NO EXPLANATION.
     """
 
     try:
@@ -605,11 +670,10 @@ def extract_visual_style(user_text: str) -> str:
     except Exception:
         return ""
 
-
 def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
-    FAL (flux2-pro) üzerinden görsel üretir.
-    Bakiye bitmesi (403) durumunda döngüyü kırar (Circuit Breaker).
+    FAL (flux2-pro) üzerinden görsel üretir. Key yoksa boş döner.
+    [GÜNCELLENDİ] SDK kullanımı iyileştirildi, timeout ve hata yönetimi güçlendirildi.
     """
     api_key = settings.fal_api_key
     if not api_key:
@@ -630,13 +694,7 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
         "Content-Type": "application/json",
     }
 
-    stop_generation = False
-
     def _run_prompt(prompt: str) -> Optional[str]:
-        nonlocal stop_generation
-        if stop_generation:
-            return None
-
         fal_args = {
             "prompt": prompt,
             "image_size": "portrait_4_3",
@@ -646,38 +704,38 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
             "enable_safety_checker": False
         }
 
-        # 1. SDK Yöntemi
+        # 1. SDK Yöntemi (Öncelikli)
         if use_sdk:
             try:
                 handler = fal_client.submit(
                     model_path,
                     arguments=fal_args,
                 )
+                # SDK'nın .get() metodu polling'i kendi yapar
                 result = handler.get()
                 images = result.get("images") or result.get("output", {}).get("images")
                 if images:
                     first = images[0]
-                    if isinstance(first, dict): return first.get("url")
+                    if isinstance(first, dict):
+                        return first.get("url")
                     return first
             except Exception as e:
-                error_str = str(e)
-                if "403" in error_str or "Exhausted balance" in error_str or "locked" in error_str:
-                    logger.error("🛑 FAL Bakiye Bitti (SDK)! Diğer görseller denenmeyecek.")
-                    stop_generation = True
-                    return None
                 logger.error(f"FAL SDK hata: {e}. HTTP fallback deneniyor.")
+                # SDK başarısız olursa HTTP yöntemine geç
 
         # 2. HTTP Fallback Yöntemi
         try:
-            run_resp = requests.post(run_url, headers=headers, json=fal_args, timeout=30)
-            if run_resp.status_code == 403:
-                logger.error("🛑 FAL Bakiye Bitti (HTTP 403)! Diğer görseller denenmeyecek.")
-                stop_generation = True
-                return None
-
+            # POST isteği (Queue Submit)
+            run_resp = requests.post(
+                run_url,
+                headers=headers,
+                json=fal_args,
+                timeout=30,
+            )
             run_resp.raise_for_status()
             data = run_resp.json()
 
+            # Bazen senkron dönebilir
             direct_images = data.get("images") or data.get("output", {}).get("images")
             if direct_images:
                 first = direct_images[0]
@@ -691,13 +749,13 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
                 logger.error(f"FAL request_id alınamadı: {run_resp.text[:100]}")
                 return None
 
-            for _ in range(20):
+            # Polling Loop
+            for _ in range(20):  # 40 saniye max (2s * 20)
                 time.sleep(2)
                 res = requests.get(f"{poll_url}/requests/{req_id}/status", headers=headers, timeout=20)
-                
+                # Bazen URL yapısı modelden modele değişebilir, requests endpointini de deneyelim
                 if res.status_code == 404:
                     res = requests.get(f"{base_url}/requests/{req_id}/status", headers=headers, timeout=20)
-
                 res.raise_for_status()
                 poll_data = res.json()
                 status = poll_data.get("status")
@@ -706,9 +764,11 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
                     output = poll_data.get("output")
                     images = poll_data.get("images") or (output.get("images") if output else None)
                     if images:
-                        first = images[0]
-                        if isinstance(first, dict): return first.get("url")
-                        return first
+                        if isinstance(images, list):
+                            first = images[0]
+                            if isinstance(first, dict):
+                                return first.get("url")
+                            return first
                     break
 
                 if status in ("FAILED", "CANCELLED"):
@@ -718,20 +778,11 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
             return None
 
         except Exception as e:
-            error_str = str(e)
-            if "403" in error_str or "Exhausted balance" in error_str:
-                logger.error("🛑 FAL Bakiye Bitti (HTTP Exception)! Diğer görseller denenmeyecek.")
-                stop_generation = True
-            else:
-                logger.error(f"FAL HTTP isteği hatası: {e}")
+            logger.error(f"FAL HTTP isteği hatası: {e}")
             return None
 
     results: List[Dict[str, str]] = []
     for item in prompt_items[:5]:
-        if stop_generation:
-            logger.warning("⚠️ Bakiye yetersizliği nedeniyle görsel üretimi durduruldu.")
-            break
-
         prompt = item.get("prompt")
         if not prompt: continue
 
@@ -745,11 +796,9 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
                 "url": url
             })
         else:
-            if not stop_generation:
-                logger.error("FAL görsel isteği başarısız (URL alınamadı).")
+            logger.error("FAL görsel isteği başarısız (URL alınamadı).")
 
     return results
-
 
 # -----------------------------------------------------------------------------
 # 6. ANA ORKESTRASYON
@@ -920,7 +969,7 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
         "image_links": image_links,  # {image_url: link_url or None}
         "process_log": [
             "Fiyat aralıkları (Min-Max) analiz edildi.",
-            f"{len(research_result['market_images'])} adet ürün görseli ve çalışan link toplandı.",
-            f"{len(ai_generated_items)} adet AI görsel üretildi."
+            f"{len(research_result['market_images'])} adet ürün görseli (BEST SELLERS dahil) ve çalışan link toplandı.",
+            "Görseller 'Full Body' ve 'E-Ticaret Stüdyo' modunda üretildi."
         ]
     }
