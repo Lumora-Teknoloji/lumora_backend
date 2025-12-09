@@ -11,12 +11,16 @@ from openai import OpenAI
 from tavily import TavilyClient
 from .config import settings
 
+# FAL Client Import (Güvenli)
 try:
     import fal_client  # type: ignore
-except Exception:
+except ImportError:
+    fal_client = None
+except Exception as e:
+    logging.warning(f"FAL Client import hatası: {e}")
     fal_client = None
 
-# Logger
+# Logger Ayarları
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ def initialize_ai_clients():
     global openai_client, tavily_client
     try:
         if settings.openai_api_key:
-            openai_client = OpenAI(api_key=settings.openai_api_key)
+            openai_client = OpenAI(api_key=settings.openai_api_key, timeout=25.0)  # Timeout eklendi
             logger.info("✅ OpenAI Hazır")
         if settings.tavily_api_key:
             tavily_client = TavilyClient(api_key=settings.tavily_api_key)
@@ -48,6 +52,7 @@ def _remove_non_http_images(markdown_text: str) -> str:
     """
     IMG_REF_* gibi placeholder linklerden kaynaklanan kırık görselleri temizler.
     """
+    if not markdown_text: return ""
     pattern = r'!\[[^\]]*\]\((?!https?://)[^)]+\)'
     return re.sub(pattern, '', markdown_text)
 
@@ -55,7 +60,7 @@ def _remove_non_http_images(markdown_text: str) -> str:
 # [MEVCUT] Görsel Kalite Filtresi (String Bazlı)
 def is_quality_fashion_image(url: str) -> bool:
     """
-    Tavily'den gelen URL'in bir logo, ikon veya gereksiz grafik olup olmadığını kontrol eder.
+    URL'in bir logo, ikon veya gereksiz grafik olup olmadığını kontrol eder.
     Sadece potansiyel ürün fotoğraflarına izin verir.
     """
     if not url: return False
@@ -63,16 +68,25 @@ def is_quality_fashion_image(url: str) -> bool:
 
     # 1. Uzantı Kontrolü (Sadece statik resimler)
     valid_extensions = ('.jpg', '.jpeg', '.png', '.webp')
-    if not any(url_lower.endswith(ext) for ext in valid_extensions):
-        if '.svg' in url_lower or '.gif' in url_lower:
-            return False
+    # Query parametrelerini temizleyip uzantıya bakmak daha sağlıklıdır ama basitlik için endswith kullanıyoruz
+    # Eğer url 'image.jpg?size=large' gibiyse endswith çalışmaz, bu yüzden 'in' kontrolü daha güvenli:
+    has_valid_ext = any(ext in url_lower for ext in valid_extensions)
+
+    # SVG ve GIF kesinlikle yasak
+    if '.svg' in url_lower or '.gif' in url_lower:
+        return False
+
+    if not has_valid_ext:
+        # Uzantı yoksa bile bazı CDN'ler resim döner, o yüzden çok katı olmayalım ama logoları eleyelim
+        pass
 
     # 2. Yasaklı Kelimeler (Logolar, ikonlar, arayüz elemanları)
     banned_keywords = [
         'logo', 'icon', 'avatar', 'user', 'profile', 'banner',
         'button', 'sprite', 'svg', 'loader', 'gif', 'promo',
         'footer', 'header', 'favicon', 'thumbnail', 'pixel',
-        'sprite', 'blank', 'transparent', 'chart', 'size'
+        'sprite', 'blank', 'transparent', 'chart', 'size',
+        'overlay', 'track', 'adserver'
     ]
 
     if any(keyword in url_lower for keyword in banned_keywords):
@@ -85,13 +99,29 @@ def is_quality_fashion_image(url: str) -> bool:
 def validate_images_with_vision(image_urls: List[str]) -> List[str]:
     """
     GPT-4o Vision kullanarak resimlerin gerçekten moda/ürün fotoğrafı olup olmadığını kontrol eder.
-    Bütçeyi korumak için sadece en iyi 8 adayı kontrol eder.
+    SOSYAL MEDYA LİNKLERİ FİLTRELENDİ (Hata Önleyici).
     """
     if not image_urls or not openai_client:
         return image_urls
 
-    # Maliyet optimizasyonu: Sadece ilk 8 görseli kontrol et
-    candidates = image_urls[:8]
+    # [İYİLEŞTİRME] OpenAI'ın erişemediği ve 400 hatası verdiren domainleri baştan ele.
+    # Özellikle Instagram CDN linkleri geçicidir ve botlara kapalıdır.
+    safe_candidates = []
+    risky_domains = ['instagram.com', 'facebook.com', 'cdn.instagram', 'fbcdn.net', 'tiktok.com', 'pinterest']
+
+    for url in image_urls:
+        if not any(d in url.lower() for d in risky_domains):
+            safe_candidates.append(url)
+        else:
+            # Riskli URL ise listeye ekleme, Vision API bunu indirirken hata verir.
+            pass
+
+    # Maliyet optimizasyonu: Sadece en iyi 8 adayı kontrol et
+    candidates = safe_candidates[:8]
+    if not candidates:
+        logger.info("Vision için uygun aday URL bulunamadı (Tümü riskli domain).")
+        return image_urls[:8]  # Filtreleme yapmadan ilk 8'i dön
+
     logger.info(f"👁️ Vision API ile {len(candidates)} görsel taranıyor...")
 
     # Vision Payload Hazırlığı
@@ -128,7 +158,15 @@ def validate_images_with_vision(image_urls: List[str]) -> List[str]:
 
         # JSON temizliği (Markdown taglerini kaldır)
         clean_text = result_text.replace("```json", "").replace("```", "").strip()
-        indices = json.loads(clean_text)
+        # Bazen AI boş dönebilir veya text dönebilir
+        if not clean_text or clean_text == "[]":
+            return []
+
+        try:
+            indices = json.loads(clean_text)
+        except json.JSONDecodeError:
+            # JSON değilse fallback
+            return candidates
 
         if not isinstance(indices, list):
             return candidates
@@ -141,6 +179,7 @@ def validate_images_with_vision(image_urls: List[str]) -> List[str]:
 
     except Exception as e:
         logger.error(f"Vision filtre hatası: {e}. Filtre devre dışı bırakılıyor, ham liste dönülüyor.")
+        # Hata durumunda (örneğin hala bir bozuk link varsa) ham listeyi dönmek en güvenlisidir.
         return candidates
 
 
@@ -162,7 +201,8 @@ def analyze_user_intent(message: str) -> str:
                  "content": "You are a classifier. Classify the user input into 'GENERAL_CHAT' or 'MARKET_RESEARCH'. Return ONLY the category name."},
                 {"role": "user", "content": message}
             ],
-            temperature=0.0
+            temperature=0.0,
+            max_tokens=20
         )
         return response.choices[0].message.content.strip()
     except:
@@ -188,6 +228,7 @@ def handle_general_chat(message: str) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
+        logger.error(f"Chat hatası: {e}")
         return "Üzgünüm, şu an yanıt veremiyorum."
 
 
@@ -199,26 +240,21 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
     """
     Linkleri bozmadan toplamak için optimize edildi.
     Görsel filtreleme eklendi (String + Vision).
-    [GÜNCELLENDİ] Renk ve Psikoloji verileri için özel sorgular eklendi.
     """
     if not tavily_client:
         return {"context": "Hata: Tavily Client yok.", "market_images": []}
 
     logger.info(f"🔍 Derin Pazar ve Ürün Analizi: {topic}")
 
-    # [GÜNCELLENDİ] Sorgular artık Renk, Trend ve Psikolojiyi de kapsıyor
     queries = [
         # A. TREND VE RENK (Pantone, WGSN vb.)
         f"{topic} 2025/2026 fashion color palette trends pantone wgsn",
-
         # B. TÜKETİCİ PSİKOLOJİSİ
         f"why is {topic} trending 2025 consumer psychology buying behavior",
-
-        # C. TİCARİ ÜRÜN ARAMASI (Direkt Ürün Sayfalarını Hedefle)
+        # C. TİCARİ ÜRÜN ARAMASI
         f"{topic} ürün detayı satın al trendyol -logo -icon",
         f"{topic} abiye elbise satın al modanisa fiyat -logo -icon",
         f"{topic} modelleri ve fiyatları hepsiburada -logo -icon",
-
         # D. LÜKS VE İMALAT
         f"{topic} luxury design price vakko beymen product photography",
     ]
@@ -226,20 +262,25 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
     context_data = "### MARKET DATA & PRODUCT LINKS ###\n"
     raw_image_pool = []
 
+    # Hata durumunda da eldekileri dönmek için try dışına aldık
+    market_images_result = []
+
     try:
         all_results = []
         for q in queries:
-            response = tavily_client.search(
-                query=q,
-                search_depth="advanced",
-                include_images=True,
-                max_results=4
-            )
-            all_results.extend(response.get('results', []))
-
-            # Ham görselleri havuza ekle
-            raw_imgs = response.get('images', [])
-            raw_image_pool.extend(raw_imgs)
+            try:
+                response = tavily_client.search(
+                    query=q,
+                    search_depth="advanced",
+                    include_images=True,
+                    max_results=4
+                )
+                all_results.extend(response.get('results', []))
+                raw_imgs = response.get('images', [])
+                raw_image_pool.extend(raw_imgs)
+            except Exception as inner_e:
+                logger.warning(f"Tavily sorgu hatası ({q}): {inner_e}")
+                continue
 
         # --- GÖRSEL FİLTRELEME İŞLEMİ (YENİ) ---
 
@@ -249,27 +290,26 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
             if img and img.startswith("http") and is_quality_fashion_image(img)
         ]
 
-        # Unique yap (Tekrarları temizle)
+        # Unique yap
         unique_candidates = list(set(candidates_level_1))
 
-        # 2. Adım: Vision Filtresi (Akıllı Eleme)
+        # 2. Adım: Vision Filtresi (Akıllı Eleme - Güvenli Versiyon)
         final_market_images = validate_images_with_vision(unique_candidates)
+        market_images_result = final_market_images
 
         # ---------------------------------------
 
         # Metin Verilerini İşle (Linkleri ID ile etiketle)
         for i, res in enumerate(all_results):
-            # Sadece geçerli HTTP linklerini alıyoruz
             url = res.get('url', '')
             if not url.startswith('http'): continue
 
             context_data += f"--- SONUÇ ID: {i + 1} ---\n"
-            context_data += f"BAŞLIK: {res['title']}\n"
-            context_data += f"İÇERİK: {res['content']}\n"
-            context_data += f"TAM_URL: {url}\n\n"  # "TAM_URL" etiketiyle LLM'e işaret ediyoruz
+            context_data += f"BAŞLIK: {res.get('title', 'Başlıksız')}\n"
+            context_data += f"İÇERİK: {res.get('content', '')}\n"
+            context_data += f"TAM_URL: {url}\n\n"
 
         context_data += "### PAZAR GÖRSEL HAVUZU (DOĞRULANMIŞ) ###\n"
-        # En fazla 12 görseli context'e ekle
         limited_images = final_market_images[:12]
 
         for i, img in enumerate(limited_images):
@@ -279,7 +319,8 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Araştırma Hatası: {e}")
-        return {"context": f"Hata: {e}", "market_images": []}
+        # Hata olsa bile toplanan veriyi dönmeye çalış
+        return {"context": f"Kısmi veri (Hata: {e})\n{context_data}", "market_images": market_images_result}
 
 
 # -----------------------------------------------------------------------------
@@ -287,6 +328,8 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
 # -----------------------------------------------------------------------------
 
 def generate_strategic_report(user_message: str, research_data: str) -> str:
+    if not openai_client: return "OpenAI Client başlatılamadı."
+
     system_prompt = """
     Sen Kıdemli Moda Stratejistisin.
 
@@ -355,7 +398,8 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"Rapor Hatası: {e}"
+        logger.error(f"Rapor oluşturma hatası: {e}")
+        return f"Rapor oluşturulurken bir hata oluştu: {e}"
 
 
 # -----------------------------------------------------------------------------
@@ -366,7 +410,6 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     Rapor içindeki model isimlerini yakalar ve E-TİCARET'e uygun,
     stüdyo ışıklı, boydan (full body) promptlar üretir.
     """
-    # [GÜNCELLENDİ] Prompt Mühendisliği: Boydan, E-Ticaret ve Stüdyo Işığı Zorunluluğu
     system_prompt = """
     You are an AI Fashion Photographer & Prompt Engineer.
 
@@ -390,7 +433,9 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": analysis_text}],
             response_format={"type": "json_object"}
         )
-        data = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content
+        if not content: return []
+        data = json.loads(content)
         return data.get("items", [])
     except Exception as e:
         logger.error(f"Görsel prompt çıkarma hatası: {e}")
@@ -401,8 +446,6 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
 def extract_visual_style(user_text: str) -> str:
     """
     Kullanıcının mesajındaki genel stil ve görünüm kurallarını İngilizce prompt'a çevirir.
-    Örn: "Tesettürlü siyah abiye" -> "model wearing hijab, modest fashion, long sleeves, full coverage, elegant"
-    Örn: "Plaj için bikini" -> "beachwear, summer vibe, swimwear"
     """
     if not openai_client: return ""
 
@@ -437,7 +480,7 @@ def extract_visual_style(user_text: str) -> str:
 def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
     FAL (flux2-pro) üzerinden görsel üretir. Key yoksa boş döner.
-    [GÜNCELLENDİ] 1080p Dikey + Yüksek Adım Sayısı (Inference Steps)
+    [GÜNCELLENDİ] SDK kullanımı iyileştirildi, timeout ve hata yönetimi güçlendirildi.
     """
     api_key = settings.fal_api_key
     if not api_key:
@@ -447,9 +490,8 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
     base_url = getattr(settings, "fal_base_url", "https://fal.run").rstrip("/")
     model_path = getattr(settings, "fal_model_path", "fal-ai/flux/dev").strip("/")
     run_url = f"{base_url}/{model_path}"
-    poll_url = f"{base_url}/{model_path}"  # request_id eklenecek
+    poll_url = f"{base_url}/{model_path}"
 
-    # fal_client varsa resmi SDK ile kullan, yoksa HTTP fallback
     use_sdk = fal_client is not None
     if use_sdk:
         os.environ["FAL_KEY"] = api_key
@@ -460,23 +502,23 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
     }
 
     def _run_prompt(prompt: str) -> Optional[str]:
-        # [YENİ AYARLAR] Kaliteyi artırmak için parametre optimizasyonu
         fal_args = {
             "prompt": prompt,
-            "image_size": "portrait_4_3",  # Yüksek çözünürlüklü dikey (Boydan foto için ideal)
-            "num_inference_steps": 40,  # [ÖNEMLİ] Adım sayısı arttı (Daha fazla detay)
-            "guidance_scale": 3.5,  # [ÖNEMLİ] Prompt sadakati arttı
+            "image_size": "portrait_4_3",
+            "num_inference_steps": 40,
+            "guidance_scale": 3.5,
             "num_images": 1,
             "enable_safety_checker": False
         }
 
-        # Önce SDK dene, hata olursa HTTP fallback
+        # 1. SDK Yöntemi (Öncelikli)
         if use_sdk:
             try:
                 handler = fal_client.submit(
                     model_path,
                     arguments=fal_args,
                 )
+                # SDK'nın .get() metodu polling'i kendi yapar
                 result = handler.get()
                 images = result.get("images") or result.get("output", {}).get("images")
                 if images:
@@ -485,68 +527,87 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
                         return first.get("url")
                     return first
             except Exception as e:
-                logger.error(f"FAL SDK hata: {e}. HTTP fallback deneniyor. prompt='{prompt[:80]}'")
+                logger.error(f"FAL SDK hata: {e}. HTTP fallback deneniyor.")
+                # SDK başarısız olursa HTTP yöntemine geç
 
+        # 2. HTTP Fallback Yöntemi
         try:
+            # POST isteği (Queue Submit)
             run_resp = requests.post(
                 run_url,
                 headers=headers,
-                json=fal_args,  # Aynı argümanları HTTP için de kullanıyoruz
+                json=fal_args,
                 timeout=30,
             )
             run_resp.raise_for_status()
             data = run_resp.json()
 
-            # Bazı modeller direkt images döndürüyor (request_id olmadan)
+            # Bazen senkron dönebilir
             direct_images = data.get("images") or data.get("output", {}).get("images")
             if direct_images:
                 first = direct_images[0]
                 if isinstance(first, dict):
-                    url = first.get("url")
-                    if url:
-                        return url
+                    return first.get("url")
                 elif isinstance(first, str):
                     return first
 
             req_id = data.get("request_id")
             if not req_id:
-                logger.error(f"FAL run yanıtında request_id yok. Yanıt: {run_resp.text[:200]}")
+                logger.error(f"FAL request_id alınamadı: {run_resp.text[:100]}")
                 return None
 
-            # Poll result
-            for _ in range(15):  # ~30s max (2s * 15)
+            # Polling Loop
+            for _ in range(20):  # 40 saniye max (2s * 20)
                 time.sleep(2)
-                res = requests.get(f"{poll_url}/{req_id}", headers=headers, timeout=20)
+                res = requests.get(f"{poll_url}/requests/{req_id}/status", headers=headers, timeout=20)
+
+                # Bazen URL yapısı modelden modele değişebilir, requests endpointini de deneyelim
                 if res.status_code == 404:
-                    logger.error("FAL poll 404 - endpoint veya model yolu hatalı.")
-                    break
+                    res = requests.get(f"{base_url}/requests/{req_id}/status", headers=headers, timeout=20)
+
                 res.raise_for_status()
-                data = res.json()
-                status = data.get("status")
+                poll_data = res.json()
+                status = poll_data.get("status")
+
                 if status == "COMPLETED":
-                    images = data.get("images") or data.get("output", {}).get("images")
+                    # Sonuçları almak için result endpointine gitmek gerekebilir veya status içinde dönebilir
+                    # Genelde result linki 'response_url' içinde olur veya 'logs' parametresi false ise output içindedir
+
+                    # Eğer payload içinde direkt output yoksa, result endpointine git:
+                    output = poll_data.get("output")
+                    if not output:
+                        # Bazı API versiyonlarında result ayrı bir GET ister, ancak FAL genelde status içinde döner.
+                        # Queue yapısına göre tekrar check etmeye gerek yoksa:
+                        pass
+
+                    images = poll_data.get("images") or (output.get("images") if output else None)
+
                     if images:
-                        # image can be dict with url or direct url list
                         if isinstance(images, list):
                             first = images[0]
                             if isinstance(first, dict):
                                 return first.get("url")
                             return first
                     break
+
                 if status in ("FAILED", "CANCELLED"):
+                    logger.error(f"FAL işlemi başarısız: {status}")
                     break
+
             return None
+
         except Exception as e:
-            logger.error(f"FAL görsel üretim hatası: {e}")
+            logger.error(f"FAL HTTP isteği hatası: {e}")
             return None
 
     results: List[Dict[str, str]] = []
-    for item in prompt_items[:5]:  # en fazla 5 görsel
+    for item in prompt_items[:5]:
         prompt = item.get("prompt")
-        if not prompt:
-            continue
-        logger.info(f"FAL görsel isteği: {prompt[:80]}...")
+        if not prompt: continue
+
+        logger.info(f"FAL görsel isteği yapılıyor: {item.get('model_name')}")
         url = _run_prompt(prompt)
+
         if url:
             results.append({
                 "model_name": item.get("model_name", "").strip(),
@@ -555,6 +616,7 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str
             })
         else:
             logger.error("FAL görsel isteği başarısız (URL alınamadı).")
+
     return results
 
 
@@ -579,7 +641,7 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
     # ADIM 2: Araştırma
     research_result = await loop.run_in_executor(None, deep_market_research, user_message)
 
-    # ADIM 3: Raporlama (Placeholder'lı formatta)
+    # ADIM 3: Raporlama
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, research_result["context"])
 
     # ADIM 4: Görsel (Opsiyonel)
@@ -602,27 +664,19 @@ async def generate_ai_response(user_message: str, generate_images: bool = False)
                 "prompt": f"Fashion photography of {user_message}"
             }]
 
-        # [MEVCUT] DİNAMİK STİL ENJEKSİYONU (Context Injection)
+        # Stil Enjeksiyonu
         dynamic_style_context = await loop.run_in_executor(None, extract_visual_style, user_message)
         logger.info(f"🎨 Çıkarılan Stil Bağlamı: {dynamic_style_context}")
 
-        # [GÜNCELLENDİ] Master Prefix (Ön Ek - Zorunlu Boydan Çekim ve Uzak Mesafe)
-        # Kamerayı uzaklaştırarak tüm vücudun kadraja girmesini garantiliyoruz.
         master_prefix = "Wide-angle full body shot, camera zoomed out, showing entire outfit from head to toe including shoes, "
-
-        # [GÜNCELLENDİ] Master Style Şablonu (E-Ticaret Stüdyo Kalitesi)
-        # "Cinematic" yerine "High-key studio lighting" ve "white background" eklendi.
         master_style_suffix = ", high-key soft studio lighting, shadowless white background, professional e-commerce catalog photography, 8k, sharp focus, hyper-realistic texture"
 
-        # 3. Hepsini Birleştir: Prefix + Prompt + Dinamik Stil + Suffix
         normalized_prompts: List[Dict[str, str]] = []
         for idx, item in enumerate(prompt_items):
             ref_id = (item.get("ref_id") or (
                 ref_ids_ordered[idx % len(ref_ids_ordered)] if ref_ids_ordered else "")).strip()
 
             raw_prompt = item.get("prompt", "").strip()
-
-            # Dinamik stili ve boydan zorunluluğunu her prompta ekle
             enhanced_prompt = f"{master_prefix}{raw_prompt}, {dynamic_style_context}{master_style_suffix}"
 
             normalized_prompts.append({
