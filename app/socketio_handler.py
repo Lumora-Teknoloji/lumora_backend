@@ -256,12 +256,14 @@ async def user_message(sid, data):
             ai_response = await generate_ai_response(message_text, generate_images=generate_images)
             ai_response_text = ai_response['content']
             ai_image_urls = ai_response.get('image_urls', [])
+            ai_image_links = ai_response.get('image_links', {})
         except Exception as e:
             logger.error(f"AI yanıt üretme hatası: {e}", exc_info=True)
             ai_response_text = f"Mesajınızı aldım: {message_text}"
             if image_url:
                 ai_response_text += f"\nGörsel URL: {image_url}"
             ai_image_urls = []
+            ai_image_links = {}
         
         # AI mesajını memory'ye ekle
         ai_image_url_combined = ";".join(ai_image_urls) if ai_image_urls else None
@@ -272,6 +274,7 @@ async def user_message(sid, data):
             'content': ai_response_text,
             'image_urls': ai_image_urls,
             'image_url': ai_image_url_combined,  # backward compatibility / persistence
+            'image_links': ai_image_links,  # Görsel-link eşleştirmesi
             'created_at': datetime.now().isoformat()
         }
         guest_conv['messages'].append(ai_msg)
@@ -283,6 +286,7 @@ async def user_message(sid, data):
             'content': ai_msg['content'],
             'image_url': ai_image_url_combined,  # Tüm görseller ';' ile saklandı
             'image_urls': ai_image_urls,  # Tüm görselleri gönder
+            'image_links': ai_image_links,  # Görsel-link eşleştirmesi
             'alias': guest_alias,
             'created_at': ai_msg['created_at']
         }, room=sid)
@@ -338,12 +342,14 @@ async def user_message(sid, data):
             ai_response = await generate_ai_response(message_text, generate_images=generate_images)
             ai_response_text = ai_response['content']
             ai_image_urls = ai_response.get('image_urls', [])
+            ai_image_links = ai_response.get('image_links', {})
         except Exception as e:
             logger.error(f"AI yanıt üretme hatası: {e}", exc_info=True)
             ai_response_text = f"Mesajınızı aldım: {message_text}"
             if image_url:
                 ai_response_text += f"\nGörsel URL: {image_url}"
             ai_image_urls = []
+            ai_image_links = {}
         
         # DB'de tek kolon olduğu için tüm görselleri ';' ile birleştirerek saklıyoruz
         ai_image_url = ";".join(ai_image_urls) if ai_image_urls else None
@@ -378,6 +384,7 @@ async def user_message(sid, data):
                     "content": ai_message.content,
                     "image_url": ai_message.image_url,
                     "image_urls": ai_image_urls,
+                    "image_links": ai_image_links,  # Görsel-link eşleştirmesi
                     "created_at": ai_message.created_at.isoformat()
                     if ai_message.created_at
                     else None,
@@ -403,6 +410,7 @@ async def user_message(sid, data):
             'content': ai_message.content,
             'image_url': ai_message.image_url,  # Backward compatibility için
             'image_urls': ai_image_urls,  # Tüm görselleri gönder
+            'image_links': ai_image_links,  # Görsel-link eşleştirmesi
             'created_at': ai_message.created_at.isoformat() if ai_message.created_at else None
         }, room=sid)
         
