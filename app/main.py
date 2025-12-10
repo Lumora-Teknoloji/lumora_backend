@@ -1,4 +1,5 @@
 import logging
+from sqlalchemy import text, inspect
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,7 +9,6 @@ from socketio import ASGIApp
 
 from .config import settings
 from .database import Base, engine
-from .setup_database import ensure_conversation_history_columns
 from .routers import auth, users, conversations, messages
 from .socketio_handler import sio, cleanup_old_guest_data
 from fastapi.staticfiles import StaticFiles
@@ -21,11 +21,68 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Veritabanı tablolarını oluştur (sadece development için)
-if settings.app_env == "development":
+
+def check_table_exists(table_name: str) -> bool:
+    """Belirtilen tablonun veritabanında var olup olmadığını kontrol eder."""
+    inspector = inspect(engine)
+    return table_name in inspector.get_table_names()
+
+
+def ensure_conversation_history_columns():
+    """
+    conversations tablosuna alias ve history_json kolonlarını ekler (varsa dokunmaz).
+    Sadece tablo mevcutsa çalışır.
+    """
+    if not check_table_exists("conversations"):
+        logger.info("conversations tablosu henüz oluşturulmamış, kolon ekleme atlanıyor")
+        return
+    
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS alias VARCHAR(255)"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS history_json JSONB"
+                )
+            )
+            logger.info("conversations tablosu kolonları kontrol edildi")
+    except Exception as e:
+        logger.warning(f"conversations tablosu kolonları kontrol edilirken uyarı: {e}")
+    
+    # messages tablosundaki image_url kolonunu TEXT tipine dönüştür
+    if check_table_exists("messages"):
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE messages ALTER COLUMN image_url TYPE TEXT")
+                )
+        except Exception as e:
+            # Kolon tipi zaten TEXT olabilir veya başka bir sorun olabilir
+            logger.info(f"image_url kolon tipi değiştirme uyarısı: {e}")
+
+
+def setup_database():
+    """Veritabanı tablolarını oluşturur. Mevcut tabloları ve verileri korur."""
+    # Önce tabloların varlığını kontrol et
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    required_tables = ["users", "conversations", "messages"]
+    
+    missing_tables = [table for table in required_tables if table not in existing_tables]
+    
+    if missing_tables:
+        logger.info(f"Eksik tablolar tespit edildi: {missing_tables}. Oluşturuluyor...")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Veritabanı tabloları başarıyla oluşturuldu")
+    else:
+        logger.info("Tüm tablolar mevcut, veritabanı kurulumu gerekmiyor")
+    
+    # Mevcut tablolar için kolon kontrollerini yap
     ensure_conversation_history_columns()
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables initialized")
 
 app = FastAPI(
     title=settings.app_name,
@@ -61,10 +118,14 @@ socketio_app = ASGIApp(sio, app)
 app_asgi = socketio_app
 
 
-# Startup event: Misafir verilerini temizleme görevini başlat
+# Startup event: Veritabanı kurulumu ve misafir verilerini temizleme görevini başlat
 @app.on_event("startup")
 async def startup_event():
-    """Uygulama başladığında misafir verilerini temizleme görevini başlatır."""
+    """Uygulama başladığında veritabanını kurar ve misafir verilerini temizleme görevini başlatır."""
+    # Veritabanı tablolarını oluştur (mevcut veriler korunur)
+    setup_database()
+    
+    # Misafir verilerini temizleme görevini başlat
     import asyncio
     loop = asyncio.get_event_loop()
     loop.create_task(cleanup_old_guest_data())

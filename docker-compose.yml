@@ -40,7 +40,7 @@ services:
       - bediralvesil-network
     volumes:
       - .:/app
-    command: sh -c "python -m app.setup_database && python run_server.py"
+    command: python run_server.py
 
 volumes:
   postgres_data:
