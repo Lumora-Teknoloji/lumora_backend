@@ -79,136 +79,6 @@ def is_quality_fashion_image(url: str) -> bool:
     return True
 
 
-# [MEVCUT] SerpApi ile Görsel Doğrulama (Varlık Kontrolü)
-def verify_image_with_serp(image_url: str) -> bool:
-    if not settings.serp_api_key:
-        return True
-
-    try:
-        params = {
-            "engine": "google_reverse_image",
-            "image_url": image_url,
-            "api_key": settings.serp_api_key
-        }
-        response = requests.get("https://serpapi.com/search.json", params=params, timeout=3)
-
-        if response.status_code == 200:
-            return True
-        elif response.status_code == 401:
-            logger.warning("SerpApi yetkilendirme hatası (API Key geçersiz).")
-            return True
-        else:
-            logger.warning(f"SerpApi görseli doğrulayamadı ({response.status_code}): {image_url}")
-            return False
-
-    except Exception as e:
-        logger.warning(f"SerpApi bağlantı hatası: {e}")
-        return True
-
-
-# [MEVCUT] SerpApi ile Görsel Kaynak Sayfasını Bulma (Ürün Sayfası Odaklı)
-def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
-    if not settings.serp_api_key:
-        return None
-
-    try:
-        logger.info(f"🔍 SerpApi ile görsel kaynak sayfası aranıyor: {image_url[:80]}...")
-        params = {
-            "engine": "google_reverse_image",
-            "image_url": image_url,
-            "api_key": settings.serp_api_key
-        }
-        response = requests.get("https://serpapi.com/search.json", params=params, timeout=5)
-
-        if response.status_code == 200:
-            data = response.json()
-
-            product_indicators = [
-                '/urun/', '/product/', '/item/', '/p/', '/pd/', '/products/',
-                'urun-detay', 'product-detail', 'item-detail', 'product-page',
-                'trendyol.com/butik', 'hepsiburada.com/urun', 'n11.com/urun',
-                'gittigidiyor.com/urun', 'amazon.com/dp/', 'amazon.com.tr/dp/'
-            ]
-
-            category_indicators = [
-                '/kategori/', '/category/', '/c/', '/collections/', '/collection/',
-                '/butik/', '/brand/', '/marka/', '/store/', '/magaza/',
-                '/anasayfa', '/home', '/index', '/main'
-            ]
-
-            def is_product_page(url: str) -> bool:
-                url_lower = url.lower()
-                has_category = any(ind in url_lower for ind in category_indicators)
-                has_product = any(ind in url_lower for ind in product_indicators)
-                if has_category and not has_product:
-                    return False
-                return has_product or len(url.split('/')) > 5
-
-            def score_url(url: str) -> int:
-                url_lower = url.lower()
-                score = 0
-                if any(ind in url_lower for ind in product_indicators):
-                    score += 10
-                if any(ind in url_lower for ind in category_indicators):
-                    score -= 5
-                if len(url.split('/')) > 5:
-                    score += 3
-                ecommerce_domains = ['trendyol.com', 'hepsiburada.com', 'n11.com',
-                                     'gittigidiyor.com', 'amazon.com', 'zara.com',
-                                     'mango.com', 'hm.com', 'lcwaikiki.com']
-                if any(domain in url_lower for domain in ecommerce_domains):
-                    score += 2
-                return score
-
-            candidate_urls = []
-
-            inline_images = data.get('inline_images', [])
-            for img_result in inline_images:
-                url = img_result.get('link') or img_result.get('source') or img_result.get('url')
-                if url and url.startswith('http'):
-                    candidate_urls.append(url)
-
-            results = data.get('results', [])
-            for result in results:
-                url = result.get('link') or result.get('url')
-                if url and url.startswith('http'):
-                    candidate_urls.append(url)
-
-            visual_matches = data.get('visual_matches', [])
-            for match in visual_matches:
-                url = match.get('link') or match.get('url')
-                if url and url.startswith('http'):
-                    candidate_urls.append(url)
-
-            if not candidate_urls:
-                return None
-
-            scored_urls = [(url, score_url(url)) for url in candidate_urls]
-            scored_urls.sort(key=lambda x: x[1], reverse=True)
-
-            best_url, best_score = scored_urls[0]
-
-            if is_product_page(best_url) or best_score >= 5:
-                logger.info(f"✅ SerpApi ürün sayfası bulundu (skor: {best_score}): {best_url}")
-                return best_url
-            elif len(scored_urls) > 1:
-                second_url, second_score = scored_urls[1]
-                if second_score > best_score - 2:
-                    return second_url
-
-            return best_url
-
-        elif response.status_code == 401:
-            logger.warning("SerpApi yetkilendirme hatası.")
-            return None
-        else:
-            return None
-
-    except Exception as e:
-        logger.warning(f"SerpApi bağlantı hatası: {e}")
-        return None
-
-
 # [MEVCUT] GPT-4o Vision ile Akıllı Görsel Doğrulama
 def validate_images_with_vision(image_urls: List[str]) -> List[str]:
     if not image_urls or not openai_client:
@@ -427,28 +297,85 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
         image_to_page_map = {}
 
         for q in queries:
-            try:
-                response = tavily_client.search(
-                    query=q,
-                    search_depth="advanced",
-                    include_images=True,
-                    max_results=4
-                )
-                query_results = response.get('results', [])
-                all_results.extend(query_results)
-
-                page_urls = [res.get('url', '') for res in query_results if res.get('url', '').startswith('http')]
-
-                raw_imgs = response.get('images', [])
-                for img_url in raw_imgs:
-                    if img_url and img_url.startswith("http"):
-                        raw_image_pool.append(img_url)
-                        if img_url not in image_to_page_map and page_urls:
-                            image_to_page_map[img_url] = page_urls[0]
-            except Exception as inner_e:
-                # [LOG GERİ GELDİ] Silinen log satırı burasıydı.
-                logger.warning(f"Tavily sorgu hatası ({q}): {inner_e}")
-                continue
+            # Retry mekanizması ile tutarlılık
+            max_retries = getattr(settings, 'tavily_max_retries', 2)
+            query_success = False
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    # Tavily'in yerleşik özelliklerini kullan
+                    search_params = {
+                        "query": q,
+                        "search_depth": "advanced",
+                        "include_images": True,
+                        "max_results": 4,
+                        "include_answer": getattr(settings, 'tavily_include_answer', True),  # Tavily'in özet cevabı
+                    }
+                    
+                    # Domain filtresi (eğer ayarlanmışsa)
+                    allowed_domains = getattr(settings, 'tavily_domains_list', [])
+                    if allowed_domains:
+                        search_params["include_domains"] = allowed_domains
+                        logger.info(f"🔒 Domain filtresi aktif: {len(allowed_domains)} site ({', '.join(allowed_domains[:3])}...)")
+                    
+                    # Ham içerik (opsiyonel, daha fazla veri için)
+                    if getattr(settings, 'tavily_include_raw_content', False):
+                        search_params["include_raw_content"] = True
+                    
+                    response = tavily_client.search(**search_params)
+                    
+                    # Tavily'in özet cevabını kullan (tutarlılık için)
+                    answer = response.get('answer', '')
+                    if answer:
+                        context_data += f"### TAVILY ÖZET: {q} ###\n{answer}\n\n"
+                    
+                    query_results = response.get('results', [])
+                    
+                    # Score filtresi - Tavily'in yerleşik score'una göre filtrele
+                    min_score = getattr(settings, 'tavily_min_score', 0.75)
+                    guvenilir_sonuclar = [
+                        res for res in query_results 
+                        if res.get('score', 0.0) > min_score
+                    ]
+                    
+                    # Eğer yeterli sonuç yoksa, eşiği düşür
+                    if len(guvenilir_sonuclar) < 2:
+                        guvenilir_sonuclar = [
+                            res for res in query_results 
+                            if res.get('score', 0.0) > 0.5
+                        ]
+                        logger.info(f"📊 Tavily score filtresi (düşük eşik): {len(guvenilir_sonuclar)}/{len(query_results)} sonuç güvenilir (score > 0.5)")
+                    else:
+                        logger.info(f"📊 Tavily score filtresi: {len(guvenilir_sonuclar)}/{len(query_results)} sonuç güvenilir (score > {min_score})")
+                    
+                    # Score'a göre sırala (yüksekten düşüğe)
+                    guvenilir_sonuclar.sort(key=lambda x: x.get('score', 0.0), reverse=True)
+                    all_results.extend(guvenilir_sonuclar)
+                    
+                    # Sayfa URL'lerini topla
+                    page_urls = [res.get('url', '') for res in guvenilir_sonuclar if res.get('url', '').startswith('http')]
+                    
+                    # Görselleri topla
+                    raw_imgs = response.get('images', [])
+                    for img_url in raw_imgs:
+                        if img_url and img_url.startswith("http"):
+                            raw_image_pool.append(img_url)
+                            if img_url not in image_to_page_map and page_urls:
+                                image_to_page_map[img_url] = page_urls[0]
+                    
+                    query_success = True
+                    break  # Başarılı, retry döngüsünden çık
+                    
+                except Exception as inner_e:
+                    if attempt < max_retries:
+                        logger.warning(f"Tavily sorgu hatası (deneme {attempt + 1}/{max_retries + 1}): {inner_e}")
+                        time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                    else:
+                        logger.error(f"Tavily sorgu hatası ({q}): {inner_e} - Tüm denemeler başarısız")
+                        continue
+            
+            if not query_success:
+                logger.warning(f"⚠️ Sorgu başarısız, atlanıyor: {q}")
 
         # --- GÖRSEL FİLTRELEME İŞLEMİ ---
         candidates_level_1 = [
@@ -462,39 +389,43 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
         final_market_images = validate_images_with_vision(unique_candidates)
         logger.info(f"✅ Vision API doğrulaması tamamlandı: {len(final_market_images)} görsel onaylandı")
 
-        # SerpApi Reverse Search
-        logger.info(f"🔍 SerpApi reverse search ile {len(final_market_images)} görsel için kaynak sayfası aranıyor...")
-        serp_api_enabled = bool(settings.serp_api_key)
-
+        # Tavily'den gelen eşleştirmeyi kullan
         market_images_result = []
-        for idx, img_url in enumerate(final_market_images):
-            source_page = None
-
-            if serp_api_enabled:
-                try:
-                    # Not: Burada performans için ThreadPoolExecutor kullanılabilir
-                    source_page = get_image_source_page_with_serp(img_url)
-                except Exception as e:
-                    logger.warning(f"SerpApi hatası (görsel {idx + 1}): {e}")
-                    source_page = None
-
-            if not source_page:
-                source_page = image_to_page_map.get(img_url, img_url)
-
+        for img_url in final_market_images:
+            source_page = image_to_page_map.get(img_url, img_url)
             market_images_result.append({
                 'img': img_url,
                 'page': source_page
             })
 
-        # Metin Verilerini İşle
+        # Score'a göre tüm sonuçları tekrar sırala (tutarlılık için)
+        all_results.sort(key=lambda x: x.get('score', 0.0), reverse=True)
+        
+        # Duplicate removal - URL bazlı (tutarlılık için)
+        seen_urls = set()
+        unique_results = []
+        for res in all_results:
+            url = res.get('url', '')
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                unique_results.append(res)
+        
+        logger.info(f"🔄 Duplicate removal: {len(all_results)} -> {len(unique_results)} sonuç")
+        all_results = unique_results
+
+        # Metin Verilerini İşle (Score bilgisi ile)
         for i, res in enumerate(all_results):
             url = res.get('url', '')
             if not url.startswith('http'): continue
 
+            score = res.get('score', 0.0)
+            score_emoji = "🟢" if score >= 0.75 else "🟡" if score >= 0.5 else "🔴"
+
             context_data += f"--- SONUÇ ID: {i + 1} ---\n"
             context_data += f"BAŞLIK: {res.get('title', 'Başlıksız')}\n"
             context_data += f"İÇERİK: {res.get('content', '')}\n"
-            context_data += f"TAM_URL: {url}\n\n"
+            context_data += f"TAM_URL: {url}\n"
+            context_data += f"TAVILY_SCORE: {score:.2f} {score_emoji}\n\n"
 
         context_data += "### PAZAR GÖRSEL HAVUZU (DOĞRULANMIŞ) ###\n"
         limited_images = market_images_result[:12]

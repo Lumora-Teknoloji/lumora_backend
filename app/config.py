@@ -32,7 +32,19 @@ class Settings(BaseSettings):
     fal_base_url: str = "https://fal.run"  # Yeni fal.run taban URL
     fal_model_path: str = "fal-ai/flux/dev"  # Model yolu (fal_client ile birebir)
     
-    serp_api_key: str = ""  # SerpApi Key (Opsiyonel - Resim doğrulama için)
+    # Tavily Ayarları - Tutarlılık için
+    tavily_min_score: float = 0.75  # Minimum Tavily score (0.0-1.0) - Güvenilirlik filtresi
+    tavily_allowed_domains: str = "trendyol.com,hepsiburada.com,n11.com,gittigidiyor.com,amazon.com,amazon.com.tr,zara.com,mango.com,hm.com,lcwaikiki.com,modanisa.com,vakko.com,beymen.com,defacto.com,koton.com,mavi.com,bershka.com,pullandbear.com,stradivarius.com,massimodutti.com,oysho.com,zarahome.com"  # Virgülle ayrılmış domain listesi (boşsa tüm siteler)
+    tavily_include_answer: bool = True  # Tavily'in özet cevabını dahil et
+    tavily_include_raw_content: bool = False  # Ham içerik dahil et (daha fazla veri, daha yavaş)
+    tavily_max_retries: int = 2  # Başarısız sorgular için retry sayısı
+
+    @property
+    def tavily_domains_list(self) -> list[str]:
+        """Tavily için izin verilen domain'leri döndürür."""
+        if self.tavily_allowed_domains:
+            return [domain.strip() for domain in self.tavily_allowed_domains.split(",") if domain.strip()]
+        return []  # Boşsa tüm siteler
 
     @property
     def allowed_origins(self) -> list[str]:
