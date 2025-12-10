@@ -2,13 +2,11 @@
 Research & Reporting - Veri toplama ve raporlama
 """
 import logging
-import concurrent.futures
 from typing import List, Dict, Any
 from .clients import tavily_client, openai_client
 from .images import (
     is_quality_fashion_image,
-    validate_images_with_vision,
-    get_image_source_page_with_serp
+    validate_images_with_vision
 )
 from ..config import settings
 
@@ -113,28 +111,12 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
         # Vision boş dönerse unique listeyi kullan
         final_market_images = validate_images_with_vision(unique, filter_type="market") or unique[:10]
 
-        if settings.serp_api_key and final_market_images:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                f_to_url = {
-                    executor.submit(get_image_source_page_with_serp, url): url
-                    for url in final_market_images
-                }
-                for f in concurrent.futures.as_completed(f_to_url):
-                    img = f_to_url[f]
-                    try:
-                        page = f.result()
-                    except Exception:
-                        page = None
-                    market_images_result.append({
-                        'img': img,
-                        'page': page or image_to_page_map.get(img, img)
-                    })
-        else:
-            for img in final_market_images:
-                market_images_result.append({
-                    'img': img,
-                    'page': image_to_page_map.get(img, img)
-                })
+        # Tavily'den gelen sayfa URL'lerini kullan
+        for img in final_market_images:
+            market_images_result.append({
+                'img': img,
+                'page': image_to_page_map.get(img, img)
+            })
 
         return {"context": context_data, "market_images": market_images_result[:10]}
     except Exception as e:

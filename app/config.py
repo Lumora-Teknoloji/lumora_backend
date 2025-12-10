@@ -31,8 +31,6 @@ class Settings(BaseSettings):
     fal_api_key: str = "68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c"
     fal_base_url: str = "https://fal.run"  # Yeni fal.run taban URL
     fal_model_path: str = "fal-ai/flux/dev"  # Model yolu (fal_client ile birebir)
-    
-    serp_api_key: str = ""  # SerpApi Key (Opsiyonel - Resim doğrulama için)
 
     @property
     def allowed_origins(self) -> list[str]:
