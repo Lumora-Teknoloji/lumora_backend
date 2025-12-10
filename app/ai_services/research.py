@@ -156,6 +156,9 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     [[RUNWAY_VISUAL_1]]
     [[RUNWAY_VISUAL_2]]
     
+    ## 📈 BÖLÜM 1.1: SOSYAL MEDYA VE INFLUENCER ETKİLERİ
+    (Sosyal medya akımları TikTok, Pinterest Instagram vs. , influencer ve kumaş tercihleri hakkında bilgi ver) 
+    
     ## 📈 BÖLÜM 2: TİCARİ TRENDLER
     (Analiz, sosyal medya akımları, influencer ve kumaş tercihleri hakkında bilgi ver) 
     
