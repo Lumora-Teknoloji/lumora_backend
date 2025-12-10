@@ -69,3 +69,5 @@ temp/
 *.bak
 *.swp
 
+#staic
+static/

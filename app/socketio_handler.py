@@ -11,7 +11,7 @@ import asyncio
 from .database import get_db
 from .models import Conversation, Message, User
 from .config import settings
-from .ai_service import generate_ai_response
+from .ai_services import generate_ai_response
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +261,7 @@ async def user_message(sid, data):
             logger.error(f"AI yanıt üretme hatası: {e}", exc_info=True)
             ai_response_text = f"Mesajınızı aldım: {message_text}"
             if image_url:
-                ai_response_text += f"\nGörsel URL: {image_url}"
+                ai_response_text += f".Görsel URL: {image_url}"
             ai_image_urls = []
             ai_image_links = {}
         
@@ -347,7 +347,7 @@ async def user_message(sid, data):
             logger.error(f"AI yanıt üretme hatası: {e}", exc_info=True)
             ai_response_text = f"Mesajınızı aldım: {message_text}"
             if image_url:
-                ai_response_text += f"\nGörsel URL: {image_url}"
+                ai_response_text += f".Görsel URL: {image_url}"
             ai_image_urls = []
             ai_image_links = {}
         
