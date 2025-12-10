@@ -3,6 +3,7 @@ Orchestrator - Ana AI yanıt üretimi orkestrasyonu
 """
 import asyncio
 import logging
+import re
 from typing import List, Dict, Any
 from .clients import openai_client
 from .intent import analyze_user_intent, handle_general_chat, handle_follow_up
@@ -95,8 +96,10 @@ async def generate_ai_response(
     # AI görsel üretimi (FAL API key varsa)
     should_gen = bool(settings.fal_api_key)
     ai_generated_items = []
+    visual_card_items = []  # BÖLÜM 4 için ekstra görseller
 
     if should_gen:
+        # Başta üretilen görseller (genel kullanım için)
         p_items = await loop.run_in_executor(None, generate_image_prompts, final_report)
         # Eğer rapordan prompt çıkmazsa, kullanıcı mesajından üret
         if not p_items:
@@ -113,54 +116,231 @@ async def generate_ai_response(
 
         ai_generated_items = await loop.run_in_executor(None, generate_ai_images, p_items)
 
+        # BÖLÜM 4 için ekstra görsel üretimi
+        # Rapordaki BÖLÜM 4 kısmını çıkar
+        section_4_start = final_report.find("## 🏆 BÖLÜM 4: TOP 5 TİCARİ MODEL")
+        section_5_start = final_report.find("## 🛍️ BÖLÜM 5")
+        
+        if section_4_start != -1:
+            section_4_text = (
+                final_report[section_4_start:section_5_start] 
+                if section_5_start != -1 
+                else final_report[section_4_start:]
+            )
+            
+            # BÖLÜM 4'ten 5 model için prompt üret
+            visual_card_prompts = await loop.run_in_executor(
+                None, 
+                generate_image_prompts, 
+                section_4_text
+            )
+            
+            # Eğer prompt çıkmazsa, rapordaki model isimlerinden üret
+            if not visual_card_prompts or len(visual_card_prompts) < 5:
+                # Model başlıklarını bul - hem ### 1. hem de 1. formatını destekle
+                model_pattern = r'(?:###\s+)?(\d+)\.\s*([^\n]+)'
+                models = re.findall(model_pattern, section_4_text)
+                
+                logger.info(f"BÖLÜM 4'ten {len(models)} model bulundu")
+                
+                visual_card_prompts = []
+                for idx, (num, model_name) in enumerate(models[:5], 1):
+                    model_name_clean = model_name.strip()
+                    visual_card_prompts.append({
+                        "model_name": model_name_clean,
+                        "ref_id": f"IMG_REF_{idx}",
+                        "prompt": f"Professional fashion product photography of {model_name_clean}, e-commerce style, studio lighting, 8k"
+                    })
+                
+                logger.info(f"BÖLÜM 4 için {len(visual_card_prompts)} prompt oluşturuldu")
+            
+            # Promptları zenginleştir
+            for p in visual_card_prompts[:5]:
+                p['prompt'] = f"{p.get('prompt', '')}, {style}"
+            
+            # BÖLÜM 4 için ekstra görselleri üret
+            visual_card_items = await loop.run_in_executor(
+                None, 
+                generate_ai_images, 
+                visual_card_prompts[:5]
+            )
+            logger.info(f"BÖLÜM 4 için {len(visual_card_items)} görsel üretildi")
+        else:
+            logger.warning("BÖLÜM 4 bulunamadı, ekstra görsel üretilmeyecek")
+
     # Görsel entegrasyonu
     final_content = final_report
     runway_imgs = runway_res.get("runway_images", [])
 
-    # Defile görselleri
-    for i in range(1, 3):
+    # Defile görselleri - Minimum 2, maksimum 5 görsel göster
+    # Eğer 2'den az görsel varsa, mevcut olanları göster
+    # Eğer 5'ten fazla varsa, ilk 5'ini göster
+    runway_count = max(2, min(len(runway_imgs), 5))  # En az 2, en fazla 5
+    
+    for i in range(1, runway_count + 1):
         ph = f"[[RUNWAY_VISUAL_{i}]]"
         if i <= len(runway_imgs):
             final_content = final_content.replace(ph, f"![Defile {i}]({runway_imgs[i - 1]})")
         else:
             final_content = final_content.replace(ph, "")
+    
+    # Kalan placeholder'ları temizle (eğer 5'ten fazla varsa veya LLM fazla placeholder eklediyse)
+    for i in range(runway_count + 1, 6):
+        ph = f"[[RUNWAY_VISUAL_{i}]]"
+        final_content = final_content.replace(ph, "")
 
-    # AI / Pazar görselleri
+    # AI / Pazar görselleri - Her model için market görseli + AI görseli
+    # BÖLÜM 4 için ekstra üretilen görselleri kullan
     for i in range(1, 6):
         ph = f"[[VISUAL_CARD_{i}]]"
-        ai_item = ai_generated_items[i - 1] if i <= len(ai_generated_items) else None
-
+        # Önce BÖLÜM 4 için üretilen görselleri kullan, yoksa başta üretilenleri kullan
+        ai_item = visual_card_items[i - 1] if i <= len(visual_card_items) else (
+            ai_generated_items[i - 1] if i <= len(ai_generated_items) else None
+        )
+        
         replacement = ""
-        if ai_item:
-            ai_url = ai_item.get("url")
+        ai_url = ai_item.get("url") if ai_item else None
+        
+        # Market görseli bulma stratejisi:
+        # 1. Önce AI item'ın ref_id'si ile eşleşen market görselini bul
+        # 2. Eğer bulunamazsa, sırayla market görsellerinden birini kullan
+        m_url = ""
+        m_page = ""
+        
+        if ai_item and ai_item.get("ref_id"):
+            # ref_id ile eşleşen market görselini bul
             m_url = ref_lookup.get(ai_item.get("ref_id"), "")
-            m_page = next((d['page'] for d in market_images if d['img'] == m_url), m_url)
-
-            if m_url and ai_url:
+            if m_url:
+                m_page = next((d['page'] for d in market_images if d['img'] == m_url), m_url)
+        
+        # Eğer ref_id ile eşleşen görsel bulunamadıysa, sırayla market görsellerinden birini kullan
+        if not m_url and i <= len(market_images):
+            market_item = market_images[i - 1]
+            m_url = market_item.get('img', '')
+            m_page = market_item.get('page', m_url)
+        
+        # Görsel gösterimi - Her model için mutlaka görsel göster
+        # ai_url None olabilir (hata durumunda), bu yüzden kontrol et
+        if m_url and ai_url:
+            # Hem market hem AI görseli var - yan yana göster
+            replacement = (
+                f"\n| Çok Satan Ürün | AI Tasarım ({ai_item.get('model_name', 'Model') if ai_item else 'Model'}) |\n"
+                f"|:---:|:---:|\n"
+                f"| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> | "
+                f"<img src='{ai_url}' width='200'/> |\n"
+            )
+        elif m_url:
+            # Sadece market görseli var
+            replacement = (
+                f"\n| Çok Satan Ürün |\n"
+                f"|:---:|\n"
+                f"| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> |\n"
+            )
+        elif ai_url:
+            # Sadece AI görseli var (ve None değil)
+            replacement = (
+                f"\n| AI Tasarım ({ai_item.get('model_name', 'Model') if ai_item else 'Model'}) |\n"
+                f"|:---:|\n"
+                f"| <img src='{ai_url}' width='200'/> |\n"
+            )
+        elif market_images and i <= len(market_images):
+            # Hiçbiri yoksa bile, market görsellerinden birini göster
+            market_item = market_images[i - 1]
+            m_url = market_item.get('img', '')
+            m_page = market_item.get('page', m_url)
+            if m_url:
                 replacement = (
-                    f"\n| Pazar Ref. | AI Tasarım ({ai_item.get('model_name')}) |\n"
-                    f"|:---:|:---:|\n"
-                    f"| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> | "
-                    f"<img src='{ai_url}' width='200'/> |\n"
-                )
-            elif ai_url:
-                replacement = (
-                    f"\n| AI Tasarım ({ai_item.get('model_name')}) |\n"
+                    f"\n| Çok Satan Ürün |\n"
                     f"|:---:|\n"
-                    f"| <img src='{ai_url}' width='200'/> |\n"
+                    f"| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> |\n"
                 )
 
-        final_content = final_content.replace(ph, replacement)
+        # Placeholder'ı değiştir
+        if replacement:
+            final_content = final_content.replace(ph, replacement)
+        else:
+            # Placeholder yoksa bile temizle
+            final_content = final_content.replace(ph, "")
 
-        # Eğer LLM placeholder'ı unuttuysa ve görsel varsa, sona ekle
-        if ai_item and ph not in final_report:
-            final_content += f"\n\n### Ek Model Görseli {i}\n{replacement}"
+    # LLM placeholder'ları unuttuysa, her model başlığının altına görsel ekle
+    # Model başlıklarını bul ve görselleri ekle
+    for i in range(1, 6):
+        model_header_pattern = f"### {i}."
+        # Eğer bu model başlığının altında görsel yoksa ekle
+        if model_header_pattern in final_content:
+            # Model başlığının konumunu bul
+            header_index = final_content.find(model_header_pattern)
+            if header_index != -1:
+                # Bir sonraki model başlığına kadar olan kısmı al
+                next_header_index = final_content.find(f"### {i+1}.", header_index + 1)
+                if next_header_index == -1:
+                    next_header_index = final_content.find("## 🛍️ BÖLÜM 5", header_index + 1)
+                if next_header_index == -1:
+                    next_header_index = len(final_content)
+                
+                model_section = final_content[header_index:next_header_index]
+                
+                # Eğer bu bölümde görsel yoksa ekle
+                if "img src" not in model_section and "VISUAL_CARD" not in model_section:
+                    # Önce BÖLÜM 4 için üretilen görselleri kullan
+                    ai_item = visual_card_items[i - 1] if i <= len(visual_card_items) else (
+                        ai_generated_items[i - 1] if i <= len(ai_generated_items) else None
+                    )
+                    ai_url = ai_item.get("url") if ai_item else None
+                    
+                    # Market görseli bul
+                    m_url = ""
+                    m_page = ""
+                    if ai_item and ai_item.get("ref_id"):
+                        m_url = ref_lookup.get(ai_item.get("ref_id"), "")
+                        if m_url:
+                            m_page = next((d['page'] for d in market_images if d['img'] == m_url), m_url)
+                    
+                    if not m_url and i <= len(market_images):
+                        market_item = market_images[i - 1]
+                        m_url = market_item.get('img', '')
+                        m_page = market_item.get('page', m_url)
+                    
+                    # Görsel ekle
+                    if m_url or ai_url:
+                        visual_html = ""
+                        if m_url and ai_url:
+                            visual_html = (
+                                f"\n| Çok Satan Ürün | AI Tasarım ({ai_item.get('model_name', 'Model') if ai_item else 'Model'}) |\n"
+                                f"|:---:|:---:|\n"
+                                f"| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> | "
+                                f"<img src='{ai_url}' width='200'/> |\n"
+                            )
+                        elif m_url:
+                            visual_html = (
+                                f"\n| Çok Satan Ürün |\n"
+                                f"|:---:|\n"
+                                f"| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> |\n"
+                            )
+                        elif ai_url:
+                            visual_html = (
+                                f"\n| AI Tasarım ({ai_item.get('model_name', 'Model') if ai_item else 'Model'}) |\n"
+                                f"|:---:|\n"
+                                f"| <img src='{ai_url}' width='200'/> |\n"
+                            )
+                        
+                        # Model açıklamasının sonuna görsel ekle
+                        # Açıklama genellikle * ile başlar ve biter
+                        desc_end = model_section.rfind("*")
+                        if desc_end != -1:
+                            # Açıklamanın sonunu bul
+                            line_end = model_section.find("\n", desc_end)
+                            if line_end == -1:
+                                line_end = len(model_section)
+                            insert_pos = header_index + line_end + 1
+                            final_content = final_content[:insert_pos] + visual_html + final_content[insert_pos:]
 
     final_content = _remove_non_http_images(final_content)
 
     combined_images = (
         [d['img'] for d in market_images] +
         [d['url'] for d in ai_generated_items] +
+        [d['url'] for d in visual_card_items] +  # BÖLÜM 4 görsellerini de ekle
         runway_imgs
     )
     image_links = {img: None for img in combined_images}

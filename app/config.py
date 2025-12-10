@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # AI API Keys (opsiyonel - yoksa AI özellikleri çalışmaz)
     openai_api_key: str = "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"
     tavily_api_key: str = "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"
-    fal_api_key: str = "68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c"
+    fal_api_key: str = "068a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c"
     fal_base_url: str = "https://fal.run"  # Yeni fal.run taban URL
     fal_model_path: str = "fal-ai/flux/dev"  # Model yolu (fal_client ile birebir)
 

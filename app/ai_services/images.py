@@ -78,7 +78,8 @@ def validate_images_with_vision(image_urls: List[str], filter_type: str = "marke
     if filter_type == "runway":
         prompt_text = "Select indices of images that are ONLY professional RUNWAY/CATWALK photos. Exclude product shots, selfies, text. JSON list of ints only."
     else:
-        prompt_text = "Select indices of images that are ONLY clear fashion PRODUCT photography (garments on models/mannequins). Exclude logos, banners. JSON list of ints only."
+        # Market için daha net: Sadece ürün görselleri
+        prompt_text = "Select indices of images that are ONLY fashion PRODUCT photography (garments/products on models/mannequins/white background). Exclude runway photos, logos, banners, lifestyle shots. JSON list of ints only."
 
     messages_content = [{"type": "text", "text": prompt_text}]
 
@@ -153,6 +154,41 @@ def extract_visual_style(user_text: str) -> str:
         return ""
 
 
+def validate_single_image_is_dress(image_url: str) -> bool:
+    """Tek bir görselin elbise olup olmadığını Vision API ile kontrol eder"""
+    if not image_url or not openai_client:
+        return False
+    
+    try:
+        prompt_text = (
+            "Is this image showing a DRESS or GARMENT (clothing item)? "
+            "Respond with ONLY 'yes' if it's a dress/garment, 'no' otherwise. "
+            "Exclude non-clothing items, abstract art, text-only images."
+        )
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt_text},
+                    {"type": "image_url", "image_url": {"url": image_url, "detail": "low"}}
+                ]
+            }],
+            max_tokens=10,
+            temperature=0.0
+        )
+        
+        result = response.choices[0].message.content.strip().lower()
+        is_dress = "yes" in result or "true" in result
+        logger.info(f"Vision kontrolü: {image_url[:50]}... -> {'Elbise ✅' if is_dress else 'Elbise değil ❌'}")
+        return is_dress
+    except Exception as e:
+        logger.error(f"Vision kontrol hatası: {e}")
+        # Hata durumunda varsayılan olarak True döndür (görseli kabul et)
+        return True
+
+
 def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     """FAL AI ile görsel üretir"""
     if not settings.fal_api_key:
@@ -164,21 +200,35 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, Any
         "Content-Type": "application/json"
     }
 
-    for item in prompt_items[:5]:
+    for idx, item in enumerate(prompt_items[:5], 1):
         try:
             prompt = item.get("prompt", "") + ", hyper-realistic, 8k, e-commerce style"
+            logger.info(f"Görsel {idx}/5 üretiliyor: {item.get('model_name', 'Unknown')}")
             res = requests.post(
                 "https://fal.run/fal-ai/flux/dev",
                 headers=headers,
                 json={"prompt": prompt, "image_size": "portrait_4_3"},
                 timeout=30
             )
-            url = res.json().get("images")[0].get("url")
-            if url:
-                results.append({**item, "url": url})
+            if res.status_code == 200:
+                response_data = res.json()
+                images = response_data.get("images", [])
+                if images and len(images) > 0:
+                    url = images[0].get("url")
+                    if url:
+                        results.append({**item, "url": url})
+                        logger.info(f"✅ Görsel {idx} başarıyla üretildi")
+                    else:
+                        logger.warning(f"⚠️ Görsel {idx} için URL bulunamadı")
+                else:
+                    logger.warning(f"⚠️ Görsel {idx} için images array boş")
+            else:
+                logger.error(f"❌ Görsel {idx} üretme hatası: HTTP {res.status_code}")
         except Exception as e:
-            logger.error(f"AI görsel üretme hatası: {e}")
-            pass
+            logger.error(f"❌ Görsel {idx} üretme hatası: {e}")
+            # Hata olsa bile item'ı ekle (URL olmadan) ki sıralama bozulmasın
+            results.append({**item, "url": None})
     
+    logger.info(f"Toplam {len(results)} görsel üretildi (başarılı: {sum(1 for r in results if r.get('url'))})")
     return results
 

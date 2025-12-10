@@ -6,7 +6,8 @@ from typing import List, Dict, Any
 from .clients import tavily_client, openai_client
 from .images import (
     is_quality_fashion_image,
-    validate_images_with_vision
+    validate_images_with_vision,
+    validate_single_image_is_dress
 )
 from ..config import settings
 
@@ -54,8 +55,30 @@ def analyze_runway_trends(topic: str) -> Dict[str, Any]:
 
         filtered = [img for img in raw_runway_images if is_quality_fashion_image(img)]
         unique = list(set(filtered))
-        # Vision boş dönerse filtered listeyi kullan
-        final_imgs = validate_images_with_vision(unique, filter_type="runway") or unique[:4]
+        
+        # Vision API ile elbise kontrolü yap - Tavily görsellerini filtrele
+        # Önce genel filtreleme (runway görselleri)
+        validated_imgs = validate_images_with_vision(unique, filter_type="runway") or unique
+        
+        # Sonra her görseli tek tek elbise kontrolünden geçir
+        dress_images = []
+        for img_url in validated_imgs:
+            if validate_single_image_is_dress(img_url):
+                dress_images.append(img_url)
+                if len(dress_images) >= 5:  # 5 elbise bulduk, dur
+                    break
+        
+        # Eğer 5 elbise bulunamadıysa, validated_imgs'den devam et
+        if len(dress_images) < 5:
+            for img_url in validated_imgs:
+                if img_url not in dress_images:
+                    dress_images.append(img_url)
+                    if len(dress_images) >= 5:
+                        break
+        
+        # Tavily'den çekilen görselleri sınırlamıyoruz, orchestrator'da sınırlanacak
+        final_imgs = dress_images
+        logger.info(f"Runway görsellerinden {len(final_imgs)} elbise görseli seçildi")
 
         return {"context": runway_context, "runway_images": final_imgs}
     except Exception as e:
@@ -108,8 +131,30 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
 
         candidates = [img for img in raw_image_pool if is_quality_fashion_image(img)]
         unique = list(set(candidates))
-        # Vision boş dönerse unique listeyi kullan
-        final_market_images = validate_images_with_vision(unique, filter_type="market") or unique[:10]
+        
+        # Vision API ile elbise kontrolü yap - Tavily görsellerini filtrele
+        # Önce genel filtreleme (ürün görselleri)
+        validated_imgs = validate_images_with_vision(unique, filter_type="market") or unique
+        
+        # Sonra her görseli tek tek elbise kontrolünden geçir
+        dress_images = []
+        for img_url in validated_imgs:
+            if validate_single_image_is_dress(img_url):
+                dress_images.append(img_url)
+                if len(dress_images) >= 5:  # 5 elbise bulduk, dur
+                    break
+        
+        # Eğer 5 elbise bulunamadıysa, validated_imgs'den devam et
+        if len(dress_images) < 5:
+            for img_url in validated_imgs:
+                if img_url not in dress_images:
+                    dress_images.append(img_url)
+                    if len(dress_images) >= 5:
+                        break
+        
+        # Market görselleri: Fix 5 elbise görseli
+        final_market_images = dress_images[:5]
+        logger.info(f"Tavily görsellerinden {len(final_market_images)} elbise görseli seçildi")
 
         # Tavily'den gelen sayfa URL'lerini kullan
         for img in final_market_images:
@@ -118,7 +163,7 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
                 'page': image_to_page_map.get(img, img)
             })
 
-        return {"context": context_data, "market_images": market_images_result[:10]}
+        return {"context": context_data, "market_images": market_images_result}
     except Exception as e:
         logger.error(f"Market araştırması hatası: {e}")
         return {"context": str(e), "market_images": []}
