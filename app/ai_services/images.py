@@ -115,7 +115,7 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     """Analiz metninden görsel prompt'ları çıkarır"""
     if not openai_client:
         return []
-    
+
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -138,7 +138,7 @@ def extract_visual_style(user_text: str) -> str:
     """Kullanıcı metninden görsel stil anahtar kelimelerini çıkarır"""
     if not openai_client:
         return ""
-    
+
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -158,14 +158,14 @@ def validate_single_image_is_dress(image_url: str) -> bool:
     """Tek bir görselin elbise olup olmadığını Vision API ile kontrol eder"""
     if not image_url or not openai_client:
         return False
-    
+
     try:
         prompt_text = (
             "Is this image showing a DRESS or GARMENT (clothing item)? "
             "Respond with ONLY 'yes' if it's a dress/garment, 'no' otherwise. "
             "Exclude non-clothing items, abstract art, text-only images."
         )
-        
+
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[{
@@ -178,7 +178,7 @@ def validate_single_image_is_dress(image_url: str) -> bool:
             max_tokens=10,
             temperature=0.0
         )
-        
+
         result = response.choices[0].message.content.strip().lower()
         is_dress = "yes" in result or "true" in result
         logger.info(f"Vision kontrolü: {image_url[:50]}... -> {'Elbise ✅' if is_dress else 'Elbise değil ❌'}")
@@ -193,7 +193,7 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, Any
     """FAL AI ile görsel üretir"""
     if not settings.fal_api_key:
         return []
-    
+
     results = []
     headers = {
         "Authorization": f"Key {settings.fal_api_key}",
@@ -228,7 +228,6 @@ def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, Any
             logger.error(f"❌ Görsel {idx} üretme hatası: {e}")
             # Hata olsa bile item'ı ekle (URL olmadan) ki sıralama bozulmasın
             results.append({**item, "url": None})
-    
+
     logger.info(f"Toplam {len(results)} görsel üretildi (başarılı: {sum(1 for r in results if r.get('url'))})")
     return results
-

@@ -3,7 +3,6 @@ Orchestrator - Ana AI yanıt üretimi orkestrasyonu
 """
 import asyncio
 import logging
-import re
 from typing import List, Dict, Any
 from .clients import openai_client
 from .intent import analyze_user_intent, handle_general_chat, handle_follow_up
@@ -11,8 +10,8 @@ from .research import (
     analyze_runway_trends,
     deep_market_research,
     generate_strategic_report,
-    extract_trend_ideas,
-    search_specific_best_seller
+    find_visual_match_for_model,
+    extract_visual_search_terms # YENİ FONKSİYON
 )
 from .images import (
     generate_image_prompts,
@@ -32,7 +31,7 @@ async def generate_ai_response(
 
     loop = asyncio.get_event_loop()
 
-    # 1. NİYET ANALİZİ
+    # 1. Niyet Analizi
     intent = await loop.run_in_executor(None, analyze_user_intent, user_message, chat_history)
 
     if intent == "GENERAL_CHAT":
@@ -41,100 +40,117 @@ async def generate_ai_response(
 
     if intent == "FOLLOW_UP":
         response_text = await handle_follow_up(user_message, chat_history)
-        return {"content": response_text, "image_urls": [], "image_links": {}, "process_log": ["Devam."]}
+        should_gen = bool(settings.fal_api_key)
+        ai_generated_items = []
+        if should_gen:
+            prompt_items = await loop.run_in_executor(None, generate_image_prompts, response_text)
+            if not prompt_items and "görsel" in user_message.lower():
+                prompt_items = [{"model_name": "Requested", "prompt": f"Fashion illustration of {user_message}"}]
+            ai_generated_items = await loop.run_in_executor(None, generate_ai_images, prompt_items)
 
-    # === MARKET RESEARCH (YENİLENMİŞ AKIŞ) ===
+        combined_images = [d['url'] for d in ai_generated_items]
+        for item in ai_generated_items:
+            response_text += f"\n\n![{item.get('model_name')}]({item['url']})"
 
-    # Adım 1: Geniş Tarama
+        return {
+            "content": response_text,
+            "image_urls": combined_images,
+            "image_links": {u: None for u in combined_images},
+            "process_log": ["Devam."]
+        }
+
+    # === MARKET RESEARCH (AKILLI CIMBIZLAMA AKIŞI) ===
+
+    # 1. Metin Verisi Topla
     f_m = loop.run_in_executor(None, deep_market_research, user_message)
     f_r = loop.run_in_executor(None, analyze_runway_trends, user_message)
     market_res, runway_res = await asyncio.gather(f_m, f_r)
 
-    base_context = f"{runway_res.get('context', '')}\n===\n{market_res.get('context', '')}"
+    full_data = f"{runway_res.get('context','')}\n===\n{market_res.get('context','')}"
 
-    # Adım 2: Trendlerden 5 Somut Model Fikri Çıkar
-    logger.info("💡 Trend fikirleri çıkarılıyor...")
-    model_ideas = await loop.run_in_executor(None, extract_trend_ideas, user_message, base_context)
+    # 2. Raporu Yazdır
+    logger.info("📝 Rapor yazılıyor...")
+    final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, full_data)
 
-    # Adım 3: Her Fikir İçin NOKTA ATIŞI Arama Yap
-    logger.info(f"🔎 {len(model_ideas)} model için özel arama başlatılıyor...")
-    specific_tasks = [loop.run_in_executor(None, search_specific_best_seller, idea) for idea in model_ideas]
-    specific_results = await asyncio.gather(*specific_tasks)
+    # 3. Rapordan Modelleri ve Arama Terimlerini Çıkar (AKILLI ADIM)
+    logger.info("🧠 Rapordan model detayları ayrıştırılıyor...")
+    # Bu fonksiyon raporu okuyup bize {name, search_query, ai_prompt} içeren temiz bir liste verecek
+    extracted_items = await loop.run_in_executor(None, extract_visual_search_terms, final_report)
 
-    # Adım 4: Raporu Yazdır (HATANIN ÇÖZÜLDÜĞÜ YER)
-    # specific_results artık doğru şekilde gönderiliyor
-    final_report = await loop.run_in_executor(
-        None,
-        generate_strategic_report,
-        user_message,
-        base_context,
-        specific_results
-    )
+    # Eğer çıkarılamazsa yedek
+    if not extracted_items:
+        extracted_items = [{"name": f"Model {i}", "search_query": f"{user_message} trend {i}", "ai_prompt": f"Fashion {user_message}"} for i in range(1,6)]
 
-    # Adım 5: AI Görsel (Opsiyonel / Yedek)
-    ai_generated = []
-    if settings.fal_api_key:
-        prompts = []
-        style = await loop.run_in_executor(None, extract_visual_style, user_message)
-        for item in specific_results:
-            if item.get('search_term'):
-                prompts.append({
-                    "model_name": item['search_term'],
-                    "prompt": f"Professional product photo of {item['search_term']}, {style}, white background, 8k"
-                })
-        ai_generated = await loop.run_in_executor(None, generate_ai_images, prompts)
+    # 4. Paralel Görsel Arama ve Çizim
+    should_gen_ai = bool(settings.fal_api_key)
 
-    # Adım 6: Entegrasyon
+    tasks_real_img = []
+    tasks_ai_img = []
+
+    for item in extracted_items:
+        # A) Gerçek Görsel (LLM'in ürettiği optimize edilmiş sorgu ile)
+        tasks_real_img.append(loop.run_in_executor(None, find_visual_match_for_model, item['search_query']))
+
+        # B) AI Görsel (LLM'in ürettiği detaylı prompt ile)
+        if should_gen_ai:
+            prompt_data = [{"model_name": item['name'], "ref_id": "", "prompt": item['ai_prompt'] + ", e-commerce style, 8k"}]
+            tasks_ai_img.append(loop.run_in_executor(None, generate_ai_images, prompt_data))
+
+    logger.info("⚡ Görsel işlemleri başlatılıyor...")
+    real_images_results = await asyncio.gather(*tasks_real_img) # List[Dict]
+    ai_images_results = await asyncio.gather(*tasks_ai_img) if should_gen_ai else [] # List[List[Dict]]
+
+    # 5. Entegrasyon
     final_content = final_report
     runway_imgs = runway_res.get("runway_images", [])
 
     # Defile Görselleri
     for i in range(1, 4):
         ph = f"[[RUNWAY_VISUAL_{i}]]"
-        if i <= len(runway_imgs):
-            final_content = final_content.replace(ph, f"![Defile {i}]({runway_imgs[i-1]})")
-        else:
-            final_content = final_content.replace(ph, "")
+        if i <= len(runway_imgs): final_content = final_content.replace(ph, f"![Defile {i}]({runway_imgs[i-1]})")
+        else: final_content = final_content.replace(ph, "")
 
     # Model Görselleri
     for i in range(1, 6):
         ph = f"[[VISUAL_CARD_{i}]]"
 
-        real_data = specific_results[i-1] if i <= len(specific_results) else {}
-        ai_data = ai_generated[i-1] if i <= len(ai_generated) else {}
+        # Listeden verileri al
+        item_info = extracted_items[i-1] if i <= len(extracted_items) else {"name": f"Model {i}"}
+        real_data = real_images_results[i-1] if i <= len(real_images_results) else {}
 
-        real_img = real_data.get('img')
-        real_link = real_data.get('link')
-        ai_img = ai_data.get('url')
-        name = real_data.get('search_term', f'Model {i}')
+        ai_list = ai_images_results[i-1] if i <= len(ai_images_results) else []
+        ai_data = ai_list[0] if ai_list else {}
+
+        m_url = real_data.get('img')
+        m_page = real_data.get('page')
+        ai_url = ai_data.get('url')
+        model_name = item_info['name']
 
         replacement = ""
-        if real_img and ai_img:
-            replacement = (
-                f"\n| Çok Satan ({name}) | AI Tasarım |\n|:---:|:---:|\n"
-                f"| <a href='{real_link}' target='_blank'><img src='{real_img}' width='200'/></a> | "
-                f"<img src='{ai_img}' width='200'/> |\n"
-            )
-        elif real_img:
-            replacement = (
-                f"\n| Çok Satan ({name}) |\n|:---:|\n"
-                f"| <a href='{real_link}' target='_blank'><img src='{real_img}' width='200'/></a> |\n"
-            )
-        elif ai_img:
-            replacement = (
-                f"\n| AI Tasarım ({name}) |\n|:---:|\n"
-                f"| <img src='{ai_img}' width='200'/> |\n"
-            )
+        if m_url and ai_url:
+            replacement = f"\n| Çok Satan ({model_name}) | AI Tasarım ({model_name}) |\n|:---:|:---:|\n| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> | <img src='{ai_url}' width='200'/> |\n"
+        elif m_url:
+            replacement = f"\n| Çok Satan ({model_name}) |\n|:---:|\n| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> |\n"
+        elif ai_url:
+            replacement = f"\n| AI Tasarım ({model_name}) |\n|:---:|\n| <img src='{ai_url}' width='200'/> |\n"
 
         final_content = final_content.replace(ph, replacement)
 
+        # Placeholder yoksa başlığın altına ekle
         if replacement and ph not in final_report:
-             final_content += f"\n\n### Model {i} Görselleri\n{replacement}"
+             # Basitçe metnin sonuna ekle (daha güvenli)
+             if model_name in final_content:
+                 parts = final_content.split(model_name, 1)
+                 if len(parts) > 1:
+                     final_content = parts[0] + model_name + "\n" + replacement + parts[1]
 
     final_content = _remove_non_http_images(final_content)
 
-    all_urls = [x['url'] for x in ai_generated] + [x['img'] for x in specific_results if x.get('img')] + runway_imgs
-    link_map = {x['img']: x['link'] for x in specific_results if x.get('img')}
+    all_urls = [x.get('img') for x in real_images_results if x.get('img')] + \
+               [item['url'] for sublist in ai_images_results for item in sublist if item.get('url')] + \
+               runway_imgs
+
+    link_map = {x.get('img'): x.get('page') for x in real_images_results if x.get('img')}
     for u in all_urls:
         if u not in link_map: link_map[u] = None
 
@@ -142,5 +158,5 @@ async def generate_ai_response(
         "content": final_content,
         "image_urls": all_urls,
         "image_links": link_map,
-        "process_log": ["Analiz tamamlandı."]
+        "process_log": ["Analiz ve akıllı eşleştirme tamamlandı."]
     }

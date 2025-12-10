@@ -9,18 +9,16 @@ from .clients import tavily_client, openai_client
 from .images import (
     is_quality_fashion_image,
     validate_images_with_vision,
-    validate_single_image_is_dress
+    validate_single_image_is_dress,
+
 )
-from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 # --- MEVCUT FONKSİYONLAR ---
 
 def analyze_runway_trends(topic: str) -> Dict[str, Any]:
-    if not tavily_client:
-        return {"context": "", "runway_images": []}
-
+    if not tavily_client: return {"context": "", "runway_images": []}
     logger.info(f"👠 Podyum Analizi: {topic}")
     runway_queries = [
         f"Vogue Runway {topic} trends Spring/Summer 2026 Paris Milan -buy",
@@ -29,7 +27,6 @@ def analyze_runway_trends(topic: str) -> Dict[str, Any]:
     ]
     runway_context = "### RUNWAY DATA (HIGH FASHION ONLY) ###\n"
     raw_runway_images = []
-
     try:
         for q in runway_queries:
             try:
@@ -39,7 +36,6 @@ def analyze_runway_trends(topic: str) -> Dict[str, Any]:
                 for img in response.get('images', []):
                     if img.startswith('http'): raw_runway_images.append(img)
             except: continue
-
         filtered = [img for img in raw_runway_images if is_quality_fashion_image(img)]
         unique = list(set(filtered))
         final_imgs = validate_images_with_vision(unique, filter_type="runway") or unique[:4]
@@ -48,13 +44,10 @@ def analyze_runway_trends(topic: str) -> Dict[str, Any]:
         return {"context": f"Hata: {e}", "runway_images": []}
 
 def deep_market_research(topic: str) -> Dict[str, Any]:
-    if not tavily_client:
-        return {"context": "", "market_images": []}
-    logger.info(f"🔍 Pazar Analizi: {topic}")
-
+    if not tavily_client: return {"context": "", "market_images": []}
+    logger.info(f"🔍 Pazar Analizi (Genel): {topic}")
     queries = [f"{topic} 2026 trends consumer behavior", f"{topic} best sellers trendyol zara 2025", f"popular {topic} fabrics 2026"]
     context_data = "### MARKET DATA ###\n"
-
     try:
         for q in queries:
             try:
@@ -66,107 +59,116 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
     except Exception as e:
         return {"context": str(e), "market_images": []}
 
-# --- YENİ EKLENEN TREND VE ARAMA FONKSİYONLARI ---
+# --- YENİ: RAPORDAN AKILLI VERİ ÇIKARMA ---
 
-def extract_trend_ideas(topic: str, context_data: str) -> List[str]:
-    """Toplanan verilerden 5 trend model fikri çıkarır."""
+def extract_visual_search_terms(report_text: str) -> List[Dict[str, str]]:
+    """
+    Oluşturulan raporun 'Bölüm 4' kısmını okur ve her madde için:
+    1. Kısa Başlık (Örn: Asimetrik Abiye)
+    2. Arama Sorgusu (Örn: Asimetrik kırmızı saten abiye satın al)
+    3. AI Prompt (İngilizce detaylı tarif)
+    çıkarır. Regex yerine LLM kullanır, hatasızdır.
+    """
     if not openai_client: return []
 
-    system_prompt = "You are a Fashion Trend Analyst. Extract 5 specific commercial product types from data."
-    user_prompt = f"TOPIC: {topic}\nDATA: {context_data[:3000]}\nOutput JSON list of strings. Ex: ['Silver Dress', 'Red Bag']"
+    # Raporun sadece ilgili kısmını alalım (Token tasarrufu)
+    section_4_start = report_text.find("## 🏆 BÖLÜM 4")
+    if section_4_start == -1: return []
+    relevant_text = report_text[section_4_start:section_4_start+3000]
+
+    system_prompt = """
+    You are a Data Extractor. Analyze the "TOP 5 MODEL" section of the fashion report.
+    For EACH of the 5 models, extract:
+    1. "name": The model name (e.g. "Asimetrik Abiye").
+    2. "search_query": A specific search query to find this product on e-commerce sites (e.g. "Asimetrik tek omuz saten abiye satın al").
+    3. "ai_prompt": A detailed English prompt to generate an image of this model (e.g. "Asymmetric one shoulder satin evening dress, high quality, studio light").
+    
+    Return ONLY a JSON object with a key "items" containing the list of 5 objects.
+    """
 
     try:
-        res = openai_client.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": relevant_text}
+            ],
             response_format={"type": "json_object"}
         )
-        data = json.loads(res.choices[0].message.content)
-        items = data.get("items", []) or data.get("trends", [])
-        if isinstance(items, list) and items: return items[:5]
-        return [f"{topic} Model {i}" for i in range(1, 6)]
-    except:
-        return [f"{topic} Model {i}" for i in range(1, 6)]
+        data = json.loads(response.choices[0].message.content)
+        return data.get("items", [])
+    except Exception as e:
+        logger.error(f"Extractor hatası: {e}")
+        return []
 
-def search_specific_best_seller(model_name: str) -> Dict[str, Any]:
-    """Model adı için özel görsel ve link araması yapar."""
+# --- NOKTA ATIŞI ARAMA ---
+
+def find_visual_match_for_model(search_query: str) -> Dict[str, str]:
+    """
+    Spesifik arama sorgusu ile görsel arar.
+    """
     if not tavily_client: return {}
 
-    query = f"best selling {model_name} buy online trendyol zara 2025"
+    # Sorguyu biraz daha özelleştirelim
+    query = f"{search_query} trendyol zara modanisa 2025"
+    logger.info(f"🔎 Görsel Aranıyor: {query}")
+
     try:
         res = tavily_client.search(query=query, search_depth="advanced", include_images=True, max_results=2)
 
-        # Görsel seçimi
-        best_img = None
+        best_img = ""
+        best_link = ""
+
         candidates = [img for img in res.get('images', []) if is_quality_fashion_image(img)]
-
         if candidates:
-            # İlk adayı Vision ile kontrol et, olmazsa bile kullan (Fallback)
-            if validate_single_image_is_dress(candidates[0]):
-                best_img = candidates[0]
-            else:
-                best_img = candidates[0] # Vision reddetse bile boş kalmasın
+            # Hız için ilk adayı alıyoruz
+            best_img = candidates[0]
 
-        # Link seçimi
-        best_link = None
-        best_title = model_name
         if res.get('results'):
             best_link = res['results'][0].get('url')
-            best_title = res['results'][0].get('title')
 
-        return {
-            "search_term": model_name,
-            "real_title": best_title,
-            "img": best_img,
-            "link": best_link
-        }
-    except:
-        return {}
+        if best_img:
+            return {"img": best_img, "page": best_link}
 
-# --- GÜNCELLENEN RAPOR FONKSİYONU ---
+    except Exception as e:
+        logger.error(f"Görsel arama hatası: {e}")
 
-def generate_strategic_report(user_message: str, research_data: str, specific_products: List[Dict] = []) -> str:
-    """
-    Raporu yazar. specific_products=LISTE alarak hatayı engeller.
-    """
+    return {}
+
+# --- RAPORLAMA ---
+
+def generate_strategic_report(user_message: str, research_data: str) -> str:
     if not openai_client: return "OpenAI hatası."
-
-    products_context = "### BULUNAN GERÇEK ÇOK SATANLAR ###\n"
-    if specific_products:
-        for i, p in enumerate(specific_products):
-            products_context += f"{i+1}. {p.get('search_term')} (Link: {p.get('link')})\n"
-    else:
-        products_context = "Veri bulunamadı, genel analiz yap."
 
     system_prompt = """
     Sen Kıdemli Moda Stratejistisin.
     
-    GÖREVİN:
-    Sana verilen 'BULUNAN GERÇEK ÇOK SATANLAR' listesini kullanarak raporun 4. ve 5. bölümlerini doldur.
-    
     KURALLAR:
-    1. BÖLÜM 4'te: Sana verdiğim 5 gerçek modeli analiz et.
-    2. Görsel yer tutucularını ([[...]]) yeni satıra yaz.
+    1. Şablonu KOPYALAMA, içini GERÇEK verilerle veya mantıklı tahminlerle DOLDUR.
+    2. Bölüm 4'te 5 modeli tek tek "### 1. [Model Adı]" formatında yaz.
+    3. Görsel yer tutucularını ([[...]]) METNİN İÇİNE GÖMME, yeni satıra yaz.
     
-    RAPOR FORMATI:
+    RAPOR ŞABLONU:
     # 💎 [KONU] - 2026 VİZYON RAPORU
     
-    ## 🌍 BÖLÜM 1: DEFİLE İZLERİ
+    ## 🌍 BÖLÜM 1: GLOBAL DEFİLE İZLERİ
     (Analiz...)
     [[RUNWAY_VISUAL_1]]
     [[RUNWAY_VISUAL_2]]
     
     ## 📈 BÖLÜM 2: TİCARİ TRENDLER
-    (Analiz...)
+    (Analiz, sosyal medya akımları, influencer ve kumaş tercihleri hakkında bilgi ver) 
     
     ## 💰 BÖLÜM 3: FİYAT ANALİZİ
     | Segment | Min | Max | Ort |
     | :--- | :--- | :--- | :--- |
-    | ... | ... | ... | ... |
+    | Eko | ... | ... | ... |
+    | Orta | ... | ... | ... |
+    | Lüks | ... | ... | ... |
     
     ## 🏆 BÖLÜM 4: TOP 5 TİCARİ MODEL
     ### 1. [Model Adı]
-    * Detay: ...
+    * Detaylar...
     [[VISUAL_CARD_1]]
     
     (5'e kadar devam et)
@@ -182,7 +184,7 @@ def generate_strategic_report(user_message: str, research_data: str, specific_pr
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"KONU: {user_message}\n\n{research_data}\n\n{products_context}"}
+                {"role": "user", "content": f"KONU: {user_message}\nVERİ:\n{research_data}"}
             ],
             temperature=0.4
         )
