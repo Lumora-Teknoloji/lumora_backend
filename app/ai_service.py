@@ -6,6 +6,7 @@ import time
 import uuid
 import json
 import re
+import concurrent.futures
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from tavily import TavilyClient
@@ -35,7 +36,8 @@ def initialize_ai_clients():
     global openai_client, tavily_client
     try:
         if settings.openai_api_key:
-            openai_client = OpenAI(api_key=settings.openai_api_key, timeout=25.0)
+            # Vision işlemleri bazen uzun sürebilir, timeout artırıldı
+            openai_client = OpenAI(api_key=settings.openai_api_key, timeout=45.0)
             logger.info("✅ OpenAI Hazır")
         if settings.tavily_api_key:
             tavily_client = TavilyClient(api_key=settings.tavily_api_key)
@@ -49,28 +51,36 @@ initialize_ai_clients()
 
 # Yardımcı: HTTP olmayan markdown image'larını temizle
 def _remove_non_http_images(markdown_text: str) -> str:
+    """
+    IMG_REF_* gibi placeholder linklerden kaynaklanan kırık görselleri temizler.
+    """
     if not markdown_text: return ""
-    pattern = r'!\[[^\]]*\]\((?!https?://)[^)]+\)'
+    pattern = r'!\[[^\]]*\]\((?!https?://|http://)[^)]+\)'
     return re.sub(pattern, '', markdown_text)
 
 
-# [MEVCUT] Görsel Kalite Filtresi (String Bazlı)
+# [MEVCUT] Temel Görsel Kalite Filtresi (String Bazlı - Hızlı Eleme)
 def is_quality_fashion_image(url: str) -> bool:
     if not url: return False
     url_lower = url.lower()
 
+    # 1. Uzantı Kontrolü
     valid_extensions = ('.jpg', '.jpeg', '.png', '.webp')
-    has_valid_ext = any(ext in url_lower for ext in valid_extensions)
+    if not any(ext in url_lower for ext in valid_extensions):
+        return False
 
+    # SVG ve GIF kesinlikle yasak
     if '.svg' in url_lower or '.gif' in url_lower:
         return False
 
+    # 2. Yasaklı Kelimeler
     banned_keywords = [
         'logo', 'icon', 'avatar', 'user', 'profile', 'banner',
         'button', 'sprite', 'svg', 'loader', 'gif', 'promo',
         'footer', 'header', 'favicon', 'thumbnail', 'pixel',
         'sprite', 'blank', 'transparent', 'chart', 'size',
-        'overlay', 'track', 'adserver'
+        'overlay', 'track', 'adserver', 'placeholder', 'static',
+        'loading', 'spinner'
     ]
 
     if any(keyword in url_lower for keyword in banned_keywords):
@@ -90,7 +100,7 @@ def verify_image_with_serp(image_url: str) -> bool:
             "image_url": image_url,
             "api_key": settings.serp_api_key
         }
-        response = requests.get("https://serpapi.com/search.json", params=params, timeout=3)
+        response = requests.get("https://serpapi.com/search.json", params=params, timeout=5)
 
         if response.status_code == 200:
             return True
@@ -112,13 +122,12 @@ def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
         return None
 
     try:
-        logger.info(f"🔍 SerpApi ile görsel kaynak sayfası aranıyor: {image_url[:80]}...")
         params = {
             "engine": "google_reverse_image",
             "image_url": image_url,
             "api_key": settings.serp_api_key
         }
-        response = requests.get("https://serpapi.com/search.json", params=params, timeout=5)
+        response = requests.get("https://serpapi.com/search.json", params=params, timeout=10)
 
         if response.status_code == 200:
             data = response.json()
@@ -140,48 +149,37 @@ def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
                 url_lower = url.lower()
                 has_category = any(ind in url_lower for ind in category_indicators)
                 has_product = any(ind in url_lower for ind in product_indicators)
-                if has_category and not has_product:
-                    return False
+                if has_category and not has_product: return False
                 return has_product or len(url.split('/')) > 5
 
             def score_url(url: str) -> int:
                 url_lower = url.lower()
                 score = 0
-                if any(ind in url_lower for ind in product_indicators):
-                    score += 10
-                if any(ind in url_lower for ind in category_indicators):
-                    score -= 5
-                if len(url.split('/')) > 5:
-                    score += 3
-                ecommerce_domains = ['trendyol.com', 'hepsiburada.com', 'n11.com',
-                                     'gittigidiyor.com', 'amazon.com', 'zara.com',
-                                     'mango.com', 'hm.com', 'lcwaikiki.com']
-                if any(domain in url_lower for domain in ecommerce_domains):
-                    score += 2
+                if any(ind in url_lower for ind in product_indicators): score += 10
+                if any(ind in url_lower for ind in category_indicators): score -= 5
+                if len(url.split('/')) > 5: score += 3
+                ecommerce_domains = ['trendyol.com', 'hepsiburada.com', 'n11.com', 'gittigidiyor.com', 'amazon.com',
+                                     'zara.com', 'mango.com', 'hm.com', 'lcwaikiki.com']
+                if any(domain in url_lower for domain in ecommerce_domains): score += 2
                 return score
 
             candidate_urls = []
-
             inline_images = data.get('inline_images', [])
             for img_result in inline_images:
                 url = img_result.get('link') or img_result.get('source') or img_result.get('url')
-                if url and url.startswith('http'):
-                    candidate_urls.append(url)
+                if url and url.startswith('http'): candidate_urls.append(url)
 
             results = data.get('results', [])
             for result in results:
                 url = result.get('link') or result.get('url')
-                if url and url.startswith('http'):
-                    candidate_urls.append(url)
+                if url and url.startswith('http'): candidate_urls.append(url)
 
             visual_matches = data.get('visual_matches', [])
             for match in visual_matches:
                 url = match.get('link') or match.get('url')
-                if url and url.startswith('http'):
-                    candidate_urls.append(url)
+                if url and url.startswith('http'): candidate_urls.append(url)
 
-            if not candidate_urls:
-                return None
+            if not candidate_urls: return None
 
             scored_urls = [(url, score_url(url)) for url in candidate_urls]
             scored_urls.sort(key=lambda x: x[1], reverse=True)
@@ -189,17 +187,14 @@ def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
             best_url, best_score = scored_urls[0]
 
             if is_product_page(best_url) or best_score >= 5:
-                logger.info(f"✅ SerpApi ürün sayfası bulundu (skor: {best_score}): {best_url}")
                 return best_url
             elif len(scored_urls) > 1:
-                second_url, second_score = scored_urls[1]
-                if second_score > best_score - 2:
-                    return second_url
+                return scored_urls[1][0]
 
             return best_url
 
         elif response.status_code == 401:
-            logger.warning("SerpApi yetkilendirme hatası.")
+            logger.warning("SerpApi yetkilendirme hatası (API Key geçersiz).")
             return None
         else:
             return None
@@ -209,213 +204,180 @@ def get_image_source_page_with_serp(image_url: str) -> Optional[str]:
         return None
 
 
-# [MEVCUT] GPT-4o Vision ile Akıllı Görsel Doğrulama
-def validate_images_with_vision(image_urls: List[str]) -> List[str]:
+# [GÜNCELLENDİ] GPT-4o Vision ile Akıllı Görsel Doğrulama
+def validate_images_with_vision(image_urls: List[str], filter_type: str = "market") -> List[str]:
     if not image_urls or not openai_client:
         return image_urls
 
     safe_candidates = []
-    risky_domains = ['instagram.com', 'facebook.com', 'cdn.instagram', 'fbcdn.net', 'tiktok.com', 'pinterest']
+    risky_domains = ['instagram.com', 'facebook.com', 'cdn.instagram', 'fbcdn.net', 'tiktok.com', 'pinterest',
+                     'twimg.com']
     for url in image_urls:
-        if not any(d in url.lower() for d in risky_domains):
+        if not any(d in url.lower() for d in risky_domains) and len(url) < 1000:
             safe_candidates.append(url)
 
+    # Maliyet optimizasyonu: Sadece en iyi 8 adayı kontrol et
     candidates = safe_candidates[:8]
     if not candidates:
         return image_urls[:8]
 
-    logger.info(f"👁️ Vision API ile {len(candidates)} görsel taranıyor...")
+    logger.info(f"👁️ Vision API ({filter_type.upper()}) ile {len(candidates)} görsel taranıyor...")
 
-    messages_content = [
-        {
-            "type": "text",
-            "text": (
-                "You are a strict image filter for a fashion sourcing app. "
-                "Analyze these images based on their index (0, 1, 2...)."
-                "Return the indices of images that are ONLY:\n"
-                "1. Clear fashion product photography (garments, models, mannequins).\n"
-                "2. High quality packshots.\n"
-                "EXCLUDE: Logos, text banners, size charts, blurry icons, irrelevant objects, or website UI elements.\n"
-                "Return ONLY a JSON list of integers. Example: [0, 2, 5]. If none are good, return []."
-            )
-        }
-    ]
+    if filter_type == "runway":
+        prompt_text = "Select indices of images that are ONLY professional RUNWAY/CATWALK photos. Exclude product shots, selfies, text. JSON list of ints only."
+    else:
+        prompt_text = "Select indices of images that are ONLY clear fashion PRODUCT photography (garments on models/mannequins). Exclude logos, banners. JSON list of ints only."
+
+    messages_content = [{"type": "text", "text": prompt_text}]
 
     for url in candidates:
-        messages_content.append({
-            "type": "image_url",
-            "image_url": {"url": url, "detail": "low"}
-        })
+        messages_content.append({"type": "image_url", "image_url": {"url": url, "detail": "low"}})
 
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": messages_content}],
-            max_tokens=60,
+            max_tokens=100,
             temperature=0.0
         )
 
         result_text = response.choices[0].message.content.strip()
         clean_text = result_text.replace("```json", "").replace("```", "").strip()
-        if not clean_text or clean_text == "[]":
-            return []
 
         try:
             indices = json.loads(clean_text)
+            if not isinstance(indices, list): return candidates
+            verified_urls = [candidates[i] for i in indices if isinstance(i, int) and 0 <= i < len(candidates)]
+            return verified_urls
         except json.JSONDecodeError:
             return candidates
 
-        if not isinstance(indices, list):
-            return candidates
-
-        verified_urls = [candidates[i] for i in indices if isinstance(i, int) and 0 <= i < len(candidates)]
-        logger.info(f"✅ Vision Onaylı Görseller: {len(verified_urls)}/{len(candidates)}")
-        return verified_urls
-
     except Exception as e:
-        logger.error(f"Vision filtre hatası: {e}. Ham liste dönülüyor.")
-        return candidates
+        logger.error(f"Vision filtre hatası: {e}. Filtre devre dışı bırakılıyor, ham liste dönülüyor.")
+        return candidates[:4]
 
 
 # -----------------------------------------------------------------------------
-# 2. NİYET ANALİZİ VE SOHBET MODÜLÜ
+# 2. NİYET ANALİZİ VE SOHBET
 # -----------------------------------------------------------------------------
 
-def analyze_user_intent(message: str) -> str:
+def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -> str:
     if not openai_client: return "MARKET_RESEARCH"
+
+    recent_history = chat_history[-3:] if chat_history else []
+    history_text = json.dumps(recent_history, ensure_ascii=False)
+
+    system_prompt = f"""
+    You are an intent classifier for a Fashion AI.
+    HISTORY: {history_text}
+    CURRENT USER MESSAGE: "{message}"
+
+    CATEGORIES:
+    1. MARKET_RESEARCH: User asks for a NEW topic analysis (e.g., "Abiye trendleri", "Spor ayakkabı modası").
+    2. FOLLOW_UP: User refers to the previous topic/report OR asks about the results (e.g., "Why this price?", "Change color", "Draw this").
+    3. GENERAL_CHAT: Greetings, "Who are you?", or general fashion knowledge.
+
+    OUTPUT: Return ONLY one of the category names above.
+    """
 
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system",
-                 "content": "You are a classifier. Classify the user input into 'GENERAL_CHAT' or 'MARKET_RESEARCH'. Return ONLY the category name."},
-                {"role": "user", "content": message}
-            ],
+            messages=[{"role": "system", "content": system_prompt}],
             temperature=0.0,
             max_tokens=20
         )
-        return response.choices[0].message.content.strip()
+        intent = response.choices[0].message.content.strip().upper()
+        if "MARKET" in intent: return "MARKET_RESEARCH"
+        if "FOLLOW" in intent: return "FOLLOW_UP"
+        if "GENERAL" in intent: return "GENERAL_CHAT"
+        return "MARKET_RESEARCH"
     except:
         return "MARKET_RESEARCH"
 
 
 def handle_general_chat(message: str) -> str:
-    system_prompt = """
-    Sen Kıdemli Moda Stratejisi Asistanısın (AI Fashion Strategist).
-    GÖREVİN: Kullanıcının sorusuna profesyonel, güven veren bir dille cevap ver.
-    """
+    system_prompt = "Sen Kıdemli Moda Stratejisisin. Kullanıcının sorularına profesyonel ve samimi cevap ver."
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
             temperature=0.7
         )
         return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Chat hatası: {e}")
+    except Exception:
         return "Üzgünüm, şu an yanıt veremiyorum."
 
 
+async def handle_follow_up(message: str, chat_history: List[Dict[str, str]]) -> str:
+    if not openai_client: return "Sistem hatası."
+
+    system_msg = """
+    Sen Kıdemli Moda Stratejistisin.
+    GÖREVİN: Sohbet geçmişindeki (History) rapor verilerine dayanarak kullanıcının sorusunu yanıtla.
+    Yeni görsel istenirse onayla.
+    """
+
+    messages = [{"role": "system", "content": system_msg}]
+    for msg in chat_history[-6:]:
+        if msg.get("role") in ["user", "assistant"]:
+            messages.append({"role": msg.get("role"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
+
+    try:
+        response = openai_client.chat.completions.create(model="gpt-4o", messages=messages, temperature=0.7)
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Cevap üretilemedi: {e}"
+
+
 # -----------------------------------------------------------------------------
-# [GÜNCELLENDİ] GLOBAL DEFİLE VE PODYUM ANALİZİ (RUNWAY AGENT + GÖRSEL)
+# 3. VERİ TOPLAMA AJANLARI
 # -----------------------------------------------------------------------------
 
 def analyze_runway_trends(topic: str) -> Dict[str, Any]:
-    """
-    Kullanıcının konusuyla ilgili son moda haftalarını tarar.
-    [YENİ] Artık defile görsellerini de arar.
-    """
-    if not tavily_client:
-        return {"context": "Defile verisi çekilemedi (Tavily yok).", "runway_images": []}
+    if not tavily_client: return {"context": "", "runway_images": []}
+    logger.info(f"👠 Podyum Analizi: {topic}")
 
-    logger.info(f"👠 Podyum ve Defile Analizi Başlıyor (Görseller dahil): {topic}")
-
-    # Defilelere odaklanmış özel sorgular (2025/2026)
     runway_queries = [
-        f"latest runway looks {topic} Spring/Summer 2026 Paris Milan",
-        f"Haute Couture 2025 {topic} designs runway photos",
-        f"best {topic} runway moments Fall/Winter 2025 2026 Vogue",
-        f"designer {topic} trends 2026 fashion show images"
+        f"Vogue Runway {topic} trends Spring/Summer 2026 Paris Milan -buy",
+        f"high fashion designer collections 2025 {topic} catwalk photos",
+        f"best {topic} moments from recent fashion weeks haute couture review"
     ]
 
-    runway_context = "### GLOBAL RUNWAY & FASHION WEEK DATA ###\n"
-    runway_image_pool = []
+    runway_context = "### RUNWAY DATA (HIGH FASHION ONLY) ###\n"
+    raw_runway_images = []
 
     try:
         for q in runway_queries:
             try:
-                response = tavily_client.search(
-                    query=q,
-                    search_depth="advanced",
-                    include_images=True,  # [YENİ] Görsel aramayı açtık
-                    max_results=3
-                )
-
-                # Metin içerikleri
+                response = tavily_client.search(query=q, search_depth="advanced", include_images=True, max_results=3)
                 results = response.get('results', [])
                 for res in results:
-                    title = res.get('title', '')
-                    content = res.get('content', '')
-                    url = res.get('url', '')
-
-                    if len(content) > 50:
-                        runway_context += f"KAYNAK: {title}\nURL: {url}\nİÇERİK ÖZETİ: {content[:600]}\n\n"
-
-                # Görsel içerikleri
-                images = response.get('images', [])
-                for img_url in images:
-                    if img_url and img_url.startswith('http'):
-                        runway_image_pool.append(img_url)
-
-            except Exception as inner_e:
-                logger.warning(f"Tavily Defile Sorgu Hatası ({q}): {inner_e}")
+                    runway_context += f"KAYNAK: {res.get('title')}\nURL: {res.get('url')}\nÖZET: {res.get('content', '')[:800]}\n\n"
+                for img_url in response.get('images', []):
+                    if img_url and img_url.startswith('http'): raw_runway_images.append(img_url)
+            except:
                 continue
 
-        # Defile görselleri için hızlı bir string filtresi uygulayalım (Logoları vs. elemek için)
-        filtered_runway_images = [
-            img for img in runway_image_pool
-            if is_quality_fashion_image(img)
-        ]
-        # İlk 5 tanesini alalım
-        final_runway_images = list(set(filtered_runway_images))[:5]
-        logger.info(f"✅ Bulunan Defile Görseli Sayısı: {len(final_runway_images)}")
+        filtered = [img for img in raw_runway_images if is_quality_fashion_image(img)]
+        unique = list(set(filtered))
+        # [GARANTİ] Vision boş dönerse filtered listeyi kullan
+        final_imgs = validate_images_with_vision(unique, filter_type="runway") or unique[:4]
 
-        return {"context": runway_context, "runway_images": final_runway_images}
-
+        return {"context": runway_context, "runway_images": final_imgs}
     except Exception as e:
-        logger.error(f"Defile Analiz Hatası: {e}")
-        return {"context": f"Defile verisi alınırken hata oluştu: {e}", "runway_images": []}
+        return {"context": f"Hata: {e}", "runway_images": []}
 
-
-# -----------------------------------------------------------------------------
-# 3. DERİN PAZAR ARAŞTIRMASI (ARAŞTIRMA MODU)
-# -----------------------------------------------------------------------------
 
 def deep_market_research(topic: str) -> Dict[str, Any]:
-    if not tavily_client:
-        return {"context": "Hata: Tavily Client yok.", "market_images": []}
-
-    logger.info(f"🔍 Derin Pazar ve Ürün Analizi: {topic}")
+    if not tavily_client: return {"context": "", "market_images": []}
+    logger.info(f"🔍 Pazar Analizi: {topic}")
 
     queries = [
-        # A. TREND VE RENK
-        f"{topic} 2025/2026 fashion color palette trends pantone wgsn",
-        # B. TÜKETİCİ PSİKOLOJİSİ
-        f"why is {topic} trending 2025 consumer psychology buying behavior",
-        # C. TİCARİ ÜRÜN ARAMASI
-        f"{topic} ürün detayı satın al trendyol -logo -icon",
-        f"{topic} abiye elbise satın al modanisa fiyat -logo -icon",
-        f"{topic} modelleri ve fiyatları hepsiburada -logo -icon",
-        # D. LÜKS VE İMALAT
-        f"{topic} luxury design price vakko beymen product photography",
-        f"{topic} best selling products 2025 fashion e-commerce",
-        f"top rated {topic} designs zara mango h&m best sellers",
-        f"{topic} en çok satan modeller trendyol çok değerlendirilenler",
-        f"{topic} best sellers product photography -logo -icon"
+        f"{topic} 2025/2026 trends consumer behavior",
+        f"{topic} best sellers trendyol zara 2025",
+        f"popular {topic} fabrics and colors 2026"
     ]
 
     context_data = "### MARKET DATA & PRODUCT LINKS ###\n"
@@ -423,159 +385,92 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
     market_images_result = []
 
     try:
-        all_results = []
         image_to_page_map = {}
-
         for q in queries:
             try:
-                response = tavily_client.search(
-                    query=q,
-                    search_depth="advanced",
-                    include_images=True,
-                    max_results=4
-                )
-                query_results = response.get('results', [])
-                all_results.extend(query_results)
-
-                page_urls = [res.get('url', '') for res in query_results if res.get('url', '').startswith('http')]
-
-                raw_imgs = response.get('images', [])
-                for img_url in raw_imgs:
+                response = tavily_client.search(query=q, search_depth="advanced", include_images=True, max_results=4)
+                page_urls = [res.get('url') for res in response.get('results', [])]
+                for img_url in response.get('images', []):
                     if img_url and img_url.startswith("http"):
                         raw_image_pool.append(img_url)
-                        if img_url not in image_to_page_map and page_urls:
-                            image_to_page_map[img_url] = page_urls[0]
-            except Exception as inner_e:
-                # [LOG GERİ GELDİ] Silinen log satırı burasıydı.
-                logger.warning(f"Tavily sorgu hatası ({q}): {inner_e}")
+                        if img_url not in image_to_page_map and page_urls: image_to_page_map[img_url] = page_urls[0]
+                for res in response.get('results', []):
+                    context_data += f"BAŞLIK: {res.get('title')}\nİÇERİK: {res.get('content')}\nURL: {res.get('url')}\n\n"
+            except:
                 continue
 
-        # --- GÖRSEL FİLTRELEME İŞLEMİ ---
-        candidates_level_1 = [
-            img for img in raw_image_pool
-            if img and img.startswith("http") and is_quality_fashion_image(img)
-        ]
-        unique_candidates = list(set(candidates_level_1))
+        candidates = [img for img in raw_image_pool if is_quality_fashion_image(img)]
+        unique = list(set(candidates))
+        # [GARANTİ] Vision boş dönerse unique listeyi kullan
+        final_market_images = validate_images_with_vision(unique, filter_type="market") or unique[:10]
 
-        # Vision Filtresi
-        logger.info(f"👁️ Vision API ile {len(unique_candidates)} görsel doğrulanıyor...")
-        final_market_images = validate_images_with_vision(unique_candidates)
-        logger.info(f"✅ Vision API doğrulaması tamamlandı: {len(final_market_images)} görsel onaylandı")
+        if settings.serp_api_key and final_market_images:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                f_to_url = {executor.submit(get_image_source_page_with_serp, url): url for url in final_market_images}
+                for f in concurrent.futures.as_completed(f_to_url):
+                    img = f_to_url[f]
+                    try:
+                        page = f.result()
+                    except:
+                        page = None
+                    market_images_result.append({'img': img, 'page': page or image_to_page_map.get(img, img)})
+        else:
+            for img in final_market_images:
+                market_images_result.append({'img': img, 'page': image_to_page_map.get(img, img)})
 
-        # SerpApi Reverse Search
-        logger.info(f"🔍 SerpApi reverse search ile {len(final_market_images)} görsel için kaynak sayfası aranıyor...")
-        serp_api_enabled = bool(settings.serp_api_key)
-
-        market_images_result = []
-        for idx, img_url in enumerate(final_market_images):
-            source_page = None
-
-            if serp_api_enabled:
-                try:
-                    # Not: Burada performans için ThreadPoolExecutor kullanılabilir
-                    source_page = get_image_source_page_with_serp(img_url)
-                except Exception as e:
-                    logger.warning(f"SerpApi hatası (görsel {idx + 1}): {e}")
-                    source_page = None
-
-            if not source_page:
-                source_page = image_to_page_map.get(img_url, img_url)
-
-            market_images_result.append({
-                'img': img_url,
-                'page': source_page
-            })
-
-        # Metin Verilerini İşle
-        for i, res in enumerate(all_results):
-            url = res.get('url', '')
-            if not url.startswith('http'): continue
-
-            context_data += f"--- SONUÇ ID: {i + 1} ---\n"
-            context_data += f"BAŞLIK: {res.get('title', 'Başlıksız')}\n"
-            context_data += f"İÇERİK: {res.get('content', '')}\n"
-            context_data += f"TAM_URL: {url}\n\n"
-
-        context_data += "### PAZAR GÖRSEL HAVUZU (DOĞRULANMIŞ) ###\n"
-        limited_images = market_images_result[:12]
-
-        for i, img_data in enumerate(limited_images):
-            img_url = img_data['img'] if isinstance(img_data, dict) else img_data
-            context_data += f"IMG_REF_{i + 1}: {img_url}\n"
-
-        return {"context": context_data, "market_images": limited_images}
-
+        return {"context": context_data, "market_images": market_images_result[:10]}
     except Exception as e:
-        logger.error(f"Araştırma Hatası: {e}")
-        return {"context": f"Kısmi veri (Hata: {e})\n{context_data}", "market_images": market_images_result}
+        return {"context": str(e), "market_images": []}
 
 
 # -----------------------------------------------------------------------------
-# 4. STRATEJİK İMALAT RAPORU (LİNK KORUMALI & DEFİLE GÖRSELLİ)
+# 4. RAPORLAMA
 # -----------------------------------------------------------------------------
 
 def generate_strategic_report(user_message: str, research_data: str) -> str:
-    if not openai_client: return "OpenAI Client başlatılamadı."
+    if not openai_client: return "OpenAI hatası."
 
-    # [GÜNCELLENDİ] System Prompt: Defile Görsel Yer Tutucuları Eklendi
     system_prompt = """
     Sen Kıdemli Moda Stratejistisin.
 
-    GÖREVİN:
-    Üreticiye hem **SOKAK MODASI (PAZAR)** hem de **YÜKSEK MODA (DEFİLE)** verilerini birleştirerek vizyoner bir rapor sunmak.
+    KURALLAR:
+    1. Şablonu KOPYALAMA, içini GERÇEK verilerle veya tahminlerinle DOLDUR.
+    2. Bölüm 4'te 5 modeli tek tek detaylandır.
+    3. Görsel yer tutucularını ([[...]]) METNİN İÇİNE GÖMME, yeni satıra yaz.
 
-    VERİ KAYNAKLARI:
-    1. MARKET DATA: E-ticaret siteleri ve halkın satın aldığı ürünler.
-    2. RUNWAY DATA: Paris, Milano gibi moda haftalarından tasarımcı notları.
+    RAPOR ŞABLONU:
+    # 💎 [KONU] - 2026 VİZYON RAPORU
 
-    ⚠️ 1. LİNK KURALI (HAYATİ ÖNEMLİ):
-    - Bölüm 5'te (Rakip Ürünler) 'MARKET DATA' içindeki 'TAM_URL:' etiketli linki BOZMADAN kullan.
+    ## 🌍 BÖLÜM 1: GLOBAL DEFİLE İZLERİ
+    (Analiz...)
+    [[RUNWAY_VISUAL_1]]
+    [[RUNWAY_VISUAL_2]]
 
-    ⚠️ 2. GÖRSEL YERLEŞİM KURALI:
-    - Bölüm 1'de (GLOBAL DEFİLE İZLERİ) eğer podyumdan bahsettiysen altına [[RUNWAY_VISUAL_1]] [[RUNWAY_VISUAL_2]] gibi yer tutucular koy.
-    - Bölüm 4'te (TOP 5 TİCARİ MODEL) her modelin altına [[VISUAL_CARD_X]] yer tutucusunu koy.
+    ## 📈 BÖLÜM 2: TİCARİ TRENDLER
+    (Analiz...)
 
-    RAPOR FORMATI (Markdown):
+    ## 💰 BÖLÜM 3: FİYAT ANALİZİ
+    | Segment | Min | Max | Ort |
+    | :--- | :--- | :--- | :--- |
+    | Eko | ... | ... | ... |
+    | Orta | ... | ... | ... |
+    | Lüks | ... | ... | ... |
 
-    # 💎 [KONU] - 2026 VİZYON VE ÜRETİM RAPORU
-
-    ## 🌍 BÖLÜM 1: GLOBAL DEFİLE İZLERİ (HIGH FASHION)
-    *Bu bölümde 'RUNWAY DATA' verilerini kullan. Hangi markanın hangi defilesinde benzer ürünler görüldü?*
-    * **Öne Çıkan Defileler:** (Örn: Elie Saab 2025 SS, Gucci Resort vb. isim vererek yaz)
-    * **Podyumdan Notlar:** (Defilelerdeki kumaş, kesim ve artistik detaylar)
-    * **Vizyon:** (Bu podyum trendi sokağa nasıl inecek?)
-
-    [[RUNWAY_VISUAL_1]] [[RUNWAY_VISUAL_2]] [[RUNWAY_VISUAL_3]]
-
-    ## 📈 BÖLÜM 2: TİCARİ TREND VE TÜKETİCİ ANALİZİ
-    * **Popüler Kültür & Sokak:** (Diziler, TikTok akımları)
-    * **Trend Renk Paleti:** (Pantone/WGSN kodları)
-    * **Kumaş Tercihleri:** (Saten, şifon, krep vb.)
-
-    ## 💰 BÖLÜM 3: SEGMENT VE FİYAT ANALİZİ
-    (Tablo Buraya Gelecek - Min/Max/Ortalama Fiyatlar)
-
-    ## 🏆 BÖLÜM 4: ÜRETİLECEK TOP 5 TİCARİ MODEL
-    *Ticari başarı potansiyeli yüksek, podyumdan esinlenilmiş ama satılabilir modeller.*
+    ## 🏆 BÖLÜM 4: TOP 5 TİCARİ MODEL
     ### 1. [Model Adı]
-    * **Kumaş:** ...
-    * **Detay:** ...
+    * Detaylar...
     [[VISUAL_CARD_1]]
 
     ### 2. [Model Adı]
-    ...
+    * Detaylar...
     [[VISUAL_CARD_2]]
 
-    ... (5'e kadar devam et)
+    (5'e kadar devam et)
 
-    ## 🛍️ BÖLÜM 5: SAHADA SATILAN RAKİP ÜRÜNLER (CANLI VİTRİN)
-    ### 🛒 Rakip 1: [Ürün Başlığı]
-    * **Fiyat:** ... TL
-    * **Site:** ...
-    * **Ürüne Git:** [👉 Ürünü İncele](TAM_URL)
-
-    ## 🔗 KAYNAKÇA
-    * [Site Adı](URL)
+    ## 🛍️ BÖLÜM 5: RAKİP VİTRİNİ
+    ### 🛒 [Ürün Adı]
+    * Fiyat: ...
+    * Link: [İncele](TAM_URL)
     """
 
     try:
@@ -583,362 +478,179 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"KONU: {user_message}\n\nVERİLER:\n{research_data}"}
+                {"role": "user", "content": f"KONU: {user_message}\nVERİLER:\n{research_data}"}
             ],
             temperature=0.4
         )
         return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Rapor oluşturma hatası: {e}")
-        return f"Rapor oluşturulurken bir hata oluştu: {e}"
+    except Exception:
+        return "Rapor hatası."
 
 
 # -----------------------------------------------------------------------------
-# 5. GÖRSEL PROMPT (E-TİCARET ODAKLI)
+# 5. GÖRSEL ÜRETİMİ
 # -----------------------------------------------------------------------------
 
 def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
-    system_prompt = """
-    You are an AI Fashion Photographer & Prompt Engineer.
-
-    TASK: Extract up to 5 model concepts from the report.
-    For each concept, create a highly detailed image prompt optimized for FLUX GENERATION.
-
-    PROMPT RULES (STRICT E-COMMERCE STANDARDS):
-    1.  **START WITH:** "Wide-angle full body e-commerce studio shot of..." (Must enforce full body).
-    2.  **FRAMING:** "Zoomed out", "Head to toe visibility", "Model standing", "Shoes visible", "No cropping".
-    3.  **LIGHTING:** "High-key soft studio lighting", "Bright and evenly lit", "No harsh shadows", "Commercial look".
-    4.  **BACKGROUND:** "Clean neutral studio background" or "Solid white background".
-
-    Output JSON format:
-    {"items": [{"model_name": "...", "ref_id": "IMG_REF_X", "prompt": "..."}]}
-    """
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": analysis_text}],
+            messages=[
+                {"role": "system",
+                 "content": "Extract 5 fashion models. JSON: {'items': [{'model_name': '...', 'ref_id': 'IMG_REF_X', 'prompt': '...'}]}"},
+                {"role": "user", "content": analysis_text}
+            ],
             response_format={"type": "json_object"}
         )
-        content = response.choices[0].message.content
-        if not content: return []
-
-        data = json.loads(content)
-        return data.get("items", [])
-    except Exception as e:
-        logger.error(f"Görsel prompt çıkarma hatası: {e}")
+        return json.loads(response.choices[0].message.content).get("items", [])
+    except:
         return []
 
 
 def extract_visual_style(user_text: str) -> str:
-    if not openai_client: return ""
-
-    system_msg = """
-    You are a 'Visual Style Extractor'.
-    Analyze the user's fashion request and extract the CORE VISUAL CONSTRAINTS.
-    Convert these into comma-separated English keywords.
-    RETURN ONLY THE ENGLISH KEYWORDS.
-    """
-
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": user_text}],
-            temperature=0.0,
+            messages=[{"role": "system", "content": "Extract visual style keywords (English)."},
+                      {"role": "user", "content": user_text}],
             max_tokens=60
         )
         return response.choices[0].message.content.strip()
-    except Exception:
+    except:
         return ""
 
 
-def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    api_key = settings.fal_api_key
-    if not api_key:
-        logger.info("❕ FAL_API_KEY yok, görsel üretimi atlanıyor.")
-        return []
+def generate_ai_images(prompt_items):
+    if not settings.fal_api_key: return []
+    results = []
+    headers = {"Authorization": f"Key {settings.fal_api_key}", "Content-Type": "application/json"}
 
-    base_url = getattr(settings, "fal_base_url", "https://fal.run").rstrip("/")
-    model_path = getattr(settings, "fal_model_path", "fal-ai/flux/dev").strip("/")
-    run_url = f"{base_url}/{model_path}"
-    poll_url = f"{base_url}/{model_path}"
-
-    use_sdk = fal_client is not None
-    if use_sdk:
-        os.environ["FAL_KEY"] = api_key
-
-    headers = {"Authorization": f"Key {api_key}", "Content-Type": "application/json"}
-
-    def _run_prompt(prompt: str) -> Optional[str]:
-        fal_args = {
-            "prompt": prompt,
-            "image_size": "portrait_4_3",
-            "num_inference_steps": 40,
-            "guidance_scale": 3.5,
-            "num_images": 1,
-            "enable_safety_checker": False
-        }
-
-        if use_sdk:
-            try:
-                handler = fal_client.submit(model_path, arguments=fal_args)
-                result = handler.get()
-                images = result.get("images") or result.get("output", {}).get("images")
-                if images:
-                    first = images[0]
-                    if isinstance(first, dict): return first.get("url")
-                    return first
-            except Exception as e:
-                logger.error(f"FAL SDK hata: {e}. HTTP fallback deneniyor.")
-
-        try:
-            run_resp = requests.post(run_url, headers=headers, json=fal_args, timeout=30)
-            run_resp.raise_for_status()
-            data = run_resp.json()
-
-            direct_images = data.get("images") or data.get("output", {}).get("images")
-            if direct_images:
-                first = direct_images[0]
-                if isinstance(first, dict):
-                    return first.get("url")
-                elif isinstance(first, str):
-                    return first
-
-            req_id = data.get("request_id")
-            if not req_id: return None
-
-            for _ in range(20):
-                time.sleep(2)
-                res = requests.get(f"{poll_url}/requests/{req_id}/status", headers=headers, timeout=20)
-                if res.status_code == 404:
-                    res = requests.get(f"{base_url}/requests/{req_id}/status", headers=headers, timeout=20)
-                res.raise_for_status()
-                poll_data = res.json()
-                status = poll_data.get("status")
-
-                if status == "COMPLETED":
-                    output = poll_data.get("output")
-                    images = poll_data.get("images") or (output.get("images") if output else None)
-                    if images:
-                        if isinstance(images, list):
-                            first = images[0]
-                            if isinstance(first, dict): return first.get("url")
-                            return first
-                    break
-                if status in ("FAILED", "CANCELLED"): break
-
-            return None
-        except Exception as e:
-            logger.error(f"FAL HTTP isteği hatası: {e}")
-            return None
-
-    results: List[Dict[str, str]] = []
     for item in prompt_items[:5]:
-        prompt = item.get("prompt")
-        if not prompt: continue
-        url = _run_prompt(prompt)
-        if url:
-            results.append({
-                "model_name": item.get("model_name", "").strip(),
-                "ref_id": item.get("ref_id", "").strip(),
-                "url": url
-            })
-
+        try:
+            prompt = item.get("prompt") + ", hyper-realistic, 8k, e-commerce style"
+            res = requests.post("https://fal.run/fal-ai/flux/dev", headers=headers,
+                                json={"prompt": prompt, "image_size": "portrait_4_3"}, timeout=30)
+            url = res.json().get("images")[0].get("url")
+            if url: results.append({**item, "url": url})
+        except:
+            pass
     return results
 
 
 # -----------------------------------------------------------------------------
-# 6. ANA ORKESTRASYON (GÜNCELLENDİ: PARALEL ARAŞTIRMA + DEFİLE GÖRSELLERİ)
+# 6. ANA ORKESTRASYON
 # -----------------------------------------------------------------------------
 
-async def generate_ai_response(user_message: str, generate_images: bool = False) -> Dict[str, Any]:
+async def generate_ai_response(user_message: str, chat_history: List[Dict[str, str]] = [],
+                               generate_images: bool = False) -> Dict[str, Any]:
     loop = asyncio.get_event_loop()
 
-    # ADIM 1: Niyet Analizi
-    intent = await loop.run_in_executor(None, analyze_user_intent, user_message)
+    intent = await loop.run_in_executor(None, analyze_user_intent, user_message, chat_history)
+    logger.info(f"🧠 Niyet: {intent}")
 
     if intent == "GENERAL_CHAT":
-        chat_response = await loop.run_in_executor(None, handle_general_chat, user_message)
+        content = await loop.run_in_executor(None, handle_general_chat, user_message)
+        return {"content": content, "image_urls": [], "image_links": {}, "process_log": ["Sohbet."]}
+
+    if intent == "FOLLOW_UP":
+        response_text = await handle_follow_up(user_message, chat_history)
+
+        # [DÜZELTME] "Görsel çiz" denmese bile Follow-up'ta görsel üretmeyi dene
+        should_gen = bool(settings.fal_api_key)
+
+        ai_generated_items = []
+        if should_gen:
+            prompt_items = await loop.run_in_executor(None, generate_image_prompts, response_text)
+            # Eğer prompt çıkmazsa (sohbet metniyse), zorla prompt üret
+            if not prompt_items and "görsel" in user_message.lower():
+                prompt_items = [{"model_name": "Requested Visual", "prompt": f"Fashion illustration of {user_message}"}]
+
+            ai_generated_items = await loop.run_in_executor(None, generate_ai_images, prompt_items)
+
+        combined_images = [d['url'] for d in ai_generated_items]
+        # Görselleri metne ekle
+        for item in ai_generated_items:
+            response_text += f"\n\n![{item.get('model_name')}]({item['url']})"
+
         return {
-            "content": chat_response,
-            "image_urls": [],
-            "process_log": ["Sohbet modu aktif."]
+            "content": response_text,
+            "image_urls": combined_images,
+            "image_links": {u: None for u in combined_images},
+            "process_log": ["Sohbet devamı."]
         }
 
-    # ADIM 2: Paralel Araştırma (Hem Pazar Hem Defile)
-    future_market = loop.run_in_executor(None, deep_market_research, user_message)
-    future_runway = loop.run_in_executor(None, analyze_runway_trends, user_message)
+    # MARKET RESEARCH
+    f_m = loop.run_in_executor(None, deep_market_research, user_message)
+    f_r = loop.run_in_executor(None, analyze_runway_trends, user_message)
+    market_res, runway_res = await asyncio.gather(f_m, f_r)
 
-    # İkisinin de bitmesini bekle. runway_result artık bir sözlük (dict).
-    market_result, runway_result = await asyncio.gather(future_market, future_runway)
+    full_data = f"{runway_res.get('context', '')}\n===\n{market_res.get('context', '')}"
+    final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, full_data)
 
-    # Verileri Birleştir (Sözlükten context ve görselleri al)
-    runway_context_text = runway_result.get("context", "")
-    runway_images_list = runway_result.get("runway_images", [])
+    market_images = market_res.get("market_images", [])
+    ref_lookup = {f"IMG_REF_{i + 1}": img['img'] for i, img in enumerate(market_images)}
 
-    full_research_context = (
-        f"{runway_context_text}\n"
-        f"{'=' * 30}\n"
-        f"{market_result['context']}"
-    )
+    # [DÜZELTME] Keyword kontrolünü kaldırdım. Key varsa üret.
+    should_gen = bool(settings.fal_api_key)
+    ai_generated_items = []
 
-    # ADIM 3: Raporlama (Birleşmiş veri ile)
-    final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, full_research_context)
+    if should_gen:
+        p_items = await loop.run_in_executor(None, generate_image_prompts, final_report)
+        # [GARANTİ] Eğer rapordan prompt çıkmazsa, kullanıcı mesajından üret
+        if not p_items:
+            p_items = [{"model_name": "Trend Analysis", "ref_id": "",
+                        "prompt": f"High fashion photography of {user_message}, studio light, 8k"}]
 
-    # ADIM 4: Görsel Üretimi (Opsiyonel AI Görselleri)
-    market_images_data = market_result["market_images"]
-    ref_lookup = {}
-    for i, img_data in enumerate(market_images_data):
-        ref_key = f"IMG_REF_{i + 1}"
-        if isinstance(img_data, dict):
-            ref_lookup[ref_key] = img_data['img']
-        else:
-            ref_lookup[ref_key] = img_data
+        style = await loop.run_in_executor(None, extract_visual_style, user_message)
+        # Promptları zenginleştir
+        for p in p_items:
+            p['prompt'] = f"{p['prompt']}, {style}"
 
-    ai_generated_items: List[Dict[str, str]] = []
-    image_triggers = ["çiz", "görsel", "tasarım", "resim", "resimler", "foto", "fotoğraf", "image", "picture", "draw"]
-    should_generate_images = True if settings.fal_api_key else (
-            generate_images or any(x in user_message.lower() for x in image_triggers))
-    ref_ids_ordered = list(ref_lookup.keys())
+        ai_generated_items = await loop.run_in_executor(None, generate_ai_images, p_items)
 
-    if should_generate_images:
-        # ... (AI görsel üretim kodları aynı) ...
-        prompt_items = await loop.run_in_executor(None, generate_image_prompts, final_report)
-        logger.info(f"Görsel prompt sayısı: {len(prompt_items)}")
-
-        if not prompt_items:
-            prompt_items = [{
-                "model_name": (user_message[:50] or "AI Model").strip(),
-                "ref_id": ref_ids_ordered[0] if ref_lookup else "",
-                "prompt": f"Fashion photography of {user_message}"
-            }]
-
-        dynamic_style_context = await loop.run_in_executor(None, extract_visual_style, user_message)
-
-        master_prefix = "Wide-angle full body shot, camera zoomed out, showing entire outfit from head to toe including shoes, "
-        master_style_suffix = ", high-key soft studio lighting, shadowless white background, professional e-commerce catalog photography, 8k, sharp focus, hyper-realistic texture"
-
-        normalized_prompts: List[Dict[str, str]] = []
-        for idx, item in enumerate(prompt_items):
-            ref_id = (item.get("ref_id") or (
-                ref_ids_ordered[idx % len(ref_ids_ordered)] if ref_ids_ordered else "")).strip()
-
-            raw_prompt = item.get("prompt", "").strip()
-            enhanced_prompt = f"{master_prefix}{raw_prompt}, {dynamic_style_context}{master_style_suffix}"
-
-            normalized_prompts.append({
-                "model_name": item.get("model_name", "").strip(),
-                "ref_id": ref_id,
-                "prompt": enhanced_prompt
-            })
-
-        ai_generated_items = await loop.run_in_executor(None, generate_ai_images, normalized_prompts)
-    else:
-        logger.info("Görsel üretimi atlandı.")
-
-    # -------------------------------------------------------------------------
-    # ADIM 5: GÖRSEL ENTEGRASYONU (Pazar + AI + [YENİ] Defile)
-    # -------------------------------------------------------------------------
+    # Görsel Entegrasyonu
     final_content = final_report
+    runway_imgs = runway_res.get("runway_images", [])
 
-    # [YENİ] A. Defile Görsellerini Yerleştir (Bölüm 1'e)
-    # Rapordaki [[RUNWAY_VISUAL_1]] gibi yer tutucuları gerçek görsellerle değiştir.
-    for i in range(1, 4):  # En fazla 3 görsel yerleştir
-        placeholder = f"[[RUNWAY_VISUAL_{i}]]"
-        if i <= len(runway_images_list):
-            # Defile görselini basit bir markdown resim olarak ekle
-            img_md = f"![Podyum Görseli {i}]({runway_images_list[i - 1]})"
-            final_content = final_content.replace(placeholder, img_md)
+    # Defile
+    for i in range(1, 3):
+        ph = f"[[RUNWAY_VISUAL_{i}]]"
+        if i <= len(runway_imgs):
+            final_content = final_content.replace(ph, f"![Defile {i}]({runway_imgs[i - 1]})")
         else:
-            # Görsel yoksa yer tutucuyu temizle
-            final_content = final_content.replace(placeholder, "")
+            final_content = final_content.replace(ph, "")
 
-    # B. Ticari Modelleri Yerleştir (Bölüm 4'e) - Mevcut mantık
+    # AI / Pazar
     for i in range(1, 6):
-        placeholder = f"[[VISUAL_CARD_{i}]]"
-        ai_item = None
-        if i <= len(ai_generated_items):
-            ai_item = ai_generated_items[i - 1]
+        ph = f"[[VISUAL_CARD_{i}]]"
+        ai_item = ai_generated_items[i - 1] if i <= len(ai_generated_items) else None
 
-        replacement_block = ""
+        replacement = ""
         if ai_item:
-            # ... (AI görsel kartı oluşturma mantığı aynı) ...
             ai_url = ai_item.get("url")
-            ref_id = ai_item.get("ref_id")
-            model_name = ai_item.get("model_name", "Model")
-            market_img_url = ref_lookup.get(ref_id, "")
+            m_url = ref_lookup.get(ai_item.get("ref_id"), "")
+            m_page = next((d['page'] for d in market_images if d['img'] == m_url), m_url)
 
-            market_page_url = ""
-            if market_img_url:
-                for img_data in market_images_data:
-                    img_url = img_data['img'] if isinstance(img_data, dict) else img_data
-                    if img_url == market_img_url:
-                        if isinstance(img_data, dict):
-                            market_page_url = img_data.get('page', market_img_url)
-                        else:
-                            market_page_url = market_img_url
-                        break
-                if not market_page_url:
-                    market_page_url = market_img_url
-
-            if market_img_url and ai_url:
-                replacement_block = f"""
-| 🛍️ Pazar Referansı | 🎨 AI Tasarımı ({model_name}) |
-| :---: | :---: |
-| <a href="{market_page_url}" target="_blank" rel="noopener noreferrer"><img src="{market_img_url}" alt="Pazar Referansı" /></a> | ![]({ai_url}) |
-"""
+            if m_url and ai_url:
+                replacement = f"\n| Pazar Ref. | AI Tasarım ({ai_item.get('model_name')}) |\n|:---:|:---:|\n| <a href='{m_page}' target='_blank'><img src='{m_url}' width='200'/></a> | <img src='{ai_url}' width='200'/> |\n"
             elif ai_url:
-                replacement_block = f"""
-| 🎨 AI Tasarımı ({model_name}) |
-| :---: |
-| ![]({ai_url}) |
-"""
+                replacement = f"\n| AI Tasarım ({ai_item.get('model_name')}) |\n|:---:|\n| <img src='{ai_url}' width='200'/> |\n"
 
-        if placeholder in final_content:
-            if replacement_block:
-                final_content = final_content.replace(placeholder, replacement_block)
-            else:
-                final_content = final_content.replace(placeholder, "")
+        final_content = final_content.replace(ph, replacement)
 
-    # Temizlik
-    final_content = re.sub(r'\[\[VISUAL_CARD_\d+\]\]', '', final_content)
-    final_content = re.sub(r'\[\[RUNWAY_VISUAL_\d+\]\]', '', final_content)  # Kalan defile tutucularını da temizle
+        # [ZORLA EKLEME] Eğer LLM placeholder'ı unuttuysa ve görsel varsa, sona ekle
+        if ai_item and ph not in final_report:
+            final_content += f"\n\n### Ek Model Görseli {i}\n{replacement}"
+
     final_content = _remove_non_http_images(final_content)
 
-    # Tüm Görsel URL'lerini Topla (Frontend için)
-    ai_generated_urls_only = [m["url"] for m in ai_generated_items if m.get("url")]
-    market_img_urls_only = [
-        img_data['img'] if isinstance(img_data, dict) else img_data
-        for img_data in market_result["market_images"]
-    ]
-    # [YENİ] Defile görsellerini de ana havuza ekle
-    combined_images = market_img_urls_only + ai_generated_urls_only + runway_images_list
-
-    # Link Haritası Oluştur
-    image_links = {}
-    # Pazar linkleri
-    for img_data in market_result["market_images"]:
-        if isinstance(img_data, dict):
-            img_url = img_data.get('img')
-            page_url = img_data.get('page')
-            if img_url and page_url and img_url != page_url:
-                image_links[img_url] = page_url
-    # AI linkleri (yok)
-    for ai_item in ai_generated_items:
-        ai_url = ai_item.get("url")
-        if ai_url:
-            image_links[ai_url] = None
-    # [YENİ] Defile linkleri (şimdilik yok, sadece görsel)
-    for r_img in runway_images_list:
-        image_links[r_img] = None
+    combined_images = [d['img'] for d in market_images] + [d['url'] for d in ai_generated_items] + runway_imgs
+    image_links = {img: None for img in combined_images}
+    for d in market_images: image_links[d['img']] = d['page']
 
     return {
         "content": final_content,
         "image_urls": combined_images,
         "image_links": image_links,
-        "process_log": [
-            "Pazar ve Defile verileri (Görseller dahil) paralel analiz edildi.",
-            f"{len(market_result['market_images'])} adet pazar referansı bulundu.",
-            f"{len(runway_images_list)} adet podyum görseli rapora eklendi.",
-            "Ticari başarı odaklı AI modelleri oluşturuldu."
-        ]
+        "process_log": ["Tamamlandı."]
     }
