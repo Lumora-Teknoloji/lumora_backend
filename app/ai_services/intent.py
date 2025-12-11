@@ -26,19 +26,23 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     recent_history = chat_history[-3:] if chat_history else []
     history_text = json.dumps(recent_history, ensure_ascii=False)
 
-    # --- GÜNCELLEME: Kategoriler daha kapsamlı hale getirildi ---
+    # --- GÜNCELLEME: IMAGE_GENERATION ve IMAGE_MODIFICATION kategorileri eklendi ---
     system_prompt = f"""
     You are an intent classifier for a Fashion AI.
     HISTORY: {history_text}
     CURRENT USER MESSAGE: "{message}"
 
     CATEGORIES:
-    1. MARKET_RESEARCH: User explicitly asks for a NEW trend analysis, fashion report, or market research (e.g., "Abiye trendleri", "Spor ayakkabı modası").
-    2. FOLLOW_UP: User refers to specific data in the PREVIOUS report (e.g., "Why is this price high?", "Show me the red dress", "Change the fabric").
-    3. GENERAL_CHAT: 
+    1. IMAGE_MODIFICATION: User wants to MODIFY/CHANGE a PREVIOUS generated image (e.g., "aynısından bir daha", "farklı açıdan", "bunu kırmızı yap", "daha koyu olsun", "bu görseli tekrar üret", "bir tane daha").
+    2. IMAGE_GENERATION: User asks to GENERATE/CREATE/DRAW NEW images from scratch (e.g., "v yaka çiz", "3 tane elbise göster", "kırmızı ceket üret", "bana bir gömlek tasarla", "5 adet polo yaka").
+    3. MARKET_RESEARCH: User explicitly asks for a NEW trend analysis, fashion report, or market research (e.g., "Abiye trendleri", "Spor ayakkabı modası").
+    4. FOLLOW_UP: User refers to specific data in the PREVIOUS report (non-image related, e.g., "Why is this price high?", "Change the fabric").
+    5. GENERAL_CHAT: 
        - Greetings, Identity, Time/Date.
        - METHODOLOGY: "How do you work?", "How do you find trends?".
-       - META-QUESTIONS: Questions about the AI itself, its accuracy, opinions, or abstract requests (e.g., "Give me a ratio", "Are you sure?", "What do you think?", "Bir oran verecek olursan").
+       - META-QUESTIONS: Questions about the AI itself, its accuracy, opinions, or abstract requests.
+
+    IMPORTANT: If user refers to a previous image (uses words like "aynı", "bu", "bunu", "tekrar", "farklı açı", "değiştir", "bir daha", "bir tane daha"), choose IMAGE_MODIFICATION.
 
     OUTPUT: Return ONLY one of the category names above.
     """
@@ -52,6 +56,9 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
         )
         intent = response.choices[0].message.content.strip().upper()
 
+        if "MODIFICATION" in intent: return "IMAGE_MODIFICATION"
+        if "IMAGE" in intent and "GENERATION" in intent: return "IMAGE_GENERATION"
+        if "IMAGE" in intent: return "IMAGE_GENERATION"
         if "MARKET" in intent: return "MARKET_RESEARCH"
         if "FOLLOW" in intent: return "FOLLOW_UP"
         if "GENERAL" in intent: return "GENERAL_CHAT"
