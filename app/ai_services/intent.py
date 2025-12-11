@@ -4,10 +4,20 @@ Intent Analysis - Kullanıcı niyet analizi ve sohbet yönetimi
 import json
 import logging
 from typing import List, Dict
+from datetime import datetime
+import locale
 from .clients import openai_client
 
 logger = logging.getLogger(__name__)
 
+# Türkçe tarih formatı için locale ayarı (Sunucuda yüklü değilse hata vermesin diye try-except)
+try:
+    locale.setlocale(locale.LC_ALL, 'tr_TR.UTF-8')
+except:
+    try:
+        locale.setlocale(locale.LC_ALL, 'tr_TR')
+    except:
+        pass # Varsayılan dil (İngilizce) kalır
 
 def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -> str:
     """Kullanıcı mesajının niyetini analiz eder"""
@@ -25,7 +35,7 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     CATEGORIES:
     1. MARKET_RESEARCH: User asks for a NEW topic analysis (e.g., "Abiye trendleri", "Spor ayakkabı modası").
     2. FOLLOW_UP: User refers to the previous topic/report OR asks about the results (e.g., "Why this price?", "Change color", "Draw this").
-    3. GENERAL_CHAT: Greetings, "Who are you?", or general fashion knowledge.
+    3. GENERAL_CHAT: Greetings, "Who are you?", or general questions about time, date, or identity (e.g. "Bugün günlerden ne?", "Saat kaç?", "Tarih nedir?").
 
     OUTPUT: Return ONLY one of the category names above.
     """
@@ -51,11 +61,24 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
 
 
 def handle_general_chat(message: str) -> str:
-    """Genel sohbet mesajlarını işler"""
+    """Genel sohbet mesajlarını işler (Zaman Bilgisi Enjekte Edildi)"""
     if not openai_client:
         return "Üzgünüm, şu an yanıt veremiyorum."
+
+    # Güncel tarih ve saati al
+    current_time = datetime.now().strftime("%d %B %Y, %A - Saat: %H:%M")
+
+    system_prompt = f"""
+    Sen Kıdemli Moda Stratejisi Asistanısın.
     
-    system_prompt = "Sen Kıdemli Moda Stratejisisin. Kullanıcının sorularına profesyonel ve samimi cevap ver."
+    SİSTEM BİLGİSİ:
+    - ŞU ANKİ TARİH VE SAAT: {current_time}
+    
+    GÖREVİN: 
+    Kullanıcının sorularına profesyonel ve samimi cevap ver.
+    Eğer kullanıcı tarih veya saat sorarsa yukarıdaki SİSTEM BİLGİSİ'ni kullanarak cevapla.
+    """
+
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -76,8 +99,10 @@ async def handle_follow_up(message: str, chat_history: List[Dict[str, str]]) -> 
     if not openai_client:
         return "Sistem hatası."
 
-    system_msg = """
-    Sen Kıdemli Moda Stratejistisin.
+    current_year = datetime.now().year
+
+    system_msg = f"""
+    Sen Kıdemli Moda Stratejistisin. (Güncel Yıl: {current_year})
     GÖREVİN: Sohbet geçmişindeki (History) rapor verilerine dayanarak kullanıcının sorusunu yanıtla.
     Yeni görsel istenirse onayla.
     """
@@ -98,4 +123,3 @@ async def handle_follow_up(message: str, chat_history: List[Dict[str, str]]) -> 
     except Exception as e:
         logger.error(f"Follow-up hatası: {e}")
         return f"Cevap üretilemedi: {e}"
-
