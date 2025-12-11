@@ -72,7 +72,6 @@ async def generate_ai_response(
         
         # Başarılı görselleri filtrele
         successful_images = [img for img in generated_images if img.get("url")]
-        image_urls = [img["url"] for img in successful_images]
         
         # Yanıt metni oluştur
         if successful_images:
@@ -84,8 +83,8 @@ async def generate_ai_response(
         
         return {
             "content": content,
-            "image_urls": image_urls,
-            "image_links": {url: None for url in image_urls},
+            "image_urls": [],  # Boş bırak - sadece markdown görseli gösterilsin
+            "image_links": {},
             "process_log": [f"{count} adet görsel üretimi tamamlandı."]
         }
 
@@ -131,7 +130,6 @@ async def generate_ai_response(
         
         # Başarılı görselleri filtrele
         successful_images = [img for img in generated_images if img.get("url")]
-        image_urls = [img["url"] for img in successful_images]
         
         # Yanıt metni oluştur
         if successful_images:
@@ -157,8 +155,8 @@ async def generate_ai_response(
         
         return {
             "content": content,
-            "image_urls": image_urls,
-            "image_links": {url: None for url in image_urls},
+            "image_urls": [],  # Boş bırak - sadece markdown görseli gösterilsin
+            "image_links": {},
             "process_log": [f"Görsel modifikasyonu ({mod_type}) tamamlandı."]
         }
 
