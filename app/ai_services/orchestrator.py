@@ -4,6 +4,7 @@ Orchestrator - Ana AI yanıt üretimi orkestrasyonu
 import asyncio
 import logging
 import re
+import random
 from typing import List, Dict, Any
 from .clients import openai_client
 from .intent import analyze_user_intent, handle_general_chat, handle_follow_up
@@ -81,21 +82,24 @@ async def generate_ai_response(
                 "image_links": {},
                 "process_log": ["Görsel üretimi başarısız - API key eksik."]
             }
-        
+
         # Kullanıcı isteğini analiz et (sayı ve açıklama çıkar)
         image_request = await loop.run_in_executor(None, extract_image_request, user_message)
         count = image_request["count"]
         description = image_request["description"]
         prompts = image_request["prompts"]
-        
+
         logger.info(f"🎨 Görsel üretimi: {count} adet - {description}")
-        
+
+        # TUTARLILIK İÇİN MASTER SEED
+        master_seed = random.randint(1, 99999999)
+
         # Görselleri üret
-        generated_images = await loop.run_in_executor(None, generate_custom_images, prompts)
-        
+        generated_images = await loop.run_in_executor(None, generate_custom_images, prompts, master_seed)
+
         # Başarılı görselleri filtrele
         successful_images = [img for img in generated_images if img.get("url")]
-        
+
         # Yanıt metni oluştur
         if successful_images:
             content = f"**{description}** için {len(successful_images)} adet görsel ürettim:\n\n"
@@ -103,12 +107,12 @@ async def generate_ai_response(
                 content += f"![{description} {idx}]({img['url']})\n\n"
         else:
             content = "Üzgünüm, görsel üretilirken bir hata oluştu. Lütfen tekrar deneyin."
-        
+
         return {
             "content": content,
             "image_urls": [],  # Boş bırak - sadece markdown görseli gösterilsin
             "image_links": {},
-            "process_log": [f"{count} adet görsel üretimi tamamlandı."]
+            "process_log": [f"{count} adet görsel üretimi tamamlandı (Seed: {master_seed})."]
         }
 
     # --- IMAGE_MODIFICATION durumu - Önceki görseli modifiye etme ---
@@ -120,12 +124,15 @@ async def generate_ai_response(
                 "image_links": {},
                 "process_log": ["API key eksik."]
             }
-        
+
         # Önceki görsel bilgisini chat_history'den çıkar
         prev_context = await loop.run_in_executor(
             None, extract_previous_image_context, chat_history
         )
-        
+
+        # TUTARLILIK İÇİN SEED
+        modification_seed = random.randint(1, 99999999)
+
         if not prev_context.get("found"):
             # Önceki görsel bulunamadı, yeni görsel üretimi yap
             logger.info("⚠️ Önceki görsel bulunamadı, yeni üretim yapılıyor")
@@ -137,22 +144,22 @@ async def generate_ai_response(
             # Önceki görseli modifiye et
             original_desc = prev_context.get("description") or prev_context.get("original_request", "")
             logger.info(f"🔄 Görsel modifikasyonu: {original_desc} -> {user_message}")
-            
+
             modification = await loop.run_in_executor(
                 None, modify_image_prompt, original_desc, user_message
             )
             prompts = modification["prompts"]
             description = original_desc
             mod_type = modification.get("modification_type", "variation")
-            
+
             logger.info(f"📝 Modifikasyon tipi: {mod_type}, {len(prompts)} görsel üretilecek")
-        
+
         # Görselleri üret
-        generated_images = await loop.run_in_executor(None, generate_custom_images, prompts)
-        
+        generated_images = await loop.run_in_executor(None, generate_custom_images, prompts, modification_seed)
+
         # Başarılı görselleri filtrele
         successful_images = [img for img in generated_images if img.get("url")]
-        
+
         # Yanıt metni oluştur
         if successful_images:
             if prev_context.get("found"):
@@ -169,12 +176,12 @@ async def generate_ai_response(
                 content = f"**{description}** için {len(successful_images)} görsel {mod_text}:\n\n"
             else:
                 content = f"**{description}** için {len(successful_images)} adet görsel ürettim:\n\n"
-            
+
             for idx, img in enumerate(successful_images, 1):
                 content += f"![{description} {idx}]({img['url']})\n\n"
         else:
             content = "Üzgünüm, görsel üretilirken bir hata oluştu. Lütfen tekrar deneyin."
-        
+
         return {
             "content": content,
             "image_urls": [],  # Boş bırak - sadece markdown görseli gösterilsin
@@ -185,7 +192,7 @@ async def generate_ai_response(
     # --- FOLLOW UP ---
     if intent == "FOLLOW_UP":
         response_text = await handle_follow_up(user_message, chat_history)
-        
+
         if "hatırlayamıyorum" in response_text.lower():
             return {"content": "Önceki veriye ulaşamadım. Lütfen tasarımı detaylandırın.", "image_urls": [], "image_links": {}, "process_log": ["Hafıza kaybı."]}
 
@@ -199,11 +206,11 @@ async def generate_ai_response(
             # MAKYAJ: Promptları güzelleştir
             for item in prompt_items:
                 item['prompt'] = enhance_follow_up_prompt(item['prompt'])
-            
+
             if not prompt_items and "görsel" in user_message.lower():
                 enhanced = enhance_follow_up_prompt(f"Fashion illustration of {user_message}")
                 prompt_items = [{"model_name": "Requested", "prompt": enhanced}]
-            
+
             ai_generated_items = await loop.run_in_executor(None, generate_ai_images, prompt_items)
 
         combined_images = [d['url'] for d in ai_generated_items if d.get('url')]
@@ -228,18 +235,18 @@ async def generate_ai_response(
 
     should_gen_ai = bool(settings.fal_api_key) and user_needs_visuals
 
-    # 1. Rapordan maddeleri çek (Artık ai_prompt_base geliyor)
+    # 1. Rapordan maddeleri çek (Context Injection ile)
     extracted_items = await loop.run_in_executor(None, extract_visual_search_terms, final_report, user_message)
-    
+
     if not extracted_items and user_needs_visuals:
-        extracted_items = [{"name": f"Trend {i}", "search_query": f"{user_message} trend {i}", "ai_prompt_base": f"Fashion item related to {user_message}"} for i in range(1,6)]
+        extracted_items = [{"name": f"Trend {i}", "search_query": f"{user_message} trend {i}", "ai_prompt_base": f"{user_message} trend item"} for i in range(1,6)]
 
     # 2. Rapor Görselleri İçin Prompt Hazırla
     if should_gen_ai:
         for item in extracted_items:
-            # İngilizce başlığı al, yoksa Türkçe başlığı kullan
+            # İngilizce başlığı al
             english_name = item.get('ai_prompt_base', item['name'])
-            # Sadece başlığa odaklanan, net bir ürün fotoğrafı promptu oluştur
+            # Prompt artık context injection ile research.py'dan dolu geliyor
             base_prompt = f"Fashion product photography of {english_name}"
             # Stüdyo makyajını ekle
             item['ai_prompt'] = enhance_follow_up_prompt(base_prompt)
@@ -247,7 +254,7 @@ async def generate_ai_response(
     # 3. Paralel Arama ve Çizim Başlat
     tasks_real_img = []
     tasks_ai_img = []
-    
+
     for item in extracted_items:
         tasks_real_img.append(loop.run_in_executor(None, find_visual_match_for_model, item['search_query']))
         if should_gen_ai:
@@ -268,7 +275,7 @@ async def generate_ai_response(
         else:
             final_content = final_content.replace(ph, "")
 
-    # 5. Model Görsellerini Yerleştir
+    # 5. Model Görsellerini Yerleştir (DÜZELTİLDİ: BOŞ BAŞLIK TEMİZLİĞİ)
     for i in range(1, 6):
         ph = f"[[VISUAL_CARD_{i}]]"
         item_info = extracted_items[i-1] if i <= len(extracted_items) else {"name": f"Model {i}"}
@@ -282,7 +289,7 @@ async def generate_ai_response(
         model_name = item_info['name']
 
         replacement = ""
-        # Şık Markdown Kart Yapısı
+        # Mantıksal görsel yerleşimi
         if m_url and ai_url:
             replacement = f"\n> **📸 Piyasa:**\n> ![{model_name}]({m_url})\n> [🔗 İncele]({m_page})\n>\n> **🎨 AI Tasarım:**\n> ![{model_name}]({ai_url})\n"
         elif m_url:
@@ -290,9 +297,10 @@ async def generate_ai_response(
         elif ai_url:
             replacement = f"\n> **🎨 AI Tasarım:**\n> ![{model_name}]({ai_url})\n"
 
+        # Replacement boşsa (yani görsel yoksa) başlıklar da eklenmeyecek
         final_content = final_content.replace(ph, replacement)
 
-        # Placeholder yoksa manuel ekle
+        # Placeholder yoksa manuel ekle (Sadece replacement doluysa)
         if replacement and ph not in final_report:
             if model_name in final_content:
                 parts = final_content.split(model_name, 1)
@@ -305,7 +313,7 @@ async def generate_ai_response(
     all_urls = [x.get('img') for x in real_images_results if x.get('img')] + \
                [item['url'] for sublist in ai_images_results for item in sublist if item.get('url')] + \
                runway_imgs
-    
+
     link_map = {x.get('img'): x.get('page') for x in real_images_results if x.get('img')}
     for u in all_urls:
         if u not in link_map: link_map[u] = None

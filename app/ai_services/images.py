@@ -5,6 +5,7 @@ import json
 import re
 import logging
 import requests
+import random
 from urllib.parse import urlparse
 from typing import List, Dict, Any, Optional
 from .clients import openai_client
@@ -42,7 +43,7 @@ def is_quality_fashion_image(url: str) -> bool:
         'logo', 'icon', 'avatar', 'user', 'profile', 'banner', 'button',
         'sprite', 'svg', 'loader', 'gif', 'promo', 'footer', 'header',
         'favicon', 'thumbnail', 'pixel', 'overlay', 'adserver', 'placeholder',
-        'food', 'recipe', 'bakery'  # Gıda ile ilgili kelimeleri de engelle
+        'food', 'recipe', 'bakery'
     ]
     if any(keyword in url_lower for keyword in banned_keywords):
         return False
@@ -50,17 +51,18 @@ def is_quality_fashion_image(url: str) -> bool:
     return True
 
 
-# --- 2. MAKYAJ: E-TİCARET STÜDYO PROMPTU ---
+# --- 2. MAKYAJ: E-TİCARET STÜDYO PROMPTU (GÜNCELLENDİ) ---
 def enhance_follow_up_prompt(base_prompt: str) -> str:
     """
     Promptu, e-ticaret sitesinde satılacak şekilde
-    boydan, stüdyo ışıklı ve net bir ürün fotoğrafına dönüştürür.
+    net bir ürün fotoğrafına dönüştürür.
     """
+    # GÜNCELLEME: Kalite artırıcı sihirli kelimeler eklendi
     enhancements = (
-        ", full body photograph, professional e-commerce studio photoshoot, "
-        "bright softbox lighting, evenly lit, seamless neutral grey studio background, "
-        "sharp focus from head to toe, highly detailed fabric texture, "
-        "catalog style, lookbook aesthetic, 8k resolution, ultra sharp, no blur, no noise"
+        ", hyper-realistic fashion photography, award winning shot, "
+        "8k resolution, highly detailed texture, cinematic lighting, "
+        "vogue magazine style, neutral luxury studio background, "
+        "sharp focus, professional color grading, realistic fabric physics"
     )
     return f"{base_prompt.strip()}{enhancements}"
 
@@ -79,7 +81,6 @@ def validate_image_content_match(image_url: str, description: str) -> bool:
     if not image_url or not openai_client: return True
     if not is_quality_fashion_image(image_url): return False
 
-    # Promptu çok daha katı hale getirdik
     system_prompt = """
     You are a STRICT Fashion Quality Control AI. Do not be lenient.
     
@@ -150,35 +151,22 @@ def validate_single_image_is_dress(image_url: str) -> bool:
 
 
 def generate_ai_images(prompt_items: List[Dict[str, str]]) -> List[Dict[str, Any]]:
-    """FAL AI Görsel Üretimi"""
+    """FAL AI Görsel Üretimi (Legacy Support)"""
+    # Bu fonksiyon eski yapıyı desteklemek için tutuluyor,
+    # ancak generate_custom_images kullanılması önerilir.
     if not settings.fal_api_key: return []
 
-    results = []
-    headers = {"Authorization": f"Key {settings.fal_api_key}", "Content-Type": "application/json"}
+    # Basit bir wrapper olarak generate_custom_images'ı çağırabiliriz
+    # veya eski mantığı koruyabiliriz. Tutarlılık için custom'a yönlendirelim.
+    prompts = [item.get("prompt", "") for item in prompt_items]
+    results = generate_custom_images(prompts) # Random seed kullanacak
 
-    for idx, item in enumerate(prompt_items[:5], 1):
-        try:
-            final_prompt = item.get("prompt", "")
-
-            logger.info(f"Görsel {idx}/5 üretiliyor: {item.get('model_name')}")
-            res = requests.post(
-                "https://fal.run/fal-ai/flux/dev",
-                headers=headers,
-                json={"prompt": final_prompt, "image_size": "portrait_4_3"},
-                timeout=30
-            )
-            if res.status_code == 200:
-                img_url = res.json().get("images", [{}])[0].get("url")
-                results.append({**item, "url": img_url})
-                logger.info(f"✅ Görsel {idx} başarıyla üretildi")
-            else:
-                logger.error(f"❌ HTTP {res.status_code}")
-                results.append({**item, "url": None})
-        except Exception as e:
-            logger.error(f"❌ Görsel hatası: {e}")
-            results.append({**item, "url": None})
-
-    return results
+    # Formatı eski çıktıya dönüştür
+    final_results = []
+    for i, item in enumerate(prompt_items):
+        if i < len(results):
+            final_results.append({**item, "url": results[i].get("url")})
+    return final_results
 
 
 # --- 3. GÖRSEL ÜRETİM İSTEĞİ ÇIKARICI ---
@@ -189,7 +177,7 @@ def extract_image_request(user_message: str) -> Dict[str, Any]:
     """
     if not openai_client:
         return {"count": 1, "description": user_message, "prompts": []}
-    
+
     system_prompt = """
     You are an image request parser. Extract:
     1. count: How many images? (default 1)
@@ -198,7 +186,7 @@ def extract_image_request(user_message: str) -> Dict[str, Any]:
     
     Return JSON: {"count": N, "description": "...", "prompts": ["..."]}
     """
-    
+
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -210,18 +198,18 @@ def extract_image_request(user_message: str) -> Dict[str, Any]:
             temperature=0.3
         )
         result = json.loads(response.choices[0].message.content)
-        
+
         count = min(max(int(result.get("count", 1)), 1), 10)
         description = result.get("description", user_message)
         prompts = result.get("prompts", [])
-        
+
         if len(prompts) < count:
             for i in range(len(prompts), count):
                 prompts.append(f"{description}, variation {i+1}")
-        
+
         # Tüm prompt'ları zenginleştir
         enhanced_prompts = [enhance_follow_up_prompt(p) for p in prompts[:count]]
-        
+
         return {
             "count": count,
             "description": description,
@@ -230,8 +218,8 @@ def extract_image_request(user_message: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Görsel isteği çıkarma hatası: {e}")
         return {
-            "count": 1, 
-            "description": user_message, 
+            "count": 1,
+            "description": user_message,
             "prompts": [enhance_follow_up_prompt(user_message)]
         }
 
@@ -243,12 +231,12 @@ def extract_previous_image_context(chat_history: List[Dict[str, str]]) -> Dict[s
     """
     if not openai_client or not chat_history:
         return {"found": False, "description": "", "original_request": "", "url": ""}
-    
+
     recent_messages = chat_history[-5:]
     history_text = json.dumps(recent_messages, ensure_ascii=False)
-    
+
     system_prompt = "Find the LAST generated image info. JSON: {'found': bool, 'description': '...', 'original_request': '...', 'url': '...'}"
-    
+
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -272,9 +260,9 @@ def modify_image_prompt(original_description: str, modification_request: str) ->
     """
     if not openai_client:
         return {"count": 1, "prompts": [original_description], "modification_type": "regenerate"}
-    
+
     system_prompt = "Modify image prompt. JSON: {'count': N, 'prompts': ['...'], 'modification_type': '...'}"
-    
+
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -286,19 +274,19 @@ def modify_image_prompt(original_description: str, modification_request: str) ->
             temperature=0.3
         )
         result = json.loads(response.choices[0].message.content)
-        
+
         count = min(max(int(result.get("count", 1)), 1), 10)
         prompts = result.get("prompts", [])
-        
+
         if not prompts:
             prompts = [original_description]
-        
+
         while len(prompts) < count:
             prompts.append(f"{prompts[0]}, variation {len(prompts)+1}")
-        
+
         # Tüm prompt'ları zenginleştir
         enhanced_prompts = [enhance_follow_up_prompt(p) for p in prompts[:count]]
-        
+
         return {
             "count": count,
             "prompts": enhanced_prompts,
@@ -313,35 +301,55 @@ def modify_image_prompt(original_description: str, modification_request: str) ->
         }
 
 
-# --- 6. ÖZEL GÖRSEL ÜRETİCİ ---
-def generate_custom_images(prompts: List[str]) -> List[Dict[str, Any]]:
+# --- 6. ÖZEL GÖRSEL ÜRETİCİ (GÜNCELLENDİ: TUTARLILIK VE KALİTE) ---
+def generate_custom_images(prompts: List[str], consist_seed: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Verilen prompt listesi için FAL AI'dan görsel üretir.
+    Tutarlılık için: Eğer consist_seed verilirse TÜM görsellerde aynısını kullanır.
     """
     if not settings.fal_api_key:
         return []
-    
+
     results = []
     headers = {"Authorization": f"Key {settings.fal_api_key}", "Content-Type": "application/json"}
-    
+
+    # Tutarlılık Anahtarı:
+    # Eğer dışarıdan bir seed geldiyse onu kullan, yoksa bir tane üret ve HEPSİNDE onu kullan.
+    # Bu sayede "3 farklı görsel" istendiğinde, aynı manken/sahne üzerinde farklı varyasyonlar oluşur.
+    current_seed = consist_seed if consist_seed is not None else random.randint(1, 99999999)
+
+    # Kalite için Negatif Prompt (Nelerin olmamasını istiyoruz)
+    negative_prompt = "cartoon, illustration, anime, deformed, distorted, blurry, low quality, pixelated, ugly face, bad hands, extra fingers, text, watermark, signature, cropped, out of frame, weird anatomy, long neck"
+
     for idx, prompt in enumerate(prompts, 1):
         try:
-            logger.info(f"🎨 Özel görsel {idx}/{len(prompts)} üretiliyor...")
+            logger.info(f"🎨 Özel görsel {idx}/{len(prompts)} üretiliyor... (Seed: {current_seed})")
+
+            payload = {
+                "prompt": prompt,
+                "image_size": "portrait_4_3",
+                "num_inference_steps": 50,  # KALİTE: Adım sayısı artırıldı (Detay için)
+                "guidance_scale": 3.0,      # KALİTE: Fotorealizm için ideal aralık
+                "seed": current_seed,       # TUTARLILIK: Sabit seed kullanımı
+                "enable_safety_checker": False,
+                "negative_prompt": negative_prompt
+            }
+
             res = requests.post(
                 "https://fal.run/fal-ai/flux/dev",
                 headers=headers,
-                json={"prompt": prompt, "image_size": "portrait_4_3"},
-                timeout=30
+                json=payload,
+                timeout=60 # Timeout biraz artırıldı
             )
             if res.status_code == 200:
                 img_url = res.json().get("images", [{}])[0].get("url")
-                results.append({"url": img_url, "prompt": prompt})
+                results.append({"url": img_url, "prompt": prompt, "seed": current_seed})
                 logger.info(f"✅ Özel görsel {idx} başarıyla üretildi")
             else:
-                logger.error(f"❌ HTTP {res.status_code}")
-                results.append({"url": None, "prompt": prompt})
+                logger.error(f"❌ HTTP {res.status_code}: {res.text}")
+                results.append({"url": None, "prompt": prompt, "seed": current_seed})
         except Exception as e:
             logger.error(f"❌ Özel görsel hatası: {e}")
-            results.append({"url": None, "prompt": prompt})
-    
+            results.append({"url": None, "prompt": prompt, "seed": current_seed})
+
     return results

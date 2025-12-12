@@ -60,7 +60,7 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
         return {"context": str(e), "market_images": []}
 
 
-# --- 2. AKILLI GÖRSEL VE STİL ÇIKARMA (GÜNCELLENDİ) ---
+# --- 2. AKILLI GÖRSEL VE STİL ÇIKARMA (GÜNCELLENDİ: CONTEXT INJECTION) ---
 
 def extract_visual_search_terms(report_text: str, user_topic: str = "") -> List[Dict[str, str]]:
     if not openai_client: return []
@@ -71,25 +71,28 @@ def extract_visual_search_terms(report_text: str, user_topic: str = "") -> List[
     start_index = match.start() if match else 0
     relevant_text = report_text[start_index:start_index+4000]
 
-    # PROMPT GÜNCELLEMESİ: SADECE BAŞLIK VE ÇEVİRİSİ
+    # PROMPT DEĞİŞİKLİĞİ: "MERGE" (BİRLEŞTİRME) TALİMATI EKLENDİ
     system_prompt = f"""
     You are an expert AI Visual Director.
-    INPUT: Report Section 4 (Top Items).
+    INPUT: Report Section 4 (Top Items) and User's Main Topic: "{user_topic}".
     
-    TASK: Extract the 5 items listed in the headers.
+    TASK: Extract the 5 items listed in the headers and create a MERGED prompt.
     
     CRITICAL RULES:
-    1. **NAME:** Extract the EXACT Turkish title used in the header (e.g., "1. Zümrüt Yeşili Saten Elbise" -> "Zümrüt Yeşili Saten Elbise").
-    2. **AI_PROMPT_BASE:** Translate the "NAME" into simple, direct English. Do NOT add extra details, models, or scenes here. Just the item name in English. (e.g., "Emerald Green Satin Dress").
-    3. **SEARCH_QUERY:** Specific Turkish query for market search.
+    1. **NAME:** Extract the EXACT Turkish title (e.g., "1. Payet ve Parıltı").
+    2. **AI_PROMPT_BASE:** This is for the image generator.
+       - YOU MUST COMBINE the User's Main Topic ("{user_topic}") with the Item Name.
+       - Example: If User Topic is "V-neck dress" and Item is "Sequins", output: "V-neck evening dress made of sequin fabric, glittering texture".
+       - Do NOT just write "Sequins". The image must show the MAIN TOPIC with the detail applied.
+    3. **SEARCH_QUERY:** Specific Turkish query for market search (e.g. "{user_topic} payet elbise").
     
     JSON FORMAT:
     {{
       "items": [
         {{
           "name": "Exact Turkish Title",
-          "search_query": "Turkish Query",
-          "ai_prompt_base": "Simple translated English title"
+          "search_query": "Merged Turkish Query",
+          "ai_prompt_base": "Merged English Prompt describing both the Item and User Topic"
         }}
       ]
     }}
@@ -104,34 +107,60 @@ def extract_visual_search_terms(report_text: str, user_topic: str = "") -> List[
     except: return []
 
 
-# --- 3. NOKTA ATIŞI ARAMA ---
+# ... (Importlar ve önceki fonksiyonlar aynı) ...
+
+# --- 3. NOKTA ATIŞI ARAMA (GÜNCELLENDİ: GARANTİLİ SONUÇ) ---
 
 def find_visual_match_for_model(search_query: str) -> Dict[str, str]:
     if not tavily_client: return {}
 
-    query = f"{search_query} fashion clothing dress product photo -food -recipe"
+    # GÜNCELLEME 1: Sorguyu "Alışveriş" odaklı yapıyoruz
+    query = f"{search_query} satın al abiye elbise online satış fiyatları -food -recipe"
 
     try:
-        # 1. GENİŞ HAVUZ (10 Resim İste)
-        res = tavily_client.search(query=query, search_depth="advanced", include_images=True, max_results=10)
+        # 1. GENİŞ HAVUZ (Tavily'den görselleri çek)
+        res = tavily_client.search(
+            query=query,
+            search_depth="advanced",
+            include_images=True,
+            max_results=8
+        )
 
         candidates = []
         for img in res.get('images', []):
+            # Temel kalite kontrolü (Uzantı, yasaklı kelimeler vs.)
             if is_quality_fashion_image(img):
                 candidates.append(img)
 
-        # 3. SIRALI DOĞRULAMA (Vision API)
-        for img_url in candidates:
+        # Ürün linkini almaya çalış (Görselin olduğu sayfa)
+        page_url = ""
+        if res.get('results'):
+            # Genellikle ilk sonuç en alakalı satış sitesidir
+            page_url = res['results'][0].get('url')
+
+        if not candidates:
+            return {}
+
+        # 2. AKILLI SEÇİM & FALLBACK (GÜVENLİK AĞI)
+
+        # Adım A: İlk 3 görseli "Sıkı Yapay Zeka Kontrolü"nden geçir.
+        # Bu, rengi ve modeli birebir tutan "mükemmel" görseli arar.
+        for img_url in candidates[:3]:
             if validate_image_content_match(img_url, search_query):
-                page_url = res['results'][0].get('url') if res.get('results') else ""
                 return {"img": img_url, "page": page_url}
 
-        logger.warning(f"⚠️ Uygun görsel bulunamadı: {search_query}")
-        return {}
+        # Adım B (YENİ): Eğer yapay zeka hepsini reddettiyse (çok katı davrandıysa),
+        # elimizdeki "teknik olarak sağlam" olan İLK görseli zorla döndür.
+        # Çünkü kullanıcı hiç görsel görmemektense, %80 benzeyen bir görseli görmeyi tercih eder.
+        logger.info(f"⚠️ Sıkı eşleşme bulunamadı, en iyi aday kullanılıyor: {search_query}")
+        return {"img": candidates[0], "page": page_url}
 
     except Exception as e:
         logger.error(f"Görsel arama hatası: {e}")
         return {}
+
+
+# ... (generate_strategic_report fonksiyonu aynı kalacak) ...
 
 
 # --- 4. RAPORLAMA (GÜNCELLENMİŞ TABLO MANTIĞI) ---
