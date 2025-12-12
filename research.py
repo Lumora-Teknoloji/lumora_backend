@@ -15,7 +15,6 @@ from .images import (
 
 logger = logging.getLogger(__name__)
 
-
 # --- 1. VERİ TOPLAMA FONKSİYONLARI ---
 
 def analyze_runway_trends(topic: str) -> Dict[str, Any]:
@@ -134,39 +133,25 @@ def find_visual_match_for_model(search_query: str) -> Dict[str, str]:
         return {}
 
 
-# --- 4. RAPORLAMA (GÜNCELLENMİŞ TABLO MANTIĞI) ---
+# --- 4. RAPORLAMA ---
 
 def generate_strategic_report(user_message: str, research_data: str) -> str:
     if not openai_client: return "OpenAI hatası."
 
     system_prompt = """
     Sen Kıdemli Moda Stratejistisin.
-    GÖREVİN: Kullanıcının sorusu: "{user_message}" için stratejik rapor yaz.
+    GÖREVİN: "{user_message}" için rapor yaz.
 
     KURALLAR:
-    1. Şablonu KOPYALAMA, içini GERÇEK verilerle doldur.
+    1. **FORMAT YASAĞI:** Asla kendi kafana göre "🎨 AI Tasarım:" veya "📸 Piyasa Örneği:" gibi başlıklar atma.
+    2. **GÖRSEL KARTI:** Sadece ve sadece `[[VISUAL_CARD_x]]` placeholder'ını kullan. Gerisini sistem halledecek.
+       Örnek:
+       ### 1. Zümrüt Elbise
+       * Açıklama...
+       [[VISUAL_CARD_1]]
     
-    2. **STRICT MARKDOWN TABLE RULES (CRITICAL):**
-       - Tabloları oluştururken KESİNLİKLE Markdown çizelge formatına uy.
-       - Sütunları ayırmak için '|' işaretini kullan.
-       - Başlık ile içerik arasına '|---|---|---|' satırını MUTLAKA ekle.
-       - Asla metinleri sıkıştırma, sütunlar arasında boşluk bırak.
-       
-       A) EĞER KONU "RENK" İSE:
-          - Başlık: "## 🎨 BÖLÜM 3: RENK KARAKTERİSTİĞİ"
-          - Tablo: | Renk Tonu | Psikolojik Etkisi | En Çok Kullanılan Parça | Kombin |
-
-       B) EĞER KONU "KUMAŞ" İSE:
-          - Başlık: "## 🧵 BÖLÜM 3: KUMAŞ ANALİZİ"
-          - Tablo: | Kumaş Tipi | Mevsim | Maliyet | Kullanım Alanı |
-
-       C) EĞER KONU "ÜRÜN" İSE:
-          - Başlık: "## 💰 BÖLÜM 3: FİYAT ANALİZİ"
-          - Tablo: | Segment | Min Fiyat | Max Fiyat | Ort. Fiyat |
-
-    3. **GÖRSEL YER TUTUCULARI ([[VISUAL_CARD_x]]):**
-       - Bölüm 4'te her maddenin ALTINA [[VISUAL_CARD_x]] ekle.
-       - Madde başlığı ve açıklamasından SONRA gelmeli.
+    3. Tablolar Dinamik Olsun (| Sütun | Sütun |).
+    4. Bölüm 1.1 (Sosyal Medya) mutlaka olsun.
 
     RAPOR ŞABLONU:
     # 💎 [KONU] - 2026 VİZYON RAPORU
@@ -176,16 +161,16 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     [[RUNWAY_VISUAL_1]]
     [[RUNWAY_VISUAL_2]]
 
-    ## 📈 BÖLÜM 1.1: SOSYAL MEDYA
-    (Analiz...) 
+    ## 📈 BÖLÜM 1.1: SOSYAL MEDYA VE INFLUENCER ETKİLERİ
+    (Sosyal medya trendleri...)
 
     ## 📈 BÖLÜM 2: TİCARİ TRENDLER
     (Analiz...) 
 
-    [DİNAMİK BÖLÜM 3 BAŞLIĞI]
+    [DİNAMİK BÖLÜM 3]
     [DİNAMİK TABLO]
 
-    [DİNAMİK BÖLÜM 4 BAŞLIĞI]
+    ## 🏆 BÖLÜM 4: TOP 5 TİCARİ MODEL
     ### 1. [Madde Adı]
     * Detaylar...
     [[VISUAL_CARD_1]]
@@ -197,7 +182,6 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     * Detay: ...
     * Link: [İncele](TAM_URL)
     """
-
     try:
         formatted_prompt = system_prompt.format(user_message=user_message)
         response = openai_client.chat.completions.create(
@@ -209,6 +193,4 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
             temperature=0.4
         )
         return response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Rapor oluşturma hatası: {e}")
-        return "Rapor oluşturulurken bir hata meydana geldi."
+    except: return "Rapor hatası."
