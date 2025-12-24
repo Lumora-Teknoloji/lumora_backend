@@ -98,3 +98,35 @@ def delete_conversation(
     db.delete(convo)
     db.commit()
     return {"detail": "Konuşma silindi"}
+
+
+@router.put("/{conversation_id}", response_model=schemas.ConversationOut)
+def update_conversation(
+    conversation_id: int,
+    payload: schemas.ConversationUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Konuşma başlığını/alias'ını günceller."""
+    convo = (
+        db.query(models.Conversation)
+        .filter(
+            models.Conversation.id == conversation_id,
+            models.Conversation.user_id == current_user.id
+        )
+        .first()
+    )
+    if not convo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Konuşma bulunamadı"
+        )
+    
+    if payload.title is not None:
+        convo.title = payload.title
+    if payload.alias is not None:
+        convo.alias = payload.alias
+    
+    db.commit()
+    db.refresh(convo)
+    return convo

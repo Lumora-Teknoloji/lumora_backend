@@ -43,6 +43,11 @@ class ConversationCreate(BaseModel):
     alias: Optional[str] = None
 
 
+class ConversationUpdate(BaseModel):
+    title: Optional[str] = None
+    alias: Optional[str] = None
+
+
 class ConversationOut(BaseModel):
     id: int
     title: Optional[str]
