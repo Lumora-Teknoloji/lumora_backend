@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from sqlalchemy import text, inspect
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from socketio import ASGIApp
+import asyncio
 
 from .config import settings
 from .database import Base, engine
@@ -84,11 +86,27 @@ def setup_database():
     # Mevcut tablolar için kolon kontrollerini yap
     ensure_conversation_history_columns()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Uygulama yaşam döngüsü yöneticisi."""
+    # Startup
+    setup_database()
+    asyncio.create_task(cleanup_old_guest_data())
+    logger.info("Guest data cleanup task started")
+    
+    yield
+    
+    # Shutdown (gerekirse temizlik işlemleri buraya)
+    logger.info("Application shutting down")
+
+
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
     docs_url="/docs" if settings.app_env == "development" else None,
     redoc_url="/redoc" if settings.app_env == "development" else None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -116,20 +134,6 @@ socketio_app = ASGIApp(sio, app)
 
 # Ana uygulama Socket.IO app'i olacak (hem REST API hem Socket.IO desteği için)
 app_asgi = socketio_app
-
-
-# Startup event: Veritabanı kurulumu ve misafir verilerini temizleme görevini başlat
-@app.on_event("startup")
-async def startup_event():
-    """Uygulama başladığında veritabanını kurar ve misafir verilerini temizleme görevini başlatır."""
-    # Veritabanı tablolarını oluştur (mevcut veriler korunur)
-    setup_database()
-    
-    # Misafir verilerini temizleme görevini başlat
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.create_task(cleanup_old_guest_data())
-    logger.info("Guest data cleanup task started")
 
 
 # Exception handlers

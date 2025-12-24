@@ -42,6 +42,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 OPENAI_API_KEY=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
 TAVILY_API_KEY=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
 STABILITY_API_KEY=sk-kjo9aoUlN8qeqYI8GPDgqjGpA3MCVr92nnBaQa7s5XHfvur0
+FAL_API_KEY=68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c
 ```
 
 ### 2. Docker ile Çalıştırma (Önerilen)
