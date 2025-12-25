@@ -39,3 +39,21 @@ def decode_token(token: str) -> Dict[str, Any]:
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
+
+def set_auth_cookie(response, token: str):
+    """Set JWT token as HttpOnly cookie for XSS protection"""
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,  # Prevents JavaScript access (XSS protection)
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",  # CSRF protection
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/"
+    )
+
+
+def clear_auth_cookie(response):
+    """Clear authentication cookie on logout"""
+    response.delete_cookie(key="access_token", path="/")
+

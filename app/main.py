@@ -139,7 +139,7 @@ app.add_middleware(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
-    allow_credentials=True,
+    allow_credentials=True,  # Required for HttpOnly cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )

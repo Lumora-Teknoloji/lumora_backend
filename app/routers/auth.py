@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
-from slowapi import Limiter
+ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from .. import models, schemas
-from ..core.security import create_access_token, hash_password, verify_password
+from ..core.security import create_access_token, hash_password, verify_password, set_auth_cookie, clear_auth_cookie
 from ..database import get_db
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -43,9 +43,9 @@ def register(request: Request, user_in: schemas.UserCreate, db: Session = Depend
     return user
 
 
-@router.post("/login", response_model=schemas.Token)
+@router.post("/login")
 @limiter.limit("5/minute")  # Strict limit: 5 login attempts per minute
-def login(request: Request, payload: schemas.UserLogin, db: Session = Depends(get_db)):
+def login(request: Request, response: Response, payload: schemas.UserLogin, db: Session = Depends(get_db)):
     user = (
         db.query(models.User)
         .filter(models.User.username == payload.username)
@@ -58,9 +58,20 @@ def login(request: Request, payload: schemas.UserLogin, db: Session = Depends(ge
         )
 
     token = create_access_token({"sub": str(user.id)})
+    
+    # Set token as HttpOnly cookie
+    set_auth_cookie(response, token)
+    
+    # Return user info only (no token in body)
     return {
-        "access_token": token,
-        "token_type": "bearer",
+        "message": "Login successful",
         "user": schemas.UserOut.model_validate(user)
     }
+
+
+@router.post("/logout")
+def logout(response: Response):
+    """Logout by clearing the auth cookie"""
+    clear_auth_cookie(response)
+    return {"message": "Logged out successfully"}
 

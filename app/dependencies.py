@@ -1,4 +1,4 @@
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status, Cookie
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -7,25 +7,19 @@ from .models import User
 from .core.security import decode_token
 
 
-def get_token_header(authorization: Optional[str] = Header(None)) -> str:
-    """Authorization header'dan token'ı çıkarır."""
-    if not authorization:
+def get_token_from_cookie(access_token: Optional[str] = Cookie(None)) -> str:
+    """Extract token from HttpOnly cookie."""
+    if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header eksik",
+            detail="Not authenticated - no access token cookie",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Geçersiz authorization formatı. 'Bearer <token>' formatında olmalıdır.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return authorization.split(" ", 1)[1]
+    return access_token
 
 
 def get_current_user(
-    token: str = Depends(get_token_header), db: Session = Depends(get_db)
+    token: str = Depends(get_token_from_cookie), db: Session = Depends(get_db)
 ) -> User:
     """JWT token'dan kullanıcıyı alır ve döndürür."""
     payload = decode_token(token)
