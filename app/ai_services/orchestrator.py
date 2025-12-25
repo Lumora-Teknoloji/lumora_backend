@@ -4,7 +4,7 @@ Orchestrator - Ana AI yanıt üretimi orkestrasyonu
 import asyncio
 import logging
 import re
-import random
+import secrets
 from typing import List, Dict, Any
 from .clients import openai_client
 from .intent import analyze_user_intent, handle_general_chat, handle_follow_up
@@ -92,7 +92,7 @@ async def generate_ai_response(
         logger.info(f"🎨 Görsel üretimi: {count} adet - {description}")
 
         # TUTARLILIK İÇİN MASTER SEED
-        master_seed = random.randint(1, 99999999)
+        master_seed = secrets.randbelow(100_000_000)
 
         # Görselleri üret
         generated_images = await loop.run_in_executor(None, generate_custom_images, prompts, master_seed)
@@ -131,7 +131,7 @@ async def generate_ai_response(
         )
 
         # TUTARLILIK İÇİN SEED
-        modification_seed = random.randint(1, 99999999)
+        modification_seed = secrets.randbelow(100_000_000)
 
         if not prev_context.get("found"):
             # Önceki görsel bulunamadı, yeni görsel üretimi yap

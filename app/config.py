@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     frontend_url: str = "http://localhost:3000"
     cors_origins: str = "http://localhost:3000"  # Virgülle ayrılmış origin listesi
+    allowed_hosts: str = "localhost,127.0.0.1"  # TrustedHost middleware için
 
     # AI API Keys (zorunlu - .env dosyasından alınmalı)
     openai_api_key: str = ""

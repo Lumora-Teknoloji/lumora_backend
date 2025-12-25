@@ -35,7 +35,9 @@ def analyze_runway_trends(topic: str) -> Dict[str, Any]:
                     runway_context += f"KAYNAK: {res.get('title')}\nURL: {res.get('url')}\nÖZET: {res.get('content', '')[:800]}\n\n"
                 for img in response.get('images', []):
                     if is_quality_fashion_image(img): raw_runway_images.append(img)
-            except: continue
+            except Exception as e:
+                logger.warning(f"Runway search error: {e}")
+                continue
 
         unique = list(set(raw_runway_images))
         return {"context": runway_context, "runway_images": unique[:4]}
@@ -54,7 +56,9 @@ def deep_market_research(topic: str) -> Dict[str, Any]:
                 res = tavily_client.search(query=q, search_depth="advanced", include_images=False, max_results=3)
                 for r in res.get('results', []):
                     context_data += f"BAŞLIK: {r.get('title')}\nİÇERİK: {r.get('content')}\n\n"
-            except: continue
+            except Exception as e:
+                logger.warning(f"Market search error: {e}")
+                continue
         return {"context": context_data, "market_images": []}
     except Exception as e:
         return {"context": str(e), "market_images": []}
@@ -104,7 +108,7 @@ def extract_visual_search_terms(report_text: str, user_topic: str = "") -> List[
             response_format={"type": "json_object"}
         )
         return json.loads(response.choices[0].message.content).get("items", [])
-    except: return []
+    except Exception: return []
 
 
 # ... (Importlar ve önceki fonksiyonlar aynı) ...

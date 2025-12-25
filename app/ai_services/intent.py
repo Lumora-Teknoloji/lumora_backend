@@ -15,8 +15,8 @@ try:
 except:
     try:
         locale.setlocale(locale.LC_ALL, 'tr_TR')
-    except:
-        pass
+    except Exception as e:
+        logger.warning(f"Locale setting error: {e}")
 
 def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -> str:
     """Kullanıcı mesajının niyetini analiz eder"""

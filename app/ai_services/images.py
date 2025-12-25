@@ -5,7 +5,7 @@ import json
 import re
 import logging
 import requests
-import random
+import secrets
 from urllib.parse import urlparse
 from typing import List, Dict, Any, Optional
 from .clients import openai_client
@@ -31,7 +31,7 @@ def is_quality_fashion_image(url: str) -> bool:
     try:
         parsed = urlparse(url)
         clean_path = parsed.path.lower()
-    except:
+    except Exception:
         return False
 
     valid_extensions = ('.jpg', '.jpeg', '.png', '.webp')
@@ -316,7 +316,7 @@ def generate_custom_images(prompts: List[str], consist_seed: Optional[int] = Non
     # Tutarlılık Anahtarı:
     # Eğer dışarıdan bir seed geldiyse onu kullan, yoksa bir tane üret ve HEPSİNDE onu kullan.
     # Bu sayede "3 farklı görsel" istendiğinde, aynı manken/sahne üzerinde farklı varyasyonlar oluşur.
-    current_seed = consist_seed if consist_seed is not None else random.randint(1, 99999999)
+    current_seed = consist_seed if consist_seed is not None else secrets.randbelow(100_000_000)
 
     # Kalite için Negatif Prompt (Nelerin olmamasını istiyoruz)
     negative_prompt = "cartoon, illustration, anime, deformed, distorted, blurry, low quality, pixelated, ugly face, bad hands, extra fingers, text, watermark, signature, cropped, out of frame, weird anatomy, long neck"
