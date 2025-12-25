@@ -194,3 +194,19 @@ def health_check():
     """Health check endpoint."""
     return {"status": "ok", "environment": settings.app_env}
 
+
+# Server configuration for production deployment
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "app.main:app_asgi",
+        host="0.0.0.0",
+        port=settings.port,
+        limit_concurrency=settings.max_connections,  # DoS protection
+        timeout_keep_alive=settings.connection_timeout,  # Connection timeout
+        backlog=100,  # Connection backlog limit
+        reload=True if settings.app_env == "development" else False,
+        log_level="info"
+    )
+
