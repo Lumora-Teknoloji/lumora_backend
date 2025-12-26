@@ -76,7 +76,16 @@ async def get_user_from_token(token: Optional[str]) -> Optional[User]:
 @sio.event
 async def connect(sid, environ, auth):
     """Client bağlandığında çağrılır."""
-    token = auth.get('token') if auth else None
+    # HttpOnly cookie'den token al
+    token = None
+    cookie_header = environ.get('HTTP_COOKIE', '')
+    if cookie_header:
+        import http.cookies
+        cookies = http.cookies.SimpleCookie()
+        cookies.load(cookie_header)
+        if 'access_token' in cookies:
+            token = cookies['access_token'].value
+    
     user = await get_user_from_token(token)
     
     if user:
