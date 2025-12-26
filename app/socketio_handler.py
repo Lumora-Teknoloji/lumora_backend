@@ -16,8 +16,10 @@ from .ai_services import generate_ai_response
 logger = logging.getLogger(__name__)
 
 sio = socketio.AsyncServer(
-    cors_allowed_origins=settings.allowed_origins,
-    async_mode='asgi'
+    cors_allowed_origins=settings.allowed_origins if settings.cors_origins != "*" else "*",
+    async_mode='asgi',
+    logger=True,  # Debug için logging aktif
+    engineio_logger=True  # Engine.IO debug için
 )
 
 guest_conversations: dict[str, dict] = {}

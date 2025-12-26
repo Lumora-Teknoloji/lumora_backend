@@ -133,12 +133,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Trusted Host Middleware
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=settings.allowed_hosts.split(",")
+    allowed_hosts=["*"] if settings.app_env == "development" else settings.allowed_hosts.split(",")
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=["*"] if settings.cors_origins == "*" else settings.allowed_origins,
     allow_credentials=True,  # Required for HttpOnly cookies
     allow_methods=["*"],
     allow_headers=["*"],

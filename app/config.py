@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 120
 
     frontend_url: str = "http://localhost:3000"
-    cors_origins: str = "http://localhost:3000"  # Virgülle ayrılmış origin listesi
+    cors_origins: str = "*"  # Virgülle ayrılmış origin listesi
     allowed_hosts: str = "localhost,127.0.0.1"  # TrustedHost middleware için
     
     # Connection limits (DoS protection)
@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     @property
     def allowed_origins(self) -> list[str]:
         """CORS için izin verilen origin'leri döndürür."""
+        if self.cors_origins == "*":
+            return ["*"]
         if self.cors_origins:
             return [origin.strip() for origin in self.cors_origins.split(",")]
         return [self.frontend_url]

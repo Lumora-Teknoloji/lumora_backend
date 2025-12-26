@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
- from slowapi import Limiter
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from .. import models, schemas
@@ -14,7 +14,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
-@limiter.limit("3/minute")  # Strict limit: 3 registration attempts per minute
+@limiter.limit("10/minute")  # Strict limit: 3 registration attempts per minute
 def register(request: Request, user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     # Kullanıcı adı veya email kontrolü
     existing_user = (
