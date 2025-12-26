@@ -7,11 +7,13 @@ import socketio
 import uuid
 from datetime import datetime, timedelta
 import asyncio
+from pydantic import ValidationError as PydanticValidationError
 
 from .database import get_db
 from .models import Conversation, Message, User
 from .config import settings
 from .ai_services import generate_ai_response
+from .schemas_socketio import UserMessageInput, GuestGetConversationInput
 
 logger = logging.getLogger(__name__)
 
@@ -150,13 +152,23 @@ async def guest_new_conversation(sid):
 @sio.event
 async def guest_get_conversation(sid, data):
     """Misafir için seçili sohbetin geçmişini döner."""
+    # Validate input data
+    try:
+        validated_data = GuestGetConversationInput(**data)
+        conv_id = validated_data.conversation_id
+    except PydanticValidationError as e:
+        logger.warning(f"Invalid guest_get_conversation input: {e}")
+        await sio.emit("error", {
+            "message": "Geçersiz sohbet ID'si",
+            "details": str(e)
+        }, room=sid)
+        return
+    
     session = await sio.get_session(sid)
     guest_id = session.get("guest_id")
     if not guest_id or guest_id not in guest_conversations:
         await sio.emit("error", {"message": "Guest session not found"}, room=sid)
         return
-
-    conv_id = data.get("conversation_id") if data else None
     guest_state = guest_conversations[guest_id]
     conversations = guest_state["conversations"]
 
@@ -208,12 +220,22 @@ async def disconnect(sid):
 @sio.event
 async def user_message(sid, data):
     """Kullanıcı mesajı geldiğinde çağrılır."""
+    # Validate input data
+    try:
+        validated_data = UserMessageInput(**data)
+        conversation_id = validated_data.conversation_id
+        message_text = validated_data.message
+        image_url = validated_data.image_url
+    except PydanticValidationError as e:
+        logger.warning(f"Invalid user_message input: {e}")
+        await sio.emit('error', {
+            'message': 'Geçersiz mesaj formatı. Lütfen mesajınızı kontrol edin.',
+            'details': str(e)
+        }, room=sid)
+        return
+    
     session = await sio.get_session(sid)
     is_guest = session.get('is_guest', False)
-    
-    conversation_id = data.get('conversation_id')
-    message_text = data.get('message', '')
-    image_url = data.get('image_url')
     
     if is_guest:
         # Misafir kullanıcı için işlem

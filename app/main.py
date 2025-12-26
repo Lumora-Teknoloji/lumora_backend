@@ -17,6 +17,14 @@ from .config import settings
 from .database import Base, engine
 from .routers import auth, users, conversations, messages
 from .socketio_handler import sio, cleanup_old_guest_data
+from .exceptions import (
+    AppException,
+    ConversationNotFoundError,
+    UnauthorizedError,
+    ValidationError,
+    AIServiceError,
+    DatabaseError,
+)
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -95,6 +103,13 @@ def setup_database():
 async def lifespan(app: FastAPI):
     """Uygulama yaşam döngüsü yöneticisi."""
     # Startup
+    # Validate required API keys
+    if not settings.openai_api_key:
+        logger.error("❌ OPENAI_API_KEY is not configured!")
+        raise ValueError("Missing required API key: OPENAI_API_KEY")
+    
+    logger.info("✅ API keys validated successfully")
+    
     setup_database()
     asyncio.create_task(cleanup_old_guest_data())
     logger.info("Guest data cleanup task started")
@@ -164,6 +179,19 @@ app_asgi = socketio_app
 
 
 # Exception handlers
+@app.exception_handler(AppException)
+async def app_exception_handler(request: Request, exc: AppException):
+    """Handle custom application exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.message,
+            "error_type": exc.__class__.__name__,
+            **exc.details
+        }
+    )
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
@@ -182,10 +210,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
+    """Catch-all for unhandled exceptions"""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"}
+        content={
+            "detail": "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+            "error_type": "InternalServerError"
+        }
     )
 
 
