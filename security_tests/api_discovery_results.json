@@ -1,0 +1,19 @@
+{
+  "base_url": "https://gym-api.algorynth.net",
+  "documentation": [],
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200,
+      "url": "https://gym-api.algorynth.net/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "status": 401,
+      "url": "https://gym-api.algorynth.net/api/profile"
+    }
+  ],
+  "auth_endpoints": []
+}

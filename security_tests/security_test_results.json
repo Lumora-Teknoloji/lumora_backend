@@ -1,0 +1,305 @@
+{
+  "summary": {
+    "total_tests": 31,
+    "vulnerabilities_found": 5,
+    "safe_tests": 25,
+    "severity_breakdown": {
+      "CRITICAL": 0,
+      "HIGH": 1,
+      "MEDIUM": 4,
+      "LOW": 0
+    }
+  },
+  "vulnerabilities": [
+    {
+      "timestamp": "2025-12-25T10:33:18.947367",
+      "category": "Rate Limiting",
+      "test_name": "Brute force protection",
+      "status": "VULNERABLE",
+      "details": "Rate limiting yok! 50/50 request başarılı",
+      "severity": "HIGH"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955482",
+      "category": "Security Headers",
+      "test_name": "Missing header: X-Content-Type-Options",
+      "status": "VULNERABLE",
+      "details": "X-Content-Type-Options header eksik!",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955571",
+      "category": "Security Headers",
+      "test_name": "Missing header: X-Frame-Options",
+      "status": "VULNERABLE",
+      "details": "X-Frame-Options header eksik!",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955657",
+      "category": "Security Headers",
+      "test_name": "Missing header: Strict-Transport-Security",
+      "status": "VULNERABLE",
+      "details": "Strict-Transport-Security header eksik!",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955726",
+      "category": "Security Headers",
+      "test_name": "Missing header: Content-Security-Policy",
+      "status": "VULNERABLE",
+      "details": "Content-Security-Policy header eksik!",
+      "severity": "MEDIUM"
+    }
+  ],
+  "all_results": [
+    {
+      "timestamp": "2025-12-25T10:33:13.234511",
+      "category": "SQL Injection",
+      "test_name": "Login with payload: admin' OR '1'='1",
+      "status": "SAFE",
+      "details": "Payload reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.240240",
+      "category": "SQL Injection",
+      "test_name": "Login with payload: admin'--",
+      "status": "SAFE",
+      "details": "Payload reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.246476",
+      "category": "SQL Injection",
+      "test_name": "Login with payload: admin' OR 1=1--",
+      "status": "SAFE",
+      "details": "Payload reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.262847",
+      "category": "SQL Injection",
+      "test_name": "Login with payload: ' OR '1'='1' /*",
+      "status": "SAFE",
+      "details": "Payload reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.268213",
+      "category": "SQL Injection",
+      "test_name": "Login with payload: admin'; DROP TABLE users--",
+      "status": "SAFE",
+      "details": "Payload reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.273397",
+      "category": "SQL Injection",
+      "test_name": "Login with payload: 1' UNION SELECT NULL, NULL, NULL--",
+      "status": "SAFE",
+      "details": "Payload reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.291975",
+      "category": "Weak Password",
+      "test_name": "Register with password: '123'",
+      "status": "SAFE",
+      "details": "Zayıf şifre reddedildi: 422",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.307439",
+      "category": "Weak Password",
+      "test_name": "Register with password: '12345'",
+      "status": "SAFE",
+      "details": "Zayıf şifre reddedildi: 422",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.322673",
+      "category": "Weak Password",
+      "test_name": "Register with password: 'pass'",
+      "status": "SAFE",
+      "details": "Zayıf şifre reddedildi: 422",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.326547",
+      "category": "Weak Password",
+      "test_name": "Register with password: 'a'",
+      "status": "SAFE",
+      "details": "Zayıf şifre reddedildi: 422",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.330645",
+      "category": "Weak Password",
+      "test_name": "Register with password: ''",
+      "status": "SAFE",
+      "details": "Zayıf şifre reddedildi: 422",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.334347",
+      "category": "JWT Security",
+      "test_name": "Access with fake token",
+      "status": "SAFE",
+      "details": "Fake token reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.338165",
+      "category": "JWT Security",
+      "test_name": "Access with fake token",
+      "status": "SAFE",
+      "details": "Fake token reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.342186",
+      "category": "JWT Security",
+      "test_name": "Access with fake token",
+      "status": "SAFE",
+      "details": "Fake token reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.346294",
+      "category": "JWT Security",
+      "test_name": "Access with fake token",
+      "status": "SAFE",
+      "details": "Fake token reddedildi: 401",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.349712",
+      "category": "Authorization",
+      "test_name": "Access /users/me without auth",
+      "status": "SAFE",
+      "details": "Unauthorized doğru şekilde döndü",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.354529",
+      "category": "Authorization",
+      "test_name": "Access /conversations without auth",
+      "status": "SAFE",
+      "details": "Unauthorized doğru şekilde döndü",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.358819",
+      "category": "Authorization",
+      "test_name": "Access /messages without auth",
+      "status": "WARNING",
+      "details": "Beklenmeyen response: 405",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.364802",
+      "category": "XSS",
+      "test_name": "XSS payload in username: <script>alert('XSS')</script>",
+      "status": "SAFE",
+      "details": "XSS payload sanitize edildi veya reddedildi",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.370816",
+      "category": "XSS",
+      "test_name": "XSS payload in username: <img src=x onerror=alert('XSS'",
+      "status": "SAFE",
+      "details": "XSS payload sanitize edildi veya reddedildi",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.376847",
+      "category": "XSS",
+      "test_name": "XSS payload in username: javascript:alert('XSS')",
+      "status": "SAFE",
+      "details": "XSS payload sanitize edildi veya reddedildi",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.382466",
+      "category": "XSS",
+      "test_name": "XSS payload in username: <svg onload=alert('XSS')>",
+      "status": "SAFE",
+      "details": "XSS payload sanitize edildi veya reddedildi",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.387665",
+      "category": "XSS",
+      "test_name": "XSS payload in username: '-alert('XSS')-'",
+      "status": "SAFE",
+      "details": "XSS payload sanitize edildi veya reddedildi",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.393557",
+      "category": "Information Disclosure",
+      "test_name": "Login error message",
+      "status": "SAFE",
+      "details": "Generic error message kullanılıyor",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:13.397157",
+      "category": "Information Disclosure",
+      "test_name": "Stack trace exposure",
+      "status": "SAFE",
+      "details": "Stack trace gizleniyor",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.947367",
+      "category": "Rate Limiting",
+      "test_name": "Brute force protection",
+      "status": "VULNERABLE",
+      "details": "Rate limiting yok! 50/50 request başarılı",
+      "severity": "HIGH"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.951222",
+      "category": "CORS",
+      "test_name": "CORS configuration",
+      "status": "SAFE",
+      "details": "CORS doğru şekilde yapılandırılmış: ",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955482",
+      "category": "Security Headers",
+      "test_name": "Missing header: X-Content-Type-Options",
+      "status": "VULNERABLE",
+      "details": "X-Content-Type-Options header eksik!",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955571",
+      "category": "Security Headers",
+      "test_name": "Missing header: X-Frame-Options",
+      "status": "VULNERABLE",
+      "details": "X-Frame-Options header eksik!",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955657",
+      "category": "Security Headers",
+      "test_name": "Missing header: Strict-Transport-Security",
+      "status": "VULNERABLE",
+      "details": "Strict-Transport-Security header eksik!",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-25T10:33:18.955726",
+      "category": "Security Headers",
+      "test_name": "Missing header: Content-Security-Policy",
+      "status": "VULNERABLE",
+      "details": "Content-Security-Policy header eksik!",
+      "severity": "MEDIUM"
+    }
+  ]
+}

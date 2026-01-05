@@ -1,0 +1,61 @@
+{
+  "test_date": "2025-12-26T17:11:51.041289",
+  "target": "http://localhost:8000",
+  "summary": {
+    "total": 7,
+    "safe": 3,
+    "warnings": 2,
+    "vulnerable": 2
+  },
+  "results": [
+    {
+      "timestamp": "2025-12-26T17:11:14.725056",
+      "attack": "CSRF Attack",
+      "status": "VULNERABLE",
+      "details": "CSRF attack successful - SameSite not enforced!",
+      "severity": "CRITICAL"
+    },
+    {
+      "timestamp": "2025-12-26T17:11:20.110112",
+      "attack": "Cookie Replay",
+      "status": "VULNERABLE",
+      "details": "Cookie replayed 10/10 times - No rotation (avg: 0.009s)",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-26T17:11:20.402341",
+      "attack": "Subdomain Cookie Scope",
+      "status": "SAFE",
+      "details": "Cookie limited to specific domain: localhost.local",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T17:11:20.693131",
+      "attack": "TRACE Method",
+      "status": "SAFE",
+      "details": "TRACE disabled or filtered",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T17:11:20.713511",
+      "attack": "Cookie Injection",
+      "status": "SAFE",
+      "details": "Malicious cookies rejected or handled safely",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T17:11:51.017654",
+      "attack": "Session Timeout",
+      "status": "WARNING",
+      "details": "Session still valid after 30s - Long timeout",
+      "severity": "LOW"
+    },
+    {
+      "timestamp": "2025-12-26T17:11:51.039947",
+      "attack": "Concurrent Sessions",
+      "status": "WARNING",
+      "details": "0/3 sessions active - Partial limit",
+      "severity": "LOW"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "total_tests": 8,
+  "vulnerabilities": [
+    {
+      "category": "IDOR",
+      "test": "Access other user's conversations",
+      "status": "VULNERABLE",
+      "details": "User 15 başka user'ın (16) conversation'larına erişebildi!",
+      "severity": "CRITICAL"
+    },
+    {
+      "category": "CSRF",
+      "test": "Change password without CSRF token",
+      "status": "VULNERABLE",
+      "details": "CSRF token kontrolü yok! State-changing işlemler korunmasız.",
+      "severity": "HIGH"
+    },
+    {
+      "category": "Data Exposure",
+      "test": "API docs in production",
+      "status": "VULNERABLE",
+      "details": "API dokümantasyonu herkese açık! /docs kapatılmalı.",
+      "severity": "MEDIUM"
+    }
+  ],
+  "safe": [
+    {
+      "category": "Mass Assignment",
+      "test": "Set admin privileges via registration",
+      "status": "SAFE",
+      "details": "Unauthorized field'lar ignore edildi",
+      "severity": "INFO"
+    },
+    {
+      "category": "API Fuzzing",
+      "test": "Malformed JSON handling",
+      "status": "SAFE",
+      "details": "Malformed JSON doğru şekilde handle ediliyor",
+      "severity": "INFO"
+    },
+    {
+      "category": "Auth Bypass",
+      "test": "Empty token",
+      "status": "SAFE",
+      "details": "Boş token reddedildi",
+      "severity": "INFO"
+    },
+    {
+      "category": "Auth Bypass",
+      "test": "SQL injection in token",
+      "status": "SAFE",
+      "details": "SQL injection engellendi",
+      "severity": "INFO"
+    },
+    {
+      "category": "Data Exposure",
+      "test": "Stack trace in errors",
+      "status": "SAFE",
+      "details": "Error mesajları temiz",
+      "severity": "INFO"
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,360 @@
+{
+  "test_date": "2025-12-25T11:06:12.195538",
+  "total_attempts": 50,
+  "successful_attempts": 50,
+  "blocked_attempts": 0,
+  "rate_limit_detected": false,
+  "vulnerability": "VULNERABLE",
+  "results": [
+    {
+      "attempt": 1,
+      "password": "password1",
+      "status_code": 401,
+      "time_ms": 16.76,
+      "blocked": false
+    },
+    {
+      "attempt": 2,
+      "password": "password2",
+      "status_code": 401,
+      "time_ms": 6.15,
+      "blocked": false
+    },
+    {
+      "attempt": 3,
+      "password": "password3",
+      "status_code": 401,
+      "time_ms": 5.68,
+      "blocked": false
+    },
+    {
+      "attempt": 4,
+      "password": "password4",
+      "status_code": 401,
+      "time_ms": 26.04,
+      "blocked": false
+    },
+    {
+      "attempt": 5,
+      "password": "password5",
+      "status_code": 401,
+      "time_ms": 5.78,
+      "blocked": false
+    },
+    {
+      "attempt": 6,
+      "password": "123456",
+      "status_code": 401,
+      "time_ms": 5.0,
+      "blocked": false
+    },
+    {
+      "attempt": 7,
+      "password": "qwerty",
+      "status_code": 401,
+      "time_ms": 5.43,
+      "blocked": false
+    },
+    {
+      "attempt": 8,
+      "password": "admin",
+      "status_code": 401,
+      "time_ms": 5.2,
+      "blocked": false
+    },
+    {
+      "attempt": 9,
+      "password": "letmein",
+      "status_code": 401,
+      "time_ms": 4.68,
+      "blocked": false
+    },
+    {
+      "attempt": 10,
+      "password": "welcome",
+      "status_code": 401,
+      "time_ms": 5.34,
+      "blocked": false
+    },
+    {
+      "attempt": 11,
+      "password": "monkey",
+      "status_code": 401,
+      "time_ms": 5.46,
+      "blocked": false
+    },
+    {
+      "attempt": 12,
+      "password": "dragon",
+      "status_code": 401,
+      "time_ms": 5.14,
+      "blocked": false
+    },
+    {
+      "attempt": 13,
+      "password": "master",
+      "status_code": 401,
+      "time_ms": 18.79,
+      "blocked": false
+    },
+    {
+      "attempt": 14,
+      "password": "sunshine",
+      "status_code": 401,
+      "time_ms": 15.49,
+      "blocked": false
+    },
+    {
+      "attempt": 15,
+      "password": "princess",
+      "status_code": 401,
+      "time_ms": 5.4,
+      "blocked": false
+    },
+    {
+      "attempt": 16,
+      "password": "football",
+      "status_code": 401,
+      "time_ms": 5.16,
+      "blocked": false
+    },
+    {
+      "attempt": 17,
+      "password": "shadow",
+      "status_code": 401,
+      "time_ms": 4.53,
+      "blocked": false
+    },
+    {
+      "attempt": 18,
+      "password": "michael",
+      "status_code": 401,
+      "time_ms": 14.21,
+      "blocked": false
+    },
+    {
+      "attempt": 19,
+      "password": "jennifer",
+      "status_code": 401,
+      "time_ms": 4.86,
+      "blocked": false
+    },
+    {
+      "attempt": 20,
+      "password": "alex",
+      "status_code": 401,
+      "time_ms": 5.11,
+      "blocked": false
+    },
+    {
+      "attempt": 21,
+      "password": "Test123!",
+      "status_code": 401,
+      "time_ms": 5.0,
+      "blocked": false
+    },
+    {
+      "attempt": 22,
+      "password": "Admin123",
+      "status_code": 401,
+      "time_ms": 16.08,
+      "blocked": false
+    },
+    {
+      "attempt": 23,
+      "password": "Password!",
+      "status_code": 401,
+      "time_ms": 5.59,
+      "blocked": false
+    },
+    {
+      "attempt": 24,
+      "password": "Qwerty123",
+      "status_code": 401,
+      "time_ms": 4.97,
+      "blocked": false
+    },
+    {
+      "attempt": 25,
+      "password": "Welcome1",
+      "status_code": 401,
+      "time_ms": 4.8,
+      "blocked": false
+    },
+    {
+      "attempt": 26,
+      "password": "Summer2023",
+      "status_code": 401,
+      "time_ms": 14.93,
+      "blocked": false
+    },
+    {
+      "attempt": 27,
+      "password": "Winter2024",
+      "status_code": 401,
+      "time_ms": 16.74,
+      "blocked": false
+    },
+    {
+      "attempt": 28,
+      "password": "Spring2025",
+      "status_code": 401,
+      "time_ms": 5.13,
+      "blocked": false
+    },
+    {
+      "attempt": 29,
+      "password": "Fall2022",
+      "status_code": 401,
+      "time_ms": 5.3,
+      "blocked": false
+    },
+    {
+      "attempt": 30,
+      "password": "Test1234",
+      "status_code": 401,
+      "time_ms": 5.45,
+      "blocked": false
+    },
+    {
+      "attempt": 31,
+      "password": "Password123",
+      "status_code": 401,
+      "time_ms": 5.34,
+      "blocked": false
+    },
+    {
+      "attempt": 32,
+      "password": "Admin2023",
+      "status_code": 401,
+      "time_ms": 4.67,
+      "blocked": false
+    },
+    {
+      "attempt": 33,
+      "password": "User1234",
+      "status_code": 401,
+      "time_ms": 5.41,
+      "blocked": false
+    },
+    {
+      "attempt": 34,
+      "password": "Guest123",
+      "status_code": 401,
+      "time_ms": 14.14,
+      "blocked": false
+    },
+    {
+      "attempt": 35,
+      "password": "Demo1234",
+      "status_code": 401,
+      "time_ms": 15.09,
+      "blocked": false
+    },
+    {
+      "attempt": 36,
+      "password": "Temp1234",
+      "status_code": 401,
+      "time_ms": 4.98,
+      "blocked": false
+    },
+    {
+      "attempt": 37,
+      "password": "Sample123",
+      "status_code": 401,
+      "time_ms": 4.75,
+      "blocked": false
+    },
+    {
+      "attempt": 38,
+      "password": "Example1",
+      "status_code": 401,
+      "time_ms": 20.8,
+      "blocked": false
+    },
+    {
+      "attempt": 39,
+      "password": "Default1",
+      "status_code": 401,
+      "time_ms": 5.54,
+      "blocked": false
+    },
+    {
+      "attempt": 40,
+      "password": "System123",
+      "status_code": 401,
+      "time_ms": 4.89,
+      "blocked": false
+    },
+    {
+      "attempt": 41,
+      "password": "Access123",
+      "status_code": 401,
+      "time_ms": 4.92,
+      "blocked": false
+    },
+    {
+      "attempt": 42,
+      "password": "Login123",
+      "status_code": 401,
+      "time_ms": 5.08,
+      "blocked": false
+    },
+    {
+      "attempt": 43,
+      "password": "Auth1234",
+      "status_code": 401,
+      "time_ms": 27.71,
+      "blocked": false
+    },
+    {
+      "attempt": 44,
+      "password": "Secure1",
+      "status_code": 401,
+      "time_ms": 5.12,
+      "blocked": false
+    },
+    {
+      "attempt": 45,
+      "password": "Safe1234",
+      "status_code": 401,
+      "time_ms": 5.41,
+      "blocked": false
+    },
+    {
+      "attempt": 46,
+      "password": "Protected1",
+      "status_code": 401,
+      "time_ms": 5.2,
+      "blocked": false
+    },
+    {
+      "attempt": 47,
+      "password": "Private1",
+      "status_code": 401,
+      "time_ms": 5.87,
+      "blocked": false
+    },
+    {
+      "attempt": 48,
+      "password": "Hidden123",
+      "status_code": 401,
+      "time_ms": 4.75,
+      "blocked": false
+    },
+    {
+      "attempt": 49,
+      "password": "Secret1",
+      "status_code": 401,
+      "time_ms": 4.58,
+      "blocked": false
+    },
+    {
+      "attempt": 50,
+      "password": "Confidential",
+      "status_code": 401,
+      "time_ms": 14.56,
+      "blocked": false
+    }
+  ]
+}

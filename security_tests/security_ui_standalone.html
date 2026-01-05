@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Test Suite - Standalone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .input-group {
+            margin-bottom: 30px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .test-selection {
+            margin-bottom: 30px;
+        }
+
+        .test-selection h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .test-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            background: #f9f9f9;
+        }
+
+        .test-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .test-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .test-list::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        .test-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 8px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .test-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: translateX(5px);
+        }
+
+        .test-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+
+        .test-item label {
+            cursor: pointer;
+            user-select: none;
+            flex-grow: 1;
+        }
+
+        .test-item .severity {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .severity-high {
+            background: #fee;
+            color: #c00;
+        }
+
+        .severity-medium {
+            background: #fef0e0;
+            color: #e67e00;
+        }
+
+        .severity-low {
+            background: #e0f7fa;
+            color: #006064;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .results h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .result-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+
+        .result-item.success {
+            border-left-color: #4caf50;
+        }
+
+        .result-item.warning {
+            border-left-color: #ff9800;
+        }
+
+        .result-item.error {
+            border-left-color: #f44336;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .select-all {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .select-all input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Security Test Suite</h1>
+            <p>Comprehensive security testing for web applications</p>
+        </div>
+
+        <div class="content">
+            <div class="info-box">
+                <strong>⚠️ Standalone Mode</strong>
+                This version generates test commands for manual execution. Click "Generate Commands" to get the commands
+                to run.
+            </div>
+
+            <div class="input-group">
+                <label for="targetUrl">🎯 Target URL</label>
+                <input type="text" id="targetUrl" placeholder="http://localhost:5000" value="http://localhost:5000">
+            </div>
+
+            <div class="test-selection">
+                <h3>🔍 Select Security Tests</h3>
+
+                <div class="select-all">
+                    <input type="checkbox" id="selectAll">
+                    <label for="selectAll">Select All Tests</label>
+                </div>
+
+                <div class="test-list" id="testList">
+                    <div class="test-item">
+                        <input type="checkbox" id="test1" value="security_test.py" checked>
+                        <label for="test1">Basic Security Test</label>
+                        <span class="severity severity-medium">Medium</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test2" value="advanced_security_test.py" checked>
+                        <label for="test2">Advanced Security Test</label>
+                        <span class="severity severity-high">High</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test3" value="xss_test_logger.py" checked>
+                        <label for="test3">XSS Attack Test</label>
+                        <span class="severity severity-high">High</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test4" value="jwt_hijacking_test.py" checked>
+                        <label for="test4">JWT Hijacking Test</label>
+                        <span class="severity severity-high">High</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test5" value="rate_limiting_test.py" checked>
+                        <label for="test5">Rate Limiting Test</label>
+                        <span class="severity severity-medium">Medium</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test6" value="idor_real_test.py" checked>
+                        <label for="test6">IDOR Vulnerability Test</label>
+                        <span class="severity severity-high">High</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test7" value="syn_flood_test.py">
+                        <label for="test7">SYN Flood DoS Test</label>
+                        <span class="severity severity-high">High</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test8" value="ultimate_dos_test.py">
+                        <label for="test8">Ultimate DoS Test</label>
+                        <span class="severity severity-high">High</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test9" value="advanced_cookie_attacks.py" checked>
+                        <label for="test9">Cookie Attack Test</label>
+                        <span class="severity severity-medium">Medium</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test10" value="server_health_check.py" checked>
+                        <label for="test10">Server Health Check</label>
+                        <span class="severity severity-low">Low</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test11" value="api_connection_test.py" checked>
+                        <label for="test11">API Connection Test</label>
+                        <span class="severity severity-low">Low</span>
+                    </div>
+
+                    <div class="test-item">
+                        <input type="checkbox" id="test12" value="quick_xss_test.py" checked>
+                        <label for="test12">Quick XSS Test</label>
+                        <span class="severity severity-medium">Medium</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="generateCommands()">📋 Generate Commands</button>
+                <button class="btn btn-secondary" onclick="clearResults()">🗑️ Clear</button>
+            </div>
+
+            <div class="results" id="results">
+                <h3>📊 Commands to Run</h3>
+                <div id="resultsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Select All functionality
+        document.getElementById('selectAll').addEventListener('change', function () {
+            const checkboxes = document.querySelectorAll('.test-item input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+
+        // Update Select All when individual checkboxes change
+        document.querySelectorAll('.test-item input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', function () {
+                const allCheckboxes = document.querySelectorAll('.test-item input[type="checkbox"]');
+                const allChecked = Array.from(allCheckboxes).every(checkbox => checkbox.checked);
+                document.getElementById('selectAll').checked = allChecked;
+            });
+        });
+
+        function getSelectedTests() {
+            const selected = [];
+            document.querySelectorAll('.test-item input[type="checkbox"]:checked').forEach(cb => {
+                selected.push(cb.value);
+            });
+            return selected;
+        }
+
+        function generateCommands() {
+            const targetUrl = document.getElementById('targetUrl').value;
+            const selectedTests = getSelectedTests();
+
+            if (!targetUrl) {
+                alert('Please enter a target URL');
+                return;
+            }
+
+            if (selectedTests.length === 0) {
+                alert('Please select at least one test');
+                return;
+            }
+
+            const resultsList = document.getElementById('resultsList');
+            resultsList.innerHTML = '';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'result-item success';
+            header.innerHTML = `
+                <strong>✅ Commands Generated</strong><br>
+                <small>Target URL: <code>${targetUrl}</code></small><br>
+                <small>Selected ${selectedTests.length} test(s)</small>
+            `;
+            resultsList.appendChild(header);
+
+            // Commands
+            selectedTests.forEach((test, index) => {
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                div.innerHTML = `
+                    <strong>${index + 1}. ${test.replace('.py', '')}</strong><br>
+                    <code style="background: #f5f5f5; padding: 8px; display: block; margin-top: 5px; border-radius: 5px; font-family: 'Courier New', monospace;">
+                        python ${test}
+                    </code>
+                    <button onclick="copyToClipboard('python ${test}')" style="margin-top: 5px; padding: 5px 10px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        📋 Copy
+                    </button>
+                `;
+                resultsList.appendChild(div);
+            });
+
+            //  Run all script
+            const allCommands = selectedTests.map(t => `python ${t}`).join('\\n');
+            const allDiv = document.createElement('div');
+            allDiv.className = 'result-item warning';
+            allDiv.innerHTML = `
+                <strong>🚀 Run All Tests:</strong><br>
+                <code style="background: #f5f5f5; padding: 8px; display: block; margin-top: 5px; border-radius: 5px; font-family: 'Courier New', monospace; white-space: pre;">${allCommands}</code>
+                <button onclick="copyToClipboard(\`${allCommands}\`)" style="margin-top: 5px; padding: 5px 10px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    📋 Copy All
+                </button>
+            `;
+            resultsList.appendChild(allDiv);
+
+            document.getElementById('results').style.display = 'block';
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Copied to clipboard!');
+            }).catch(err => {
+                alert('❌ Failed to copy: ' + err);
+            });
+        }
+
+        function clearResults() {
+            document.getElementById('resultsList').innerHTML = '';
+            document.getElementById('results').style.display = 'none';
+        }
+    </script>
+</body>
+
+</html>

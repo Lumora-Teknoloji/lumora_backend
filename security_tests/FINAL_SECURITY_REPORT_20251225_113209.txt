@@ -1,0 +1,189 @@
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                 LUMORA AI CHATBOT - SECURITY AUDIT REPORT           ║
+║                      Comprehensive Penetration Test                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Report Date: 2025-12-25 11:32:09
+Target: Lumora AI Chatbot (Backend + Frontend)
+Backend: http://localhost:8000
+Frontend: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════════════
+EXECUTIVE SUMMARY
+═══════════════════════════════════════════════════════════════════════
+
+Total Tests Run: 5
+Completed: 0
+Failed: 5
+
+═══════════════════════════════════════════════════════════════════════
+TEST RESULTS SUMMARY
+═══════════════════════════════════════════════════════════════════════
+
+[1] ❌ General Security Scan
+    Script: security_test.py
+    Status: FAILED
+    ──────────────────────────────────────────────────────────────────
+
+[2] ❌ Rate Limiting & Brute Force Test
+    Script: rate_limiting_test.py
+    Status: FAILED
+    ──────────────────────────────────────────────────────────────────
+
+[3] ❌ JWT Token Security Test
+    Script: jwt_hijacking_test.py
+    Status: FAILED
+    ──────────────────────────────────────────────────────────────────
+
+[4] ❌ XSS Vulnerability Test
+    Script: quick_xss_test.py
+    Status: FAILED
+    ──────────────────────────────────────────────────────────────────
+
+[5] ❌ Server Health Baseline
+    Script: server_health_check.py
+    Status: FAILED
+    ──────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════════
+DETAILED TEST OUTPUTS
+══════════════════════════════════════════════════════════════════════
+
+
+██████████████████████████████████████████████████████████████████████
+TEST: General Security Scan
+██████████████████████████████████████████████████████████████████████
+
+Traceback (most recent call last):
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\security_test.py", line 517, in <module>
+    tester.run_all_tests()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\security_test.py", line 475, in run_all_tests
+    print("\U0001f512 Lumora AI Chatbot - Otomatik Güvenlik Testi Başlatılıyor...")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f512' in position 0: character maps to <undefined>
+
+
+
+██████████████████████████████████████████████████████████████████████
+TEST: Rate Limiting & Brute Force Test
+██████████████████████████████████████████████████████████████████████
+
+
+Traceback (most recent call last):
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\rate_limiting_test.py", line 220, in <module>
+    print_banner()
+    ~~~~~~~~~~~~^^
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\rate_limiting_test.py", line 29, in print_banner
+    print(banner)
+    ~~~~~^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 47, in write
+    self.__convertor.write(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 177, in write
+    self.write_and_convert(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 202, in write_and_convert
+    self.write_plain_text(text, cursor, start)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 210, in write_plain_text
+    self.wrapped.write(text[start:end])
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-58: character maps to <undefined>
+
+
+
+██████████████████████████████████████████████████████████████████████
+TEST: JWT Token Security Test
+██████████████████████████████████████████████████████████████████████
+
+
+Traceback (most recent call last):
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\jwt_hijacking_test.py", line 304, in <module>
+    print_banner()
+    ~~~~~~~~~~~~^^
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\jwt_hijacking_test.py", line 30, in print_banner
+    print(banner)
+    ~~~~~^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 47, in write
+    self.__convertor.write(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 177, in write
+    self.write_and_convert(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 202, in write_and_convert
+    self.write_plain_text(text, cursor, start)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 210, in write_plain_text
+    self.wrapped.write(text[start:end])
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-58: character maps to <undefined>
+
+
+
+██████████████████████████████████████████████████████████████████████
+TEST: XSS Vulnerability Test
+██████████████████████████████████████████████████████████████████████
+
+Traceback (most recent call last):
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\quick_xss_test.py", line 9, in <module>
+    print("\U0001f534 XSS Test Başlatılıyor...\n")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f534' in position 0: character maps to <undefined>
+
+
+
+██████████████████████████████████████████████████████████████████████
+TEST: Server Health Baseline
+██████████████████████████████████████████████████████████████████████
+
+
+Traceback (most recent call last):
+  File "c:\Users\Esisya\.gemini\antigravity\scratch\LangChain_backend\security_tests\server_health_check.py", line 101, in <module>
+        print(f"""
+        ~~~~~^^^^^
+    {Fore.CYAN}
+    ^^^^^^^^^^^
+    ...<4 lines>...
+    {Style.RESET_ALL}
+    ^^^^^^^^^^^^^^^^^
+    """)
+    ^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 47, in write
+    self.__convertor.write(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 177, in write
+    self.write_and_convert(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 202, in write_and_convert
+    self.write_plain_text(text, cursor, start)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\site-packages\colorama\ansitowin32.py", line 210, in write_plain_text
+    self.wrapped.write(text[start:end])
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Esisya\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-58: character maps to <undefined>
+
+
+
+══════════════════════════════════════════════════════════════════════
+END OF REPORT
+══════════════════════════════════════════════════════════════════════
+
+Generated by: Antigravity Security Assessment Tool
+Report saved: FINAL_SECURITY_REPORT_20251225_113209.txt
