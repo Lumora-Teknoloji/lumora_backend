@@ -226,6 +226,7 @@ async def user_message(sid, data):
         conversation_id = validated_data.conversation_id
         message_text = validated_data.message
         image_url = validated_data.image_url
+        generate_images = validated_data.generate_images
     except PydanticValidationError as e:
         logger.warning(f"Invalid user_message input: {e}")
         await sio.emit('error', {
@@ -292,9 +293,8 @@ async def user_message(sid, data):
         
         # AI yanıtını üret
         try:
-            # Görsel üretimi: Sadece kullanıcı görsel istediğinde veya kıyafet fikri sorduğunda
-            # generate_ai_response fonksiyonu mesajı analiz edip otomatik karar verecek
-            generate_images = False
+            # Görsel üretimi: Kullanıcı butona bastığında veya mesajında istediğinde
+            generate_images = validated_data.generate_images
             ai_response = await generate_ai_response(message_text, generate_images=generate_images)
             ai_response_text = ai_response['content']
             ai_image_urls = ai_response.get('image_urls', [])
@@ -388,9 +388,8 @@ async def user_message(sid, data):
                     'content': chunk_content
                 }, room=sid)
 
-            # Görsel üretimi: Sadece kullanıcı görsel istediğinde veya kıyafet fikri sorduğunda
-            # generate_ai_response fonksiyonu mesajı analiz edip otomatik karar verecek
-            generate_images = False
+            # Görsel üretimi: Kullanıcı butona bastığında veya mesajında istediğinde
+            generate_images = validated_data.generate_images
             ai_response = await generate_ai_response(
                 message_text, 
                 chat_history=history,
