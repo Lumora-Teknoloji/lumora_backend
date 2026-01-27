@@ -273,13 +273,22 @@ async def user_message(sid, data):
         }
         guest_conv['messages'].append(user_msg)
 
-        # İlk kullanıcı mesajından takma ad üret
+        # İlk kullanıcı mesajından takma ad üret (ChatGPT gibi akıllı başlık)
         if message_text:
-            auto_alias = message_text.strip()
-            if len(auto_alias) > 40:
-                auto_alias = f"{auto_alias[:40]}..."
-            guest_alias = auto_alias or guest_alias
-            guest_conv['alias'] = guest_alias
+            from .ai_services import generate_conversation_title
+            try:
+                # AI ile akıllı başlık oluştur
+                guest_alias = await generate_conversation_title(message_text)
+                guest_conv['alias'] = guest_alias
+                logger.info(f"Guest AI-generated title: {guest_alias}")
+            except Exception as title_error:
+                logger.warning(f"Guest title generation failed, using fallback: {title_error}")
+                # Fallback: İlk 40 karakter
+                auto_alias = message_text.strip()[:40]
+                if len(message_text.strip()) > 40:
+                    auto_alias += "..."
+                guest_alias = auto_alias or guest_alias
+                guest_conv['alias'] = guest_alias
         
         # AI yanıtını üret
         try:
@@ -425,12 +434,21 @@ async def user_message(sid, data):
             ]
         )
 
-        # İlk kullanıcı mesajından otomatik takma ad üret
+        # İlk kullanıcı mesajından otomatik takma ad üret (ChatGPT gibi akıllı başlık)
         if not conversation.alias and user_message.content:
-            auto_alias = user_message.content.strip()
-            if len(auto_alias) > 40:
-                auto_alias = f"{auto_alias[:40]}..."
-            conversation.alias = auto_alias or conversation.title or "Sohbet"
+            from .ai_services import generate_conversation_title
+            try:
+                # AI ile akıllı başlık oluştur
+                auto_alias = await generate_conversation_title(user_message.content)
+                conversation.alias = auto_alias
+                logger.info(f"AI-generated title: {auto_alias}")
+            except Exception as title_error:
+                logger.warning(f"Title generation failed, using fallback: {title_error}")
+                # Fallback: İlk 40 karakter
+                auto_alias = user_message.content.strip()[:40]
+                if len(user_message.content.strip()) > 40:
+                    auto_alias += "..."
+                conversation.alias = auto_alias or conversation.title or "Sohbet"
 
         conversation.history_json = history
         db.add(conversation)

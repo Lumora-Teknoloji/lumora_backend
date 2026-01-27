@@ -30,13 +30,10 @@ def create_conversation(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    generated_alias = payload.alias or payload.title
-    if not generated_alias:
-        generated_alias = "Yeni Konuşma"
-
+    # Alias boş bırakılıyor ki AI ilk mesajdan başlık oluştursun
     conversation = models.Conversation(
-        title=payload.title or generated_alias,
-        alias=generated_alias,
+        title=payload.title or "Yeni Konuşma",  # Title varsayılan değer alabilir
+        alias=payload.alias,  # Alias None olabilir, AI dolduracak
         history_json=[],
         user_id=current_user.id,
     )
