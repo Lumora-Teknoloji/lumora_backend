@@ -66,8 +66,12 @@ async def generate_ai_response(
     loop = asyncio.get_event_loop()
 
     # Niyet analizi
-    intent = await loop.run_in_executor(None, analyze_user_intent, user_message, chat_history)
-    logger.info(f"🧠 Niyet: {intent}")
+    if generate_images:
+        intent = "IMAGE_GENERATION"
+    else:
+        intent = await loop.run_in_executor(None, analyze_user_intent, user_message, chat_history)
+    
+    logger.info(f"🧠 Niyet: {intent} (Zorunlu Görsel: {generate_images})")
 
     # --- GENERAL CHAT ---
     if intent == "GENERAL_CHAT":
