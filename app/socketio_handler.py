@@ -378,10 +378,25 @@ async def user_message(sid, data):
         
         # AI yanıtını üret
         try:
+            # Geçmişi hazırla
+            history = conversation.history_json or []
+            
+            # Streaming callback fonksiyonu
+            async def stream_callback(chunk_content):
+                await sio.emit('ai_message_chunk', {
+                    'conversation_id': conversation_id,
+                    'content': chunk_content
+                }, room=sid)
+
             # Görsel üretimi: Sadece kullanıcı görsel istediğinde veya kıyafet fikri sorduğunda
             # generate_ai_response fonksiyonu mesajı analiz edip otomatik karar verecek
             generate_images = False
-            ai_response = await generate_ai_response(message_text, generate_images=generate_images)
+            ai_response = await generate_ai_response(
+                message_text, 
+                chat_history=history,
+                generate_images=generate_images,
+                stream_callback=stream_callback
+            )
             ai_response_text = ai_response['content']
             ai_image_urls = ai_response.get('image_urls', [])
             ai_image_links = ai_response.get('image_links', {})
