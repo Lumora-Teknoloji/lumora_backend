@@ -1,0 +1,40 @@
+name: Backend Deploy
+
+# Tetikleyici: Sadece 'main' dalına kod gelince çalışsın
+on:
+  push:
+    branches:
+      - main
+    # İstersen sadece backend klasörü değişince çalışsın diye filtre de ekleyebilirsin:
+    # paths:
+    #   - 'LangChain_backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # 1. Proje ana klasörüne git
+            cd /var/www/backend
+            
+            # 2. GitHub'dan en güncel kodu çek
+            git pull origin main
+            
+            # 3. Backend klasörüne gir
+            cd LangChain_backend
+            
+            # 4. Sanal ortamı aktif et ve yeni kütüphane varsa yükle
+            source venv/bin/activate
+            pip install -r requirements.txt
+            
+            # 5. Sistemi yeniden başlat (Güncelleme devreye girsin)
+            pm2 restart lumora-backend
+            
+            echo "🚀 Backend Başarıyla Güncellendi!"
