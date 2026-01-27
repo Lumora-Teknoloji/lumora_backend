@@ -115,3 +115,7 @@ class MessageOut(BaseModel):
 class ConversationWithMessages(ConversationOut):
     messages: List[MessageOut] = []
 
+
+class FileUploadOut(BaseModel):
+    url: str
+

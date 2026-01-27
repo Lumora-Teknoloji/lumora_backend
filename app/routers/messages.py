@@ -1,5 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
+import os
+import shutil
+import uuid
 
 from .. import models, schemas
 from ..database import get_db
@@ -64,4 +67,42 @@ def create_message(
     db.commit()
     db.refresh(message)
     return message
+
+
+@router.post("/upload", response_model=schemas.FileUploadOut)
+async def upload_message_file(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Mesajlar için dosya yükler."""
+    
+    # İzin verilen dosya tipleri
+    ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".doc", ".docx"}
+    extension = os.path.splitext(file.filename)[1].lower()
+    
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Desteklenmeyen dosya formatı."
+        )
+
+    # Klasör kontrolü (Backend kök dizininde static/uploads)
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    
+    # Dosya ismi: user_id + uuid + ext
+    filename = f"{current_user.id}_msg_{uuid.uuid4()}{extension}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Dosya yüklenirken hata oluştu: {str(e)}"
+        )
+        
+    return {"url": f"/static/uploads/{filename}"}
 
