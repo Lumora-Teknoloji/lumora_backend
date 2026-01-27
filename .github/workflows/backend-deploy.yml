@@ -1,11 +1,10 @@
 name: Backend Deploy
 
-# Tetikleyici: Sadece 'main' dalına kod gelince çalışsın
 on:
   push:
     branches:
-      - main
-    # İstersen sadece backend klasörü değişince çalışsın diye filtre de ekleyebilirsin:
+      - main  # Eğer dal isminiz 'master' ise burayı değiştirin
+    # Eğer backend ve frontend aynı repodaysa, sadece backend değişince çalışsın diye:
     # paths:
     #   - 'LangChain_backend/**'
 
@@ -21,20 +20,25 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # 1. Proje ana klasörüne git
-            cd /var/www/backend
+            # Hata olursa işlemi durdur
+            set -e
             
-            # 2. GitHub'dan en güncel kodu çek
+            echo "🔌 Sunucuya bağlanılıyor..."
+            
+            # 1. Backend klasörüne git
+            cd /var/www/backend/LangChain_backend
+            
+            # 2. Güncel kodları çek
+            echo "📥 Kodlar çekiliyor..."
             git pull origin main
             
-            # 3. Backend klasörüne gir
-            cd LangChain_backend
-            
-            # 4. Sanal ortamı aktif et ve yeni kütüphane varsa yükle
+            # 3. Python Sanal Ortamını Güncelle
+            echo "🐍 Kütüphaneler yükleniyor..."
             source venv/bin/activate
             pip install -r requirements.txt
             
-            # 5. Sistemi yeniden başlat (Güncelleme devreye girsin)
+            # 4. Sistemi Yeniden Başlat
+            echo "🚀 PM2 servisi yeniden başlatılıyor..."
             pm2 restart lumora-backend
             
-            echo "🚀 Backend Başarıyla Güncellendi!"
+            echo "✅ Backend başarıyla güncellendi!"
