@@ -8,9 +8,9 @@ if __name__ == "__main__":
     # Socket.IO entegrasyonu ile birlikte çalışacak şekilde ayarlandı
     uvicorn.run(
         "app.main:app_asgi",
-        host="0.0.0.0",
+        host=settings.host,
         port=settings.port,
         reload=settings.app_env == "development",
-        log_level="info",
+        log_level="debug",
     )
 

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "Lumora Backend"
     api_prefix: str = "/api"
     app_env: str = "production"
+    host: str = "0.0.0.0"
     port: int = 8000
 
     postgresql_host: str
