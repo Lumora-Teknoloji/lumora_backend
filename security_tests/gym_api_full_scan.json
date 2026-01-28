@@ -1,0 +1,186 @@
+[
+  {
+    "endpoint": "/api/health",
+    "method": "GET",
+    "auth": false,
+    "status": 200,
+    "response_sample": "{\"status\":\"healthy\",\"message\":\"Gym Tracker API is running\",\"services\":{\"database\":\"healthy\"}}"
+  },
+  {
+    "endpoint": "/api/profile",
+    "method": "GET",
+    "auth": false,
+    "status": 401,
+    "response_sample": "{\"error\":\"Authorization header required\"}"
+  },
+  {
+    "endpoint": "/api/workouts",
+    "method": "GET",
+    "auth": false,
+    "status": 401,
+    "response_sample": "{\"error\":\"Authorization header required\"}"
+  },
+  {
+    "endpoint": "/api/exercises",
+    "method": "GET",
+    "auth": false,
+    "status": 401,
+    "response_sample": "{\"error\":\"Authorization header required\"}"
+  },
+  {
+    "endpoint": "/api/health",
+    "method": "GET",
+    "auth": true,
+    "status": 200,
+    "response_sample": "{\"status\":\"healthy\",\"message\":\"Gym Tracker API is running\",\"services\":{\"database\":\"healthy\"}}"
+  },
+  {
+    "endpoint": "/api/profile",
+    "method": "GET",
+    "auth": true,
+    "status": 401,
+    "response_sample": "{\"error\":\"Unauthorized\"}"
+  },
+  {
+    "endpoint": "/api/workouts",
+    "method": "GET",
+    "auth": true,
+    "status": 401,
+    "response_sample": "{\"error\":\"Unauthorized\"}"
+  },
+  {
+    "endpoint": "/api/exercises",
+    "method": "GET",
+    "auth": true,
+    "status": 200,
+    "response_sample": "[]"
+  },
+  {
+    "endpoint": "/api/admin/users",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/api/admin/stats",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/admin",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/dashboard",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/api/debug",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/api/test",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/debug",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/console",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/docs",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/api/docs",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/swagger",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/openapi.json",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/api-docs",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/documentation",
+    "method": "GET",
+    "auth": true,
+    "status": 429,
+    "response_sample": "{\"error\":\"Rate limit exceeded. Please try again later.\"}"
+  },
+  {
+    "endpoint": "/api/auth/login",
+    "method": "POST",
+    "auth": true,
+    "status": 429
+  },
+  {
+    "endpoint": "/api/auth/register",
+    "method": "POST",
+    "auth": true,
+    "status": 429
+  },
+  {
+    "endpoint": "/api/workouts",
+    "method": "POST",
+    "auth": true,
+    "status": 429
+  },
+  {
+    "endpoint": "/api/exercises",
+    "method": "POST",
+    "auth": true,
+    "status": 429
+  },
+  {
+    "endpoint": "/api/sessions",
+    "method": "POST",
+    "auth": true,
+    "status": 429
+  }
+]

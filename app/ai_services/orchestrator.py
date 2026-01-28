@@ -56,7 +56,8 @@ def check_report_content_for_visuals(report_text: str) -> bool:
 async def generate_ai_response(
     user_message: str,
     chat_history: List[Dict[str, str]] = [],
-    generate_images: bool = False
+    generate_images: bool = False,
+    stream_callback: Any = None
 ) -> Dict[str, Any]:
     """
     Ana AI yanıt üretimi fonksiyonu
@@ -65,12 +66,17 @@ async def generate_ai_response(
     loop = asyncio.get_event_loop()
 
     # Niyet analizi
-    intent = await loop.run_in_executor(None, analyze_user_intent, user_message, chat_history)
-    logger.info(f"🧠 Niyet: {intent}")
+    if generate_images:
+        intent = "IMAGE_GENERATION"
+    else:
+        intent = await loop.run_in_executor(None, analyze_user_intent, user_message, chat_history)
+    
+    logger.info(f"🧠 Niyet: {intent} (Zorunlu Görsel: {generate_images})")
 
     # --- GENERAL CHAT ---
     if intent == "GENERAL_CHAT":
-        content = await loop.run_in_executor(None, handle_general_chat, user_message)
+        # handle_general_chat artık async ve streaming destekliyor
+        content = await handle_general_chat(user_message, stream_callback)
         return {"content": content, "image_urls": [], "image_links": {}, "process_log": ["Sohbet edildi."]}
 
     # --- IMAGE_GENERATION durumu - Yeni görsel üretimi ---

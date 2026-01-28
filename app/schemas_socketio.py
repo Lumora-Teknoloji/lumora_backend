@@ -12,6 +12,7 @@ class UserMessageInput(BaseModel):
     conversation_id: Optional[int] = None
     message: str = Field(..., min_length=1, max_length=10000)
     image_url: Optional[str] = Field(None, max_length=2048)
+    generate_images: bool = False
     
     @field_validator('message')
     @classmethod

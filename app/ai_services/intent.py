@@ -68,8 +68,8 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
         return "MARKET_RESEARCH"
 
 
-def handle_general_chat(message: str) -> str:
-    """Genel sohbet mesajlarını işler"""
+async def handle_general_chat(message: str, stream_callback=None) -> str:
+    """Genel sohbet mesajlarını işler (Streaming desteği ile)"""
     if not openai_client:
         return "Üzgünüm, şu an yanıt veremiyorum."
 
@@ -93,15 +93,37 @@ def handle_general_chat(message: str) -> str:
     """
 
     try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7
-        )
-        return response.choices[0].message.content
+        # Eğer callback varsa streaming yap
+        if stream_callback:
+            response_stream = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                temperature=0.7,
+                stream=True
+            )
+            
+            full_content = ""
+            for chunk in response_stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_content += content
+                    await stream_callback(content)
+            return full_content
+            
+        else:
+            # Normal (non-streaming)
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                temperature=0.7
+            )
+            return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Genel sohbet hatası: {e}")
         return "Üzgünüm, şu an yanıt veremiyorum."

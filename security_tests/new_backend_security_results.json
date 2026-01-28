@@ -1,0 +1,84 @@
+{
+  "test_date": "2025-12-26T16:54:46.406155",
+  "target": "http://localhost:8000",
+  "summary": {
+    "total_tests": 9,
+    "safe": 6,
+    "warnings": 1,
+    "vulnerabilities": 2
+  },
+  "results": [
+    {
+      "timestamp": "2025-12-26T16:54:41.925703",
+      "category": "Cookie Security",
+      "test_name": "HttpOnly Flag",
+      "status": "SAFE",
+      "details": "HttpOnly flag present - JavaScript cannot access cookie",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:41.925853",
+      "category": "Cookie Security",
+      "test_name": "Secure Flag",
+      "status": "WARNING",
+      "details": "Secure flag missing - HTTP allowed (MITM risk)",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:41.925938",
+      "category": "Cookie Security",
+      "test_name": "SameSite Flag",
+      "status": "SAFE",
+      "details": "SameSite present - CSRF protection active",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:41.926294",
+      "category": "Token Storage",
+      "test_name": "Token in Response Body",
+      "status": "SAFE",
+      "details": "No token in body - using cookies (good practice)",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:45.141834",
+      "category": "Cookie Replay",
+      "test_name": "Token Reusability",
+      "status": "VULNERABLE",
+      "details": "Cookie can be replayed indefinitely - no token rotation",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:45.773289",
+      "category": "Session Fixation",
+      "test_name": "Session Regeneration",
+      "status": "SAFE",
+      "details": "Session ID regenerated on login - fixation prevented",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:45.778480",
+      "category": "Session Fixation",
+      "test_name": "Unauthorized Access",
+      "status": "VULNERABLE",
+      "details": "Attacker accessed victim account via session fixation!",
+      "severity": "CRITICAL"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:46.378409",
+      "category": "HTTP Methods",
+      "test_name": "TRACE Method",
+      "status": "SAFE",
+      "details": "TRACE method disabled or filtered",
+      "severity": "INFO"
+    },
+    {
+      "timestamp": "2025-12-26T16:54:46.405053",
+      "category": "Exception Handling",
+      "test_name": "Stack Trace Disclosure",
+      "status": "SAFE",
+      "details": "Generic error messages - no information leakage",
+      "severity": "INFO"
+    }
+  ]
+}

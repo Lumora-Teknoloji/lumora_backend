@@ -79,6 +79,21 @@ def ensure_conversation_history_columns():
             logger.info(f"image_url kolon tipi değiştirme uyarısı: {e}")
 
 
+def ensure_user_avatar_column():
+    """users tablosuna avatar_url kolonunu ekler."""
+    if not check_table_exists("users"):
+        return
+    
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)")
+            )
+            logger.info("users tablosu avatar_url kolonu kontrol edildi")
+    except Exception as e:
+        logger.warning(f"users tablosu avatar_url kolonu kontrol edilirken uyarı: {e}")
+
+
 def setup_database():
     """Veritabanı tablolarını oluşturur. Mevcut tabloları ve verileri korur."""
     # Önce tabloların varlığını kontrol et
@@ -97,6 +112,7 @@ def setup_database():
     
     # Mevcut tablolar için kolon kontrollerini yap
     ensure_conversation_history_columns()
+    ensure_user_avatar_column()
 
 
 @asynccontextmanager

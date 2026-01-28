@@ -36,6 +36,7 @@ class PasswordChange(BaseModel):
 class UserOut(UserBase):
     id: int
     created_at: datetime
+    avatar_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -113,4 +114,8 @@ class MessageOut(BaseModel):
 
 class ConversationWithMessages(ConversationOut):
     messages: List[MessageOut] = []
+
+
+class FileUploadOut(BaseModel):
+    url: str
 
