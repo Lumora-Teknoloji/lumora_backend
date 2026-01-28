@@ -476,6 +476,7 @@ async def user_message(sid, data):
             'image_url': ai_message.image_url,  # Backward compatibility için
             'image_urls': ai_image_urls,  # Tüm görselleri gönder
             'image_links': ai_image_links,  # Görsel-link eşleştirmesi
+            'alias': conversation.alias,  # Sidebar başlığı güncellemesi için
             'created_at': ai_message.created_at.isoformat() if ai_message.created_at else None
         }, room=sid)
         

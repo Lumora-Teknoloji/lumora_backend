@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # AI API Keys (zorunlu - .env dosyasından alınmalı)
     openai_api_key: str = ""
     tavily_api_key: str = ""
+    serpapi_api_key: str = ""  # Google Trends için
     fal_api_key: str = ""
     fal_base_url: str = "https://fal.run"
     fal_model_path: str = "fal-ai/flux/dev"

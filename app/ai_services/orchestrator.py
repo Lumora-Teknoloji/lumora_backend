@@ -15,6 +15,7 @@ from .research import (
     find_visual_match_for_model,
     extract_visual_search_terms
 )
+from .trends import get_google_trends, format_trends_for_report
 from .images import (
     generate_image_prompts,
     generate_ai_images,
@@ -75,8 +76,8 @@ async def generate_ai_response(
 
     # --- GENERAL CHAT ---
     if intent == "GENERAL_CHAT":
-        # handle_general_chat artık async ve streaming destekliyor
-        content = await handle_general_chat(user_message, stream_callback)
+        # handle_general_chat artık async ve streaming destekliyor + chat_history ile bağlam koruyor
+        content = await handle_general_chat(user_message, chat_history, stream_callback)
         return {"content": content, "image_urls": [], "image_links": {}, "process_log": ["Sohbet edildi."]}
 
     # --- IMAGE_GENERATION durumu - Yeni görsel üretimi ---
@@ -227,11 +228,19 @@ async def generate_ai_response(
         return {"content": response_text, "image_urls": combined_images, "image_links": {}, "process_log": ["Devam yanıtı verildi."]}
 
     # === MARKET RESEARCH ===
+    # Paralel veri toplama: Tavily + Google Trends
     f_m = loop.run_in_executor(None, deep_market_research, user_message)
     f_r = loop.run_in_executor(None, analyze_runway_trends, user_message)
-    market_res, runway_res = await asyncio.gather(f_m, f_r)
+    f_t = loop.run_in_executor(None, get_google_trends, user_message)  # YENİ: Google Trends
+    market_res, runway_res, trends_res = await asyncio.gather(f_m, f_r, f_t)
 
+    # Google Trends verisini formatla
+    trends_text = format_trends_for_report(trends_res)
+    
     full_data = f"{runway_res.get('context','')}\n===\n{market_res.get('context','')}"
+    if trends_text:
+        full_data += f"\n\n=== GOOGLE TRENDS VERİSİ ===\n{trends_text}"
+    
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, full_data)
 
     user_needs_visuals = await loop.run_in_executor(None, check_visual_necessity, user_message)
