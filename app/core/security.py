@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
-from jose import JWTError, jwt
+from jwt import PyJWTError
+import jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 
@@ -32,7 +33,7 @@ def decode_token(token: str) -> Dict[str, Any]:
         return jwt.decode(
             token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
         )
-    except JWTError as exc:
+    except PyJWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",

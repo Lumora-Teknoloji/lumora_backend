@@ -335,8 +335,13 @@ def generate_custom_images(prompts: List[str], consist_seed: Optional[int] = Non
                 "negative_prompt": negative_prompt
             }
 
+            # FAL API URL construction
+            # base_url genellikle https://fal.run şeklindedir, model path ise fal-ai/flux/dev
+            # Birleşim: https://fal.run/fal-ai/flux/dev
+            fal_url = f"{settings.fal_base_url.rstrip('/')}/{settings.fal_model_path.lstrip('/')}"
+
             res = requests.post(
-                "https://fal.run/fal-ai/flux/dev",
+                fal_url,
                 headers=headers,
                 json=payload,
                 timeout=60 # Timeout biraz artırıldı

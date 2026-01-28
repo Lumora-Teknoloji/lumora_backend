@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     )  # Fazladan env key'leri görmezden gel ve .env.local oku
     app_name: str = "Lumora Backend"
     api_prefix: str = "/api"
-    app_env: str = "development"
+    app_env: str = "production"
     port: int = 8000
 
     postgresql_host: str
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     frontend_url: str = "http://localhost:3000"
     cors_origins: str = "*"  # Virgülle ayrılmış origin listesi
-    allowed_hosts: str = "localhost,127.0.0.1"  # TrustedHost middleware için
+    allowed_hosts: str = "localhost,127.0.0.1,lumoraboutique.com,www.lumoraboutique.com"  # TrustedHost middleware için
     
     # Connection limits (DoS protection)
     max_connections: int = 200
