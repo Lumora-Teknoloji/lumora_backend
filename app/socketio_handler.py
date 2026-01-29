@@ -378,8 +378,35 @@ async def user_message(sid, data):
         
         # AI yanıtını üret
         try:
-            # Geçmişi hazırla
-            history = conversation.history_json or []
+            # Geçmişi veritabanından çek (En sağlam yöntem)
+            # Son 40 mesajı al, yeniden eskiye doğru sırala sonra ters çevir
+            db_messages = db.query(Message).filter(
+                Message.conversation_id == conversation_id
+            ).order_by(Message.created_at.desc()).limit(40).all()
+            
+            # Kronolojik sıraya sok (Eskiden yeniye)
+            db_messages.reverse()
+            
+            # AI formatına dönüştür
+            history = []
+            for m in db_messages:
+                # Mevcut kullanıcı mesajını tekrar eklememek için kontrol et (Message ID varsa)
+                if m.id == user_message.id:
+                    continue
+                    
+                role = "assistant" if m.sender == "ai" else "user"
+                history.append({
+                    "role": role,
+                    "content": m.content,
+                    "sender": role # Bazı fonksiyonlar 'sender' bekliyor
+                })
+            
+            # Şu anki mesajı manuel ekle (DB'ye henüz commit edilmemiş olsa bile garanti olsun)
+            history.append({
+                "role": "user",
+                "content": user_message.content,
+                "sender": "user"
+            })
             
             # Streaming callback fonksiyonu
             async def stream_callback(chunk_content):

@@ -2,14 +2,14 @@
 Pydantic schemas for Socket.IO event validation.
 """
 import html
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel, Field, field_validator
 
 
 class UserMessageInput(BaseModel):
     """Validation schema for Socket.IO user_message event."""
     
-    conversation_id: Optional[int] = None
+    conversation_id: Optional[Union[int, str]] = None  # int for registered, str for guest
     message: str = Field(..., min_length=1, max_length=10000)
     image_url: Optional[str] = Field(None, max_length=2048)
     generate_images: bool = False

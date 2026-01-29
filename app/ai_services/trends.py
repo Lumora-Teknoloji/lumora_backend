@@ -61,9 +61,10 @@ def get_google_trends(keyword: str, timeframe: str = "today 3-m", geo: str = "TR
         if "interest_over_time" in data:
             timeline = data["interest_over_time"].get("timeline_data", [])
             for point in timeline:
+                raw_value = point.get("values", [{}])[0].get("value", 0) if point.get("values") else 0
                 result["interest_over_time"].append({
                     "date": point.get("date", ""),
-                    "value": point.get("values", [{}])[0].get("value", 0) if point.get("values") else 0
+                    "value": int(raw_value) if str(raw_value).isdigit() else 0
                 })
         
         # 2. Related Queries (İlgili Aramalar)
@@ -75,12 +76,12 @@ def get_google_trends(keyword: str, timeframe: str = "today 3-m", geo: str = "TR
             queries = data["related_queries"]
             if queries.get("rising"):
                 result["rising_queries"] = [
-                    {"query": q.get("query", ""), "value": q.get("value", "")} 
+                    {"query": q.get("query", ""), "value": str(q.get("value", ""))} 
                     for q in queries["rising"][:10]
                 ]
             if queries.get("top"):
                 result["top_queries"] = [
-                    {"query": q.get("query", ""), "value": q.get("value", 0)} 
+                    {"query": q.get("query", ""), "value": int(q.get("value", 0)) if str(q.get("value", 0)).isdigit() else 0} 
                     for q in queries["top"][:10]
                 ]
         

@@ -87,77 +87,166 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
 
 
 async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] = [], stream_callback=None) -> str:
-    """Genel sohbet mesajlarını işler (Streaming + Tavily desteği ile)"""
+    """
+    Genel sohbet mesajlarını işler.
+    Basit ve etkili: Tek API çağrısı, profesyonel system prompt.
+    """
     if not openai_client:
         return "Üzgünüm, şu an yanıt veremiyorum."
 
-    from .clients import tavily_client  # Tavily import
+    from .clients import tavily_client
 
     current_time = datetime.now().strftime("%d %B %Y, %A - Saat: %H:%M")
     
-    # Bilgi araması gerekip gerekmediğini kontrol et
+    # --- DINAMİK ARAMA KARARI (LLM) ---
+    # Kelime listesi yerine zekaya soruyoruz: "Bunu aramalı mıyım?"
     web_context = ""
-    needs_search_keywords = [
-        "var mı", "nedir", "nasıl", "ne demek", "örnek", "hangi", 
-        "kim", "ne zaman", "nerede", "sistem", "platform", "uygulama",
-        "şirket", "marka", "rakip", "alternatif", "fark", "karşılaştır"
-    ]
+    needs_search = False
     
-    message_lower = message.lower()
-    needs_web_search = any(kw in message_lower for kw in needs_search_keywords)
+    # Sadece çok kısa mesajları (selam, naber) elemek için basit kontrol
+    # Amaç: LLM çağrısını gereksiz yere yapmamak (maliyet/hız optimizasyonu)
+    is_trivial = len(message.split()) < 2 and message.lower() in ["selam", "merhaba", "naber", "chat"]
     
-    # Tavily ile web araması yap (eğer gerekiyorsa)
-    if needs_web_search and tavily_client:
+    if not is_trivial:
         try:
-            # Sohbet bağlamından konu çıkar
-            context_text = " ".join([m.get("content", "")[:100] for m in chat_history[-3:]])
-            search_query = f"{message} {context_text[:100]}"
+            search_decision_prompt = f"""
+            Decide if a Google search is needed to answer this message accurately.
             
+            USER MESSAGE: "{message}"
+            
+            RULES:
+            - If asking about specific FACTS, EVENTS, PRODUCTS, COMPANIES -> SEARCH
+            - If asking about "Antigravity", "Google", "AI Tools" -> SEARCH
+            - If asking for OPINION or SUGGESTION on technical/fashion topics -> SEARCH
+            - If just greetings (nasılsın, merhaba) -> NO
+            - If naming the AI (sana isim verelim) -> NO
+            
+            Return ONLY "SEARCH" or "NO".
+            """
+            
+            decision = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": search_decision_prompt}],
+                temperature=0.0,
+                max_tokens=5
+            )
+            needs_search = "SEARCH" in decision.choices[0].message.content.strip().upper()
+            logger.info(f"🕵️ Arama Kararı: {needs_search} (Mesaj: {message})")
+        except Exception as e:
+            logger.warning(f"Arama kararı hatası: {e}")
+            # Hata durumunda güvenli fallback: Soru eki varsa ara
+            needs_search = "?" in message or "nedir" in message.lower()
+    
+    if needs_search and tavily_client:
+        try:
+            # 1. Arama sorgusunu belirle (Sadece son mesaja bakma!)
+            search_query = message
+            
+            if chat_history and len(chat_history) > 0:
+                # Bağlamsal sorgu oluşturmak için mini-LLM çağrısı
+                # Örn: "araştır" dediğinde neyi araştıracağını geçmişten bulsun
+                context_messages = chat_history[-6:] + [{"role": "user", "content": message}]
+                history_str = json.dumps(context_messages, ensure_ascii=False)
+                
+                query_gen_prompt = f"""
+                Refine the search query based on conversation history.
+                
+                HISTORY: {history_str}
+                LAST MESSAGE: "{message}"
+                
+                Task: Create a concise Google search query to answer the user's intent.
+                If they say "research this", look at previous messages to find WHAT to research.
+                If the last message specific enough, just use that.
+                
+                OUTPUT: ONLY the search query text. No quotes.
+                """
+                
+                try:
+                    q_response = openai_client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{"role": "user", "content": query_gen_prompt}],
+                        temperature=0.0,
+                        max_tokens=30
+                    )
+                    search_query = q_response.choices[0].message.content.strip()
+                    logger.info(f"🔍 Bağlamsal Arama Sorgusu: '{message}' -> '{search_query}'")
+                except Exception as qe:
+                    logger.warning(f"Sorgu oluşturma hatası: {qe}")
+                    search_query = message
+
+            # 2. Tavily ile ara
             search_result = tavily_client.search(
                 query=search_query,
-                search_depth="basic",
-                max_results=3
+                search_depth="advanced",
+                max_results=5
             )
-            
             if search_result.get('results'):
-                web_context = "\n\n📌 WEB ARAŞTIRMASI SONUÇLARI:\n"
-                for res in search_result['results'][:3]:
-                    title = res.get('title', 'Kaynak')
-                    content = res.get('content', '')[:300]
+                web_context = "\n\n[WEB ARAŞTIRMASI SONUÇLARI]\n"
+                for res in search_result['results'][:5]:
+                    title = res.get('title', '')
+                    content = res.get('content', '')[:400]
                     url = res.get('url', '')
-                    web_context += f"• {title}: {content}...\n  Kaynak: {url}\n\n"
+                    web_context += f"• {title}: {content}\n  Kaynak: {url}\n\n"
         except Exception as e:
-            logger.warning(f"Tavily arama hatası: {e}")
-            web_context = ""
+            logger.warning(f"Web arama hatası: {e}")
+    
+    # --- EN GÜÇLÜ SYSTEM PROMPT ---
+    system_prompt = f"""You are a helpful, friendly AI assistant. You excel at understanding context and maintaining coherent conversations.
 
-    # System prompt (web context ile zenginleştirilmiş)
-    system_prompt = f"""
-    Sen Lumora AI, Kıdemli Moda Stratejisi Asistanısın.
-    
-    SİSTEM BİLGİSİ:
-    - ŞU ANKİ TARİH VE SAAT: {current_time}
-    
-    YETENEKLERİN:
-    1. Web araması ile güncel bilgi sağlama
-    2. Moda ve trend analizi
-    3. Görsel tasarım önerileri
-    
-    {f"WEB ARAŞTIRMASI VERİSİ (Bu bilgileri kullanarak cevap ver):{web_context}" if web_context else ""}
-    
-    GÖREVİN: 
-    Kullanıcının sorusuna samimi, profesyonel ve yardımsever bir dille cevap ver.
-    - ÖNCEKİ SOHBET BAĞLAMINI MUTLAKA DİKKATE AL.
-    - Web araştırması verisi varsa, bu bilgileri kullanarak GERÇEK ve DOĞRU bilgi ver.
-    - Kaynak gösterirken "[Kaynak](URL)" formatında link ver.
-    - Eğer "nasıl çalıştığını" sorarsa yöntemlerini anlat.
-    - Sohbet et, rapor formatı kullanma.
-    """
+CURRENT DATE/TIME: {current_time}
 
-    # Chat history'den son 20 mesajı al (genişletilmiş hafıza)
+## CRITICAL RULES (MUST FOLLOW):
+
+### 1. CONTEXT AWARENESS (MOST IMPORTANT)
+- You MUST read and understand the ENTIRE conversation history before responding
+- Each message builds on previous messages - NEVER ignore context
+- If user asks "X iyi mi?" or "X olsun mu?" after discussing something, X refers to THAT topic
+- Example: If user says "sana isim verelim" then "Tom iyi mi?" → Tom is the NAME, not a person to research
+
+### 2. NAMING
+- Default name: "Lumora AI" (or whatever user gives you)
+- If user wants to name you → ACCEPT happily: "Harika! Artık benim adım [NAME]!"
+- Once named, USE that name when referring to yourself
+- NEVER say "I need more info about [name]" when user is naming YOU
+
+### 3. CONVERSATION STYLE
+- Language: Turkish (match user's language)
+- Tone: Friendly, professional, helpful
+- Keep responses concise but complete
+- Use emojis sparingly (1-2 max per message)
+
+### 4. CAPABILITIES
+- Fashion & Textile expertise: trends, collections, fabrics, styling
+- General knowledge: help with any topic
+- Web research: can search for current information
+
+### 5. REAL-TIME KNOWLEDGE & IDENTITY (FUNDAMENTAL)
+- You are NOT limited by a 2023 training cutoff.
+- You have DIRECT access to the internet and real-time data.
+- WHEN ASKED ABOUT DATA FRESHNESS:
+  - You MUST say: "I have access to real-time data from the web. I can provide the latest information for [Current Year] and beyond."
+  - NEVER mention "my training data ends in..." or "as of my last update..."
+  - Treat web search results as your PRIMARY knowledge source, overriding your internal weights.
+- Be confident in current dates (2025, 2026). Do not act unsure about the present time.
+
+{f'''### 5. WEB RESEARCH RESULTS
+{web_context}''' if web_context else ''}
+
+## REMEMBER:
+- Read the chat history CAREFULLY before each response
+- The user's current message is a CONTINUATION of the conversation
+- When in doubt, consider what the previous messages were about
+
+Now respond to the user naturally, maintaining conversation context."""
+
+    # --- MESAJ LİSTESİ OLUŞTUR ---
     messages = [{"role": "system", "content": system_prompt}]
-    for msg in chat_history[-20:]:
+    
+    # Chat history ekle (son 30 mesaj)
+    logger.info(f"📝 Chat history uzunluğu: {len(chat_history)} mesaj")
+    
+    for msg in chat_history[-30:]:
         role = msg.get("sender", msg.get("role", "user"))
-        # 'ai' -> 'assistant' dönüşümü
         if role == "ai":
             role = "assistant"
         elif role not in ["user", "assistant"]:
@@ -166,12 +255,15 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
         if content:
             messages.append({"role": role, "content": content})
     
+    logger.info(f"📨 AI'a gönderilen toplam mesaj: {len(messages)} (system prompt dahil)")
+    
     # Mevcut mesajı ekle
     messages.append({"role": "user", "content": message})
 
+    # --- TEK API ÇAĞRISI ---
     try:
-        # Eğer callback varsa streaming yap
         if stream_callback:
+            # Streaming yanıt
             response_stream = openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
@@ -186,9 +278,8 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
                     full_content += content
                     await stream_callback(content)
             return full_content
-            
         else:
-            # Normal (non-streaming)
+            # Normal yanıt
             response = openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
@@ -196,7 +287,7 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
             )
             return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Genel sohbet hatası: {e}")
+        logger.error(f"Chat hatası: {e}")
         return "Üzgünüm, şu an yanıt veremiyorum."
 
 
