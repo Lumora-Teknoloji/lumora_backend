@@ -39,10 +39,37 @@ def initialize_ai_clients():
                 tavily_client = None
         else:
             logger.warning("⚠️ Tavily API key bulunamadı")
+        
+        # SerpApi (Google Trends) kontrolü
+        if settings.serpapi_api_key:
+            try:
+                from serpapi import GoogleSearch
+                # Basit bir test sorgusu ile API'nin çalıştığını doğrula
+                test_params = {
+                    "engine": "google_trends",
+                    "q": "test",
+                    "data_type": "TIMESERIES",
+                    "date": "now 1-d",
+                    "geo": "TR",
+                    "api_key": settings.serpapi_api_key
+                }
+                test_search = GoogleSearch(test_params)
+                test_result = test_search.get_dict()
+                if test_result and "error" not in test_result:
+                    logger.info("✅ SerpApi Hazır (Google Trends)")
+                else:
+                    logger.warning(f"⚠️ SerpApi yanıt vermiyor: {test_result.get('error', 'Bilinmeyen hata')}")
+            except ImportError:
+                logger.warning("⚠️ SerpApi paketi yüklü değil (google-search-results)")
+            except Exception as serpapi_error:
+                logger.error(f"❌ SerpApi başlatma hatası: {serpapi_error}")
+        else:
+            logger.warning("⚠️ SerpApi API key bulunamadı (SERPAPI_API_KEY)")
+            
     except Exception as e:
         logger.error(f"❌ Başlatma Hatası: {e}")
 
 
+
 # Uygulama başladığında client'ları başlat
 initialize_ai_clients()
-
