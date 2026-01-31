@@ -1,23 +1,22 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
-
 from jwt import PyJWTError
-import jwt
-from passlib.context import CryptContext
+import jwt, bcrypt
 from fastapi import HTTPException, status
-
-from ..config import settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from .config import settings
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_passwd = bcrypt.hashpw(pwd_bytes, salt)
+    #veri tabanına kaydetmek için decode ediyoruz str olarak
+    return hashed_passwd.decode('utf-8')
 
 def verify_password(password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(password, hashed_password)
-
+    pwd_bytes = password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(pwd_bytes, hashed_bytes)
 
 def create_access_token(data: Dict[str, Any]) -> str:
     to_encode = data.copy()

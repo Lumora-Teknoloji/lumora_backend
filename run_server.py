@@ -2,7 +2,7 @@
 FastAPI backend başlatma scripti.
 """
 import uvicorn
-from app.config import settings
+from app.core.config import settings
 
 if __name__ == "__main__":
     # Socket.IO entegrasyonu ile birlikte çalışacak şekilde ayarlandı
