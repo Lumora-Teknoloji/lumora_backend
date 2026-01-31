@@ -4,17 +4,26 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import Base, get_db
+from app.core.database import Base, get_db
 from app.core.security import create_access_token
 from app.models import User
 
-# In-memory SQLite for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+# PostgreSQL for testing
+from app.core.config import settings
+from urllib.parse import quote_plus
+
+username = quote_plus(settings.postgresql_username)
+password = quote_plus(settings.postgresql_password)
+test_db_name = f"test_{settings.postgresql_database}"
+
+SQLALCHEMY_DATABASE_URL = (
+    f"postgresql+psycopg2://{username}:{password}"
+    f"@{settings.postgresql_host}:{settings.postgresql_port}/{test_db_name}"
+)
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    pool_pre_ping=True
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -22,12 +31,13 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def db_session():
     """Yeni bir veritabanı oturumu oluştur ve tabloları yarat"""
     # Patch engine everywhere it is used
-    import app.database as database_module
+    import app.core.database as database_module
     import app.main as main_module
     
     database_module.engine = engine
     main_module.engine = engine
     
+    # Create tables
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
     try:
@@ -41,7 +51,7 @@ def client(db_session):
     """TestClient oluştur ve get_db dependency'sini override et"""
     
     # Patch engine again just in case, though db_session runs first
-    import app.database as database_module
+    import app.core.database as database_module
     import app.main as main_module
     database_module.engine = engine
     main_module.engine = engine

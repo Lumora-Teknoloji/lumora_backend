@@ -71,3 +71,6 @@ static/avatars/*
 
 # Ignore generated images if stored here
 static/design_*
+
+# Test Helper Scripts
+create_test_db.py
