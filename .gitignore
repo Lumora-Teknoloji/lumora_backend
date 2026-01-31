@@ -1,12 +1,31 @@
-# Python
+# General
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Virtual Environments
 env/
 venv/
 ENV/
+myenv/
+.venv/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDE Settings
+.vscode/
+.idea/
+
+# Distribution / Build
 build/
 develop-eggs/
 dist/
@@ -23,36 +42,11 @@ wheels/
 .installed.cfg
 *.egg
 
-# Environment
-.env
-.env.local
-.env.local
-.env.*.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Generated Images & Static Files
-static/design_*.png
-static/design_*.jpg
-static/design_*.jpeg
-static/*.png
-static/*.jpg
-static/*.jpeg
-!static/.gitkeep
-
-# Logs
-*.log
-logs/
-*.log.*
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
 
 # Docker
 .dockerignore
@@ -63,12 +57,17 @@ docker-compose.override.yml
 *.sqlite
 *.sqlite3
 
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.bak
-*.swp
+# Logs
+*.log
+logs/
+*.log.*
 
-#staic
-static/
+# Application Specific
+# Ignore all content in static/uploads and static/avatars but keep the directories
+static/uploads/*
+!static/uploads/.gitkeep
+static/avatars/*
+!static/avatars/.gitkeep
+
+# Ignore generated images if stored here
+static/design_*
