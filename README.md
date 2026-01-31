@@ -47,6 +47,8 @@ FAL_API_KEY=68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69
 
 ### 2. Docker ile Çalıştırma (Önerilen)
 
+> **Not:** Bu proje `pgvector` eklentisine ihtiyaç duyar. `docker-compose.yml` dosyası `pgvector/pgvector:pg16` imajını kullanacak şekilde yapılandırılmıştır.
+
 ```bash
 # Tüm servisleri başlat (PostgreSQL + Backend)
 docker-compose up -d
@@ -102,17 +104,30 @@ docker-compose restart
 ```
 .
 ├── app/                  # 🧠 Ana uygulama mantığı
-│   ├── ai_services/      # 🤖 AI entegrasyonları (Orkestratör, Intent, Görsel Üretimi)
-│   ├── routers/          # 🌐 API rotaları (Auth, Users, Conversations)
-│   ├── config.py         # ⚙️ Ayarlar
-│   ├── database.py       # 🗄️ Veritabanı bağlantısı
+│   ├── api/              # 🌐 API Katmanı
+│   │   ├── v1/endpoints/ # 🛣️ API Rotaları (Auth, Users, Conversations)
+│   │   └── deps.py       # 🛡️ Bağımlılıklar (Auth, DB)
+│   ├── core/             # ⚙️ Çekirdek Yapılandırma & Utility
+│   │   ├── config.py     # 🔧 Uygulama ayarları
+│   │   ├── database.py   # 🗄️ Veritabanı bağlantısı
+│   │   ├── security.py   # 🔐 Güvenlik fonksiyonları
+│   │   ├── lifespan.py   # 🔄 Startup/Shutdown olayları
+│   │   ├── logging.py    # 📝 Loglama yapılandırması
+│   │   └── errors.py     # ⚠️ Exception handler'lar
+│   ├── middleware/       # 🛡️ Middleware Katmanı (Yeni)
+│   │   ├── security.py   # 🔒 Güvenlik başlıkları
+│   │   ├── cors.py       # 🌐 CORS ayarları
+│   │   └── rate_limit.py # 🚦 Rate limiting
+│   ├── services/         # 🤖 İş Mantığı & AI Servisleri
+│   │   ├── ai_orchestrator.py # 🧠 AI Orkestrasyonu
+│   │   ├── clients.py    # 🔌 OpenAI/Tavily istemcileri
+│   │   └── research.py   # 🔍 Pazar araştırması
+│   ├── models/           # 🏗️ Veritabanı Modelleri (Modüler)
+│   ├── schemas/          # 📋 Pydantic Şemaları (Modüler)
 │   ├── main.py           # 🚀 Uygulama giriş noktası
-│   ├── models.py         # 🏗️ Veritabanı modelleri
-│   ├── schemas.py        # 📋 Pydantic şemaları
-│   └── socketio_handler.py # 🔌 WebSocket yönetimi
-├── run_tests/            # 🧪 Testler
-├── security_tests/       # 🔒 Güvenlik taramaları
-├── static/               # 📁 Statik dosyalar (Yüklenenler, görseller)
+│   └── socket_manager.py # 🔌 WebSocket yönetimi
+├── tests/                # 🧪 Testler (Pytest)
+├── static/               # 📁 Statik dosyalar
 ├── .env                  # 🔑 Ortam değişkenleri
 ├── docker-compose.yml    # 🐳 Docker konfigürasyonu
 ├── Dockerfile            # 🐳 Docker imaj tanımı
@@ -124,6 +139,18 @@ docker-compose restart
 - Veritabanı tabloları backend başladığında **otomatik** oluşturulur
 - Mevcut veriler **korunur** - her başlatmada sıfırlanmaz
 - AI API key'leri olmadan da çalışır (AI özellikleri devre dışı kalır)
+
+## 🧪 Testleri Çalıştırma
+
+Proje `pytest` kullanmaktadır. Testler çalıştırılırken `pgvector` destekli bir PostgreSQL veritabanı gereklidir (`test_postgres` veritabanı otomatik oluşturulur).
+
+```bash
+# Testleri çalıştır
+./myenv/bin/python -m pytest tests/
+
+# Veya sanal ortam aktifse
+pytest tests/
+```
 
 ## 🆘 Sorun Giderme
 
