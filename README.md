@@ -97,6 +97,28 @@ docker-compose logs -f backend
 docker-compose restart
 ```
 
+## 📂 Proje Yapısı
+
+```
+.
+├── app/                  # 🧠 Ana uygulama mantığı
+│   ├── ai_services/      # 🤖 AI entegrasyonları (Orkestratör, Intent, Görsel Üretimi)
+│   ├── routers/          # 🌐 API rotaları (Auth, Users, Conversations)
+│   ├── config.py         # ⚙️ Ayarlar
+│   ├── database.py       # 🗄️ Veritabanı bağlantısı
+│   ├── main.py           # 🚀 Uygulama giriş noktası
+│   ├── models.py         # 🏗️ Veritabanı modelleri
+│   ├── schemas.py        # 📋 Pydantic şemaları
+│   └── socketio_handler.py # 🔌 WebSocket yönetimi
+├── run_tests/            # 🧪 Testler
+├── security_tests/       # 🔒 Güvenlik taramaları
+├── static/               # 📁 Statik dosyalar (Yüklenenler, görseller)
+├── .env                  # 🔑 Ortam değişkenleri
+├── docker-compose.yml    # 🐳 Docker konfigürasyonu
+├── Dockerfile            # 🐳 Docker imaj tanımı
+└── requirements.txt      # 📦 Bağımlılıklar
+```
+
 ## 📝 Notlar
 
 - Veritabanı tabloları backend başladığında **otomatik** oluşturulur

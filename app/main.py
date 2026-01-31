@@ -13,11 +13,11 @@ from slowapi.errors import RateLimitExceeded
 from socketio import ASGIApp
 import asyncio
 
-from .config import settings
-from .database import Base, engine
-from .routers import auth, users, conversations, messages
-from .socketio_handler import sio, cleanup_old_guest_data
-from .exceptions import (
+from .core.config import settings
+from .core.database import Base, engine
+from .api.v1.endpoints import auth, users, conversations, messages
+from .socket_manager import sio, cleanup_old_guest_data
+from .core.exceptions import (
     AppException,
     ConversationNotFoundError,
     UnauthorizedError,
