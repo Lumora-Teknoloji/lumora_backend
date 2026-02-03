@@ -51,6 +51,10 @@ app.include_router(users.router, prefix=api_prefix)
 app.include_router(conversations.router, prefix=api_prefix)
 app.include_router(messages.router, prefix=api_prefix)
 
+# Scraper Router
+from .routers.scraper import router as scraper_router
+app.include_router(scraper_router, prefix=api_prefix)
+
 # Mount Static Files
 mount_static_files(app)
 
