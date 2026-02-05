@@ -62,7 +62,16 @@ class TrendyolScraperService:
         image_urls = scraped.get("Image_URLs", [])
         first_image = image_urls[0] if image_urls else None
         
-        # Dinamik özellikler
+        # Standart alanlar ve metadata
+        exclude_keys = {
+            "product_id", "ProductName", "Brand", "Seller", "URL", 
+            "Image_URLs", "category_tag", "Price", "Discount", 
+            "Rating", "Review Count", "BasketCount", "FavoriteCount", 
+            "ViewCount", "QACount", "SalesCount", "ScrapingDate", 
+            "PriceToDollar", "Seller-rating", "PriceToDollar"
+        }
+        
+        # Temel özellikleri hazırla
         attributes = {
             "image_urls": image_urls,
             "color": scraped.get("Renk") or scraped.get("Color"),
@@ -74,6 +83,13 @@ class TrendyolScraperService:
             "origin": scraped.get("Menşei"),
             "sizes": scraped.get("Size", []),
         }
+
+        # Tüm diğer dinamik özellikleri (Materyal, Persona, Sezon vb.) ekle
+        for key, value in scraped.items():
+            if key not in exclude_keys and key not in attributes and value:
+                # Zaten yukarıda map edilenleri tekrar ekleme (isteğe bağlı)
+                # Ama orijinal Türkçe key'leri de tutmak iyi olabilir
+                attributes[key] = value
         
         return {
             "task_id": task_id,
