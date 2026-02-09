@@ -26,9 +26,9 @@ PORT=8000
 # PostgreSQL bağlantısı - Docker kullanıyorsanız varsayılan değerleri kullanabilirsiniz
 POSTGRESQL_HOST=localhost
 POSTGRESQL_PORT=5432
-POSTGRESQL_DATABASE=bediralvesil_db
-POSTGRESQL_USERNAME=postgres
-POSTGRESQL_PASSWORD=postgres123
+POSTGRESQL_DATABASE=your_database_name
+POSTGRESQL_USERNAME=your_username
+POSTGRESQL_PASSWORD=your_secure_password
 
 # JWT
 JWT_SECRET=change-me
@@ -39,10 +39,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=120
 FRONTEND_URL=http://localhost:3000
 CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 
-OPENAI_API_KEY=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
-TAVILY_API_KEY=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
-STABILITY_API_KEY=sk-kjo9aoUlN8qeqYI8GPDgqjGpA3MCVr92nnBaQa7s5XHfvur0
-FAL_API_KEY=68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c
+OPENAI_API_KEY=your-openai-api-key-here
+TAVILY_API_KEY=your-tavily-api-key-here
+STABILITY_API_KEY=your-stability-api-key-here
+FAL_API_KEY=your-fal-api-key-here
 ```
 
 ### 2. Docker ile Çalıştırma (Önerilen)
