@@ -1,0 +1,44 @@
+# Web Framework
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+slowapi==0.1.9
+
+
+# Configuration & Settings
+python-dotenv==1.2.1
+pydantic-settings==2.12.0
+email-validator>=2.3.0
+
+# Database
+SQLAlchemy>=2.0.46
+psycopg2-binary>=2.9.11
+alembic==1.18.3
+pgvector>=0.2.4
+
+# Authentication & Security
+pyjwt==2.11.0
+bcrypt==5.0.0
+
+# Build Tools
+setuptools>=80.10.2
+
+# HTTP & WebSocket
+requests==2.32.5
+python-socketio==5.16.0
+
+# AI Services
+openai>=2.16.0
+tavily-python>=0.7.21
+fal-client>=0.12.0
+python-multipart>=0.0.22
+google-search-results>=2.4.2
+
+# Testing & Security
+colorama>=0.4.6
+psutil>=5.9.0  # For scheduler process management
+
+# LangChain
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0

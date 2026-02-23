@@ -1,0 +1,76 @@
+# General
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Virtual Environments
+env/
+venv/
+ENV/
+myenv/
+.venv/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDE Settings
+.vscode/
+.idea/
+
+# Distribution / Build
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Application Specific
+# Ignore all content in static/uploads and static/avatars but keep the directories
+static/uploads/*
+!static/uploads/.gitkeep
+static/avatars/*
+!static/avatars/.gitkeep
+
+# Ignore generated images if stored here
+static/design_*
+
+# Test Helper Scripts
+create_test_db.py
