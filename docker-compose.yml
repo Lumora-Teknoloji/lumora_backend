@@ -41,7 +41,7 @@ services:
       - bediralvesil-network
     volumes:
       - .:/app
-      - ../Scrapper:/Scrapper  # Mount Scrapper directory for bot management
+      - ../Scrapper-main:/Scrapper # Mount Scrapper directory for bot management
     command: python run_server.py
 
 volumes:

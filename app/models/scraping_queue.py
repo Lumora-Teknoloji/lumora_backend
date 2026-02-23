@@ -10,6 +10,8 @@ class ScrapingQueue(Base):
     task_id = Column(Integer, ForeignKey("scraping_tasks.id"), nullable=False)
     url = Column(String(500), nullable=False, index=True)
     status = Column(String(20), default="pending") # pending, processing, completed, failed
+    page_number = Column(Integer, nullable=True) # Hangi sayfada bulundu?
+    rank_number = Column(Integer, nullable=True) # Sayfanın kaçıncı sırasındaydı? (1-indexed)
     discovered_at = Column(DateTime(timezone=True), server_default=func.now())
     processed_at = Column(DateTime(timezone=True))
     error_msg = Column(Text)

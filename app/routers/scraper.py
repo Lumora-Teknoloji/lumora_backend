@@ -39,8 +39,8 @@ def get_scrapper_dir() -> Path:
 
     # Yerel Windows ortamında (Backend Docker dışında çalışıyorsa)
     # Backend c:\Users\Admin\Documents\vscode\LangChain_backend
-    # Scrapper c:\Users\Admin\Documents\vscode\Scrapper-main\Scrapper
-    local_path = Path("c:/Users/Admin/Documents/vscode/Scrapper-main/Scrapper")
+    # Scrapper c:\Users\Admin\Documents\vscode\Scrapper-main
+    local_path = Path("c:/Users/Admin/Documents/vscode/Scrapper-main")
     
     # Ensure commands directory exists
     commands_dir = local_path / "commands"
@@ -332,18 +332,19 @@ async def get_bots_status(db: Session = Depends(get_db)):
             
         # Calculate Speed (Items per minute in the last hour)
         try:
-            from datetime import timedelta
-            one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+            from datetime import timedelta, timezone
+            now_aware = datetime.now(timezone.utc)
+            one_hour_ago = now_aware - timedelta(hours=1)
+            
             recent_count_query = db.query(func.count(Product.id)).filter(
                 Product.task_id == task.id,
                 Product.last_scraped_at >= one_hour_ago
             )
             recent_count = recent_count_query.scalar() or 0
             # Speed = Items / 60 mins (average over last hour)
-            # If recent_count is for 1 hour, divide by 60 to get items/min
             speed = round(recent_count / 60, 1) if recent_count > 0 else 0
         except Exception as e:
-            print(f"Speed Calc Error: {e}")
+            print(f"Speed Calc Error (Task {task.id}): {e}")
             speed = 0
         
         # Count pending links in queue for THIS bot
@@ -431,11 +432,11 @@ async def get_scraper_status(db: Session = Depends(get_db)):
     total_scraped = int(total_added + total_updated)
 
     # 3. Günlük Kazınan Veri (Takvim Günü - Gece 00:00'dan Beri)
-    from datetime import datetime, time
-    today_start = datetime.combine(datetime.utcnow().date(), time.min)
+    from datetime import datetime, time, timezone
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     daily_added = db.query(func.sum(ScrapingLog.products_added)).filter(ScrapingLog.started_at >= today_start).scalar() or 0
     daily_updated = db.query(func.sum(ScrapingLog.products_updated)).filter(ScrapingLog.started_at >= today_start).scalar() or 0
-    daily_scraped = daily_added + daily_updated
+    daily_scraped = (daily_added or 0) + (daily_updated or 0)
     
     active_bots = 0
     tasks = db.query(ScrapingTask).all()
