@@ -27,9 +27,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 120
 
-    frontend_url: str = "http://localhost:3000"
-    cors_origins: str = "http://localhost:3000,http://localhost:3002,https://lumoraboutique.com,https://www.lumoraboutique.com"
-    allowed_hosts: str = "localhost,127.0.0.1,lumoraboutique.com,www.lumoraboutique.com"  # TrustedHost middleware için
+    frontend_url: str = ""
+    cors_origins: str = ""
+    allowed_hosts: str = ""
     
     # Connection limits (DoS protection)
     max_connections: int = 200

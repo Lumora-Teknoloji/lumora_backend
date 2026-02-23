@@ -74,3 +74,9 @@ static/design_*
 
 # Test Helper Scripts
 create_test_db.py
+
+# Generated / temporary files
+openapi.json
+openapi_formatted.json
+routes.txt
+security_tests/

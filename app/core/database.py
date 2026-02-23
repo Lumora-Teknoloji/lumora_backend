@@ -201,59 +201,151 @@ def setup_database():
 
 def sync_schema():
     """
-    Tüm modelleri tarar ve veritabanında eksik olan kolonları otomatik oluşturur.
-    Not: Bu basit bir migration sistemidir. Tip değişikliklerini veya silinen kolonları yönetmez.
+    Tüm modelleri tarar ve veritabanında eksik olan tablo, kolon, index ve FK'ları otomatik oluşturur.
+    Başlangıçta çalışır ve detaylı bir rapor çıkarır.
     """
     logger.info("🔄 Schema Senkronizasyonu Başlatılıyor...")
     
     inspector = inspect(engine)
     db_tables = set(inspector.get_table_names())
     
+    # İstatistik sayaçları
+    stats = {
+        "tables_created": [],
+        "columns_added": [],
+        "indexes_created": [],
+        "defaults_set": [],
+        "constraints_fixed": [],
+        "errors": [],
+    }
+    
     # SQLAlchemy tiplerini PostgreSQL tiplerine map et
-    from sqlalchemy.dialects.postgresql import JSONB, DOUBLE_PRECISION, TIMESTAMP, UUID
     from sqlalchemy import String, Integer, Boolean, Text, Float, DateTime, BigInteger
     
     def get_column_type(col):
         """SQLAlchemy kolon tipini SQL stringine çevirir."""
         try:
-            # Tipin compile edilmiş halini al (dialect-specific)
             return col.type.compile(dialect=engine.dialect)
         except Exception:
-            # Fallback (basit tipler)
             if isinstance(col.type, String): return f"VARCHAR({col.type.length})" if col.type.length else "VARCHAR"
             if isinstance(col.type, Integer): return "INTEGER"
             if isinstance(col.type, Boolean): return "BOOLEAN"
             if isinstance(col.type, Text): return "TEXT"
             if isinstance(col.type, Float): return "DOUBLE PRECISION"
             if isinstance(col.type, DateTime): return "TIMESTAMP WITH TIME ZONE"
-            if isinstance(col.type, JSONB): return "JSONB"
-            return "TEXT" # En güvenli fallback
+            return "TEXT"
+
+    def get_default_clause(column):
+        """Kolon için SQL default değerini döndürür."""
+        if column.server_default is not None:
+            return str(column.server_default.arg)
+        if column.default is not None:
+            val = column.default.arg
+            if callable(val):
+                return None  # Callable defaults (like list) can't be set as SQL defaults
+            if isinstance(val, bool):
+                return "TRUE" if val else "FALSE"
+            if isinstance(val, (int, float)):
+                return str(val)
+            if isinstance(val, str):
+                return f"'{val}'"
+        return None
 
     with engine.connect() as conn:
         transaction = conn.begin()
         try:
             for table_name, table in Base.metadata.tables.items():
+                # ──── 1. Eksik Tabloları Oluştur ────
                 if table_name not in db_tables:
                     logger.info(f"➕ Tablo oluşturuluyor: {table_name}")
                     table.create(conn)
+                    stats["tables_created"].append(table_name)
                     continue
                 
-                # Tablo var, kolonları kontrol et
+                # ──── 2. Eksik Kolonları Ekle ────
                 existing_columns = {c['name'] for c in inspector.get_columns(table_name)}
                 
                 for column in table.columns:
                     if column.name not in existing_columns:
                         col_type = get_column_type(column)
-                        nullable = "NULL" if column.nullable else "NOT NULL"
-                        default = ""
-                        # Default değer basitleştirilmiş (karmaşık SQL fonksiyonları desteklenmeyebilir)
+                        # Güvenlik: Yeni kolon her zaman NULLABLE olsun (mevcut satırları kırmaması için)
+                        alter_query = f'ALTER TABLE "{table_name}" ADD COLUMN "{column.name}" {col_type}'
                         
-                        alter_query = f"ALTER TABLE {table_name} ADD COLUMN {column.name} {col_type}"
                         logger.info(f"🔧 Kolon ekleniyor: {table_name}.{column.name} ({col_type})")
                         conn.execute(text(alter_query))
+                        stats["columns_added"].append(f"{table_name}.{column.name}")
                         
+                        # Default değer varsa ayarla
+                        default_val = get_default_clause(column)
+                        if default_val:
+                            try:
+                                default_query = f'ALTER TABLE "{table_name}" ALTER COLUMN "{column.name}" SET DEFAULT {default_val}'
+                                conn.execute(text(default_query))
+                                stats["defaults_set"].append(f"{table_name}.{column.name} = {default_val}")
+                            except Exception as e:
+                                logger.warning(f"⚠️  Default ayarlanamadı {table_name}.{column.name}: {e}")
+                
+                # ──── 3. Eksik Index'leri Oluştur ────
+                existing_indexes = {idx['name'] for idx in inspector.get_indexes(table_name)}
+                for index in table.indexes:
+                    if index.name and index.name not in existing_indexes:
+                        try:
+                            index_cols = ", ".join([f'"{c.name}"' for c in index.columns])
+                            unique = "UNIQUE " if index.unique else ""
+                            create_idx = f'CREATE {unique}INDEX IF NOT EXISTS "{index.name}" ON "{table_name}" ({index_cols})'
+                            conn.execute(text(create_idx))
+                            stats["indexes_created"].append(f"{index.name} on {table_name}")
+                            logger.info(f"📇 Index oluşturuldu: {index.name} on {table_name}")
+                        except Exception as e:
+                            logger.warning(f"⚠️  Index oluşturulamadı {index.name}: {e}")
+                
+                # ──── 4. FK Constraint Kontrolü ────
+                existing_fks = inspector.get_foreign_keys(table_name)
+                existing_fk_cols = {fk['constrained_columns'][0] for fk in existing_fks if fk['constrained_columns']}
+                
+                for column in table.columns:
+                    for fk in column.foreign_keys:
+                        if column.name not in existing_fk_cols:
+                            try:
+                                ref_table, ref_col = str(fk.column).split(".")
+                                fk_name = f"fk_{table_name}_{column.name}_{ref_table}"
+                                fk_query = f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{fk_name}" FOREIGN KEY ("{column.name}") REFERENCES "{ref_table}"("{ref_col}")'
+                                conn.execute(text(fk_query))
+                                stats["constraints_fixed"].append(f"{table_name}.{column.name} → {ref_table}.{ref_col}")
+                                logger.info(f"🔗 FK eklendi: {table_name}.{column.name} → {ref_table}.{ref_col}")
+                            except Exception as e:
+                                # FK zaten varsa veya başka bir sorun
+                                logger.debug(f"FK kontrol: {table_name}.{column.name}: {e}")
+
             transaction.commit()
-            logger.info("✅ Schema senkronizasyonu tamamlandı.")
+            
+            # ──── SONUÇ RAPORU ────
+            total_changes = sum(len(v) for v in stats.values())
+            
+            if total_changes == 0:
+                logger.info("✅ Schema senkronizasyonu tamamlandı — değişiklik gerekmiyor, tüm şema güncel.")
+            else:
+                logger.info("=" * 60)
+                logger.info("📊 SCHEMA SENKRONIZASYON RAPORU")
+                logger.info("=" * 60)
+                
+                if stats["tables_created"]:
+                    logger.info(f"  ➕ Oluşturulan Tablolar ({len(stats['tables_created'])}): {', '.join(stats['tables_created'])}")
+                if stats["columns_added"]:
+                    logger.info(f"  🔧 Eklenen Kolonlar ({len(stats['columns_added'])}): {', '.join(stats['columns_added'])}")
+                if stats["defaults_set"]:
+                    logger.info(f"  📌 Ayarlanan Default Değerler ({len(stats['defaults_set'])}): {', '.join(stats['defaults_set'])}")
+                if stats["indexes_created"]:
+                    logger.info(f"  📇 Oluşturulan Index'ler ({len(stats['indexes_created'])}): {', '.join(stats['indexes_created'])}")
+                if stats["constraints_fixed"]:
+                    logger.info(f"  🔗 Eklenen FK Constraint'ler ({len(stats['constraints_fixed'])}): {', '.join(stats['constraints_fixed'])}")
+                if stats["errors"]:
+                    logger.warning(f"  ❌ Hatalar ({len(stats['errors'])}): {', '.join(stats['errors'])}")
+                
+                logger.info("=" * 60)
+                logger.info(f"✅ Toplam {total_changes} değişiklik uygulandı.")
+                
         except Exception as e:
             transaction.rollback()
             logger.error(f"❌ Schema senkronizasyon hatası: {e}")
+

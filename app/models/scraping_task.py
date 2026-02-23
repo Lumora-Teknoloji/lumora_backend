@@ -17,7 +17,7 @@ class ScrapingTask(Base):
     # Örn: {"category": "elbise", "sort_by": "best_seller", "min_rating": 4.5}
     search_params = Column(JSONB, nullable=True) 
     
-    target_url = Column(String, unique=True, nullable=False)
+    target_url = Column(String, nullable=True)  # Keyword-based tasks don't need a URL
     
     # Zamanlama ve Otomasyon
     scrape_interval_hours = Column(Integer, default=24) # Kaç saatte bir çalışacak?
