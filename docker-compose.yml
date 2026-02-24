@@ -1,10 +1,10 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: bediralvesil-postgres
+    container_name: lumora-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRESQL_DATABASE:-bediralvesil_db}
+      POSTGRES_DB: ${POSTGRESQL_DATABASE:-lumora_db}
       POSTGRES_USER: ${POSTGRESQL_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD:-postgres123}
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -18,13 +18,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - bediralvesil-network
+      - lumora-network
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bediralvesil-backend
+    container_name: lumora-backend
     restart: unless-stopped
     env_file:
       - .env
@@ -38,16 +38,46 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - bediralvesil-network
+      - lumora-network
     volumes:
       - .:/app
-      - ../Scrapper-main:/Scrapper # Mount Scrapper directory for bot management
+      - ../Scrapper-main:/Scrapper
     command: python run_server.py
+
+  admin-frontend:
+    build:
+      context: ../admin_frontend
+      dockerfile: Dockerfile
+    container_name: lumora-admin
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8000/api
+    depends_on:
+      - backend
+    networks:
+      - lumora-network
+
+  chatbot-frontend:
+    build:
+      context: ../chatbot_frontend
+      dockerfile: Dockerfile
+    container_name: lumora-chatbot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8000/api
+    depends_on:
+      - backend
+    networks:
+      - lumora-network
 
 volumes:
   postgres_data:
     driver: local
 
 networks:
-  bediralvesil-network:
+  lumora-network:
     driver: bridge

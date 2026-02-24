@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     fal_base_url: str = "https://fal.run"
     fal_model_path: str = "fal-ai/flux/dev"
 
+    # Monitoring & Alerts
+    webhook_url: str = ""  # Telegram/Discord webhook URL for alerts
+    alert_threshold_minutes: int = 60  # No data for this long = alert
+
+    # Scraper Config
+    scraper_min_delay: float = 2.0  # Min seconds between requests
+    scraper_max_delay: float = 5.0  # Max seconds between requests
+
     @property
     def allowed_origins(self) -> list[str]:
         """CORS için izin verilen origin'leri döndürür."""

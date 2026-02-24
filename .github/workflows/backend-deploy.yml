@@ -39,6 +39,6 @@ jobs:
             
             # 4. Sistemi Yeniden Başlat
             echo "🚀 PM2 servisi yeniden başlatılıyor..."
-            pm2 restart lumora-backend
+            pm2 restart backend
             
             echo "✅ Backend başarıyla güncellendi!"

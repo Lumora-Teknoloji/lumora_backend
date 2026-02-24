@@ -62,18 +62,34 @@ class TrendyolScraperService:
         image_urls = scraped.get("Image_URLs", [])
         first_image = image_urls[0] if image_urls else None
         
-        # Dinamik özellikler
+        # Dinamik özellikler - scraper'dan gelen attributes varsa kullan, yoksa eski field'lardan oluştur
+        raw_attributes = scraped.get("attributes", {})
+        if isinstance(raw_attributes, list):
+            # [{attribute_name: "Renk", attribute_value: "Siyah"}, ...] formatından dict'e çevir
+            raw_attributes = {a.get("attribute_name", ""): a.get("attribute_value", "") 
+                             for a in raw_attributes if a.get("attribute_name")}
+        
         attributes = {
             "image_urls": image_urls,
-            "color": scraped.get("Renk") or scraped.get("Color"),
-            "fabric_type": scraped.get("Kumaş Tipi") or scraped.get("FabricType"),
-            "pattern": scraped.get("Desen"),
-            "neck_style": scraped.get("Yaka Tipi"),
-            "sleeve_type": scraped.get("Kol Tipi"),
-            "length": scraped.get("Boy"),
-            "origin": scraped.get("Menşei"),
-            "sizes": scraped.get("Size", []),
+            **raw_attributes,  # Scraper'dan gelen tüm özellikleri ekle
         }
+        
+        # Eski field mapping fallback (sadece attributes boşsa)
+        if not raw_attributes:
+            attributes.update({
+                "color": scraped.get("Renk") or scraped.get("Color"),
+                "fabric_type": scraped.get("Kumaş Tipi") or scraped.get("FabricType"),
+                "pattern": scraped.get("Desen"),
+                "neck_style": scraped.get("Yaka Tipi"),
+                "sleeve_type": scraped.get("Kol Tipi"),
+                "length": scraped.get("Boy"),
+                "origin": scraped.get("Menşei"),
+            })
+        
+        # Sizes - beden bilgisi
+        sizes = scraped.get("sizes") or scraped.get("Size", [])
+        if isinstance(sizes, str):
+            sizes = [sizes]
         
         return {
             "task_id": task_id,
@@ -85,6 +101,8 @@ class TrendyolScraperService:
             "image_url": first_image,
             "category_tag": scraped.get("category_tag"),
             "attributes": attributes,
+            "review_summary": scraped.get("review_summary"),
+            "sizes": sizes if sizes else None,
         }
 
     def _map_scraped_to_daily_metric(self, scraped: dict, previous_metric: Optional[DailyMetric] = None) -> dict:

@@ -38,6 +38,10 @@ class Product(Base):
     # Örnek: {renk: "Siyah", kumaş: "Pamuk", beden: ["S","M","L"]}
     attributes = Column(JSONB)
     
+    # ==================== YORUM & BEDEN ====================
+    review_summary = Column(String)  # AI değerlendirme özeti (Trendyol tarafından oluşturulan)
+    sizes = Column(JSONB)  # Mevcut bedenler listesi, örn: ["S", "M", "L", "XL"]
+    
     # ==================== HESAPLANAN ALANLAR ====================
     # Son scraping'den gelen özet veriler (hızlı erişim için)
     last_price = Column(Float)

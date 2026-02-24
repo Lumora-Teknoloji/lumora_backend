@@ -54,14 +54,16 @@ app.include_router(messages.router, prefix=api_prefix)
 # Scraper Router
 from .routers.scraper import router as scraper_router
 from .routers.bot_commands import router as bot_commands_router
+from .routers.products import router as products_router
 app.include_router(scraper_router, prefix=api_prefix)
 app.include_router(bot_commands_router, prefix=api_prefix)
+app.include_router(products_router, prefix=api_prefix)
 
-# DEBUG: Print routes and prefix
-print(f"DEBUG: api_prefix = '{api_prefix}'")
-for route in app.routes:
-    if hasattr(route, "path"):
-        print(f"DEBUG ROUTE: {route.path}")
+# Debug routes only in development
+if settings.app_env == "development":
+    for route in app.routes:
+        if hasattr(route, "path"):
+            logger.debug(f"Route: {route.path}")
 
 # Mount Static Files
 mount_static_files(app)
