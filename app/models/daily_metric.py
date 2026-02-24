@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, Boolean, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
 from .base import Base
 
@@ -39,6 +39,12 @@ class DailyMetric(Base):
     
     # Sıralama
     sales_rank = Column(Integer)  # Kategori sıralaması
+    
+    # ==================== ARAMA SIRALAMA TAKİBİ ====================
+    search_term = Column(String(200), index=True)  # Hangi arama terimi ile bu sırada bulundu
+    search_rank = Column(Integer)                   # Sayfadaki sıra (1-48)
+    page_number = Column(Integer)                   # Hangi sayfa (1, 2, 3...)
+    absolute_rank = Column(Integer)                 # Toplam sıra = (page-1)*48 + rank
     
     # ==================== HESAPLANAN SKORLAR ====================
     # Anlık skorlar (tek snapshot ile hesaplanır)
