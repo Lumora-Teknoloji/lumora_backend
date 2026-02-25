@@ -24,8 +24,9 @@ jobs:
             # 1. Backend klasörüne git
             cd /var/www/backend/LangChain_backend
 
-            # 2. Güncel kodları çek
+            # 2. Güncel kodları çek (lokal değişiklikleri stash'le)
             echo "📥 Kodlar çekiliyor..."
+            git stash --include-untracked || true
             git pull origin main
 
             # 3. Python Sanal Ortamını Güncelle
