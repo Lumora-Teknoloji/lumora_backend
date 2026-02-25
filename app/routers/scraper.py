@@ -388,6 +388,46 @@ async def get_bots_status(db: Session = Depends(get_db)):
                         pages_scraped = last_log.pages_scraped
             except:
                 pass
+        # Derive bot_state from active log's [STATE:xxx] or [STATE:xxx:seconds] prefix
+        bot_state = "idle"
+        state_message = ""
+        state_countdown = 0
+        state_started_at = None
+        if actual_status in ["running", "worker_running"]:
+            bot_state = "scraping"  # Default when running
+            try:
+                active_log = db.query(ScrapingLog).filter(
+                    ScrapingLog.task_id == task.id,
+                    ScrapingLog.status == "running"
+                ).order_by(desc(ScrapingLog.started_at)).first()
+                
+                if active_log:
+                    msg = active_log.last_message or ""
+                    
+                    # Critical override
+                    if active_log.is_critical:
+                        bot_state = "critical"
+                        state_message = msg
+                    # Parse [STATE:xxx] or [STATE:xxx:seconds] prefix
+                    elif msg.startswith("[STATE:"):
+                        end_idx = msg.index("]")
+                        state_part = msg[7:end_idx]  # e.g. "waiting_ip:45" or "waiting_ip"
+                        parts = state_part.split(":")
+                        bot_state = parts[0]
+                        if len(parts) > 1:
+                            try:
+                                state_countdown = int(parts[1])
+                            except:
+                                pass
+                        state_message = msg[end_idx+2:] if len(msg) > end_idx+1 else ""
+                        # last_seen = when the bot wrote this message
+                        if active_log.last_seen:
+                            state_started_at = active_log.last_seen.isoformat()
+                    else:
+                        bot_state = "scraping"
+                        state_message = msg
+            except:
+                pass
 
         bot = {
             "id": task.id,
@@ -404,11 +444,15 @@ async def get_bots_status(db: Session = Depends(get_db)):
             "is_active": task.is_active,
             "pending_links": pending_count,
             "pages_scraped": pages_scraped,
+            "bot_state": bot_state,
+            "state_message": state_message,
+            "state_countdown": state_countdown,
+            "state_started_at": state_started_at,
             "stats": {
                 "scraped": scraped_count,
-                "validated": speed,      # Frontend shows this as SPEED (Items/Min)
+                "validated": speed,
                 "errors": error_count,
-                "processed": ip_change_count # Frontend shows this as IP CHANGE
+                "processed": ip_change_count
             },
             "last_message": last_msg,
             "last_product_url": last_url

@@ -56,10 +56,10 @@ class CreateTaskRequest(BaseModel):
     """Yeni görev oluşturma isteği."""
     task_name: str
     target_platform: str = "Trendyol"
-    search_term: str
-    mode: str = "normal"  # normal, linker, worker
-    page_limit: int = 50
-    source_task_id: Optional[int] = None  # Worker botu için kaynak linker ID
+    search_term: str = ""
+    mode: str = "normal"  # linker, worker, normal
+    page_limit: int = 50  # max pages for linker
+    source_task_id: Optional[int] = None  # worker: which linker bot's queue to use
     start_time: Optional[str] = "09:00"
     end_time: Optional[str] = "18:00"
     scrape_interval: int = 24  # hours (frontend sends page_limit here sometimes)
@@ -111,6 +111,7 @@ class BotStatusResponse(BaseModel):
 class BotSettingsUpdate(BaseModel):
     """Bot ayar güncelleme isteği."""
     keyword: Optional[str] = None
+    mode: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     page_limit: Optional[int] = None
