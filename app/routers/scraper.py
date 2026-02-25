@@ -36,8 +36,16 @@ router = APIRouter(prefix="/scraper", tags=["Scraper"])
 
 def get_scrapper_dir() -> Path:
     """Scrapper dizinini çalışma ortamına göre (Docker veya Local) döner."""
+    # 1. Env variable (en yüksek öncelik)
+    env_path = os.getenv("SCRAPPER_DIR")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+    
+    # 2. Docker ortamında
     docker_path = Path("/Scrapper")
-    if docker_path.exists():
+    if docker_path.exists() and (docker_path / "main.py").exists():
         return docker_path
     
     # Linux Remote Server
@@ -45,19 +53,27 @@ def get_scrapper_dir() -> Path:
     if linux_path.exists(): 
         return linux_path
 
-    # Yerel Windows ortamında (Backend Docker dışında çalışıyorsa)
-    # Backend c:\Users\Admin\Documents\vscode\LangChain_backend
-    # Scrapper c:\Users\Admin\Documents\vscode\Scrapper-main
-    local_path = Path("c:/Users/Admin/Documents/vscode/Scrapper-main")
+    # Yerel Windows ortamında
+    # scraper.py -> routers -> app -> LangChain_backend -> (Project Root)
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
     
-    # Ensure commands directory exists
-    commands_dir = local_path / "commands"
-    try:
-        commands_dir.mkdir(parents=True, exist_ok=True)
-    except:
-        pass
+    possible_paths = [
+        project_root / "Scrapper",
+        project_root / "Scrapper-main",
+    ]
+    
+    for path in possible_paths:
+        if path.exists() and (path / "main.py").exists():
+            # Ensure commands directory exists
+            commands_dir = path / "commands"
+            try:
+                commands_dir.mkdir(parents=True, exist_ok=True)
+            except:
+                pass
+            return path
         
-    return local_path
+    # Fallback
+    return project_root / "Scrapper"
 
 
 # ==================== ENDPOINTS ====================
@@ -747,10 +763,8 @@ async def get_system_logs(
     # 1. Read actual text logs from file system
     log_messages = []
     try:
-        # /Scrapper volume mount check or local fallback
-        base_dir = "/Scrapper"
-        if not os.path.exists(base_dir):
-            base_dir = "Scrapper" # Fallback for local testing
+        # Use centralized path resolution
+        base_dir = str(get_scrapper_dir())
             
         # Find bot log files — filter by bot_id if specified
         if bot_id > 0:
@@ -868,12 +882,7 @@ async def clear_error_logs(db: Session = Depends(get_db)):
             # Screenshot varsa sil
             if log.screenshot_path:
                 try:
-                    # Scrapper/static/captures/filename.png
-                    # Biz scraper.py'deyiz (LangChain_backend/app/routers)
-                    # Screenshot yolu: ../../../Scrapper/static/captures/
-                    backend_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-                    project_root = os.path.dirname(backend_root) 
-                    ss_path = os.path.join(project_root, "Scrapper", "static", "captures", log.screenshot_path)
+                    ss_path = os.path.join(str(get_scrapper_dir()), "static", "captures", log.screenshot_path)
                     if os.path.exists(ss_path):
                         os.remove(ss_path)
                 except:
@@ -901,9 +910,7 @@ async def delete_log(log_id: int, db: Session = Depends(get_db)):
         # Screenshot varsa sil
         if log.screenshot_path:
             try:
-                backend_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-                project_root = os.path.dirname(backend_root) 
-                ss_path = os.path.join(project_root, "Scrapper", "static", "captures", log.screenshot_path)
+                ss_path = os.path.join(str(get_scrapper_dir()), "static", "captures", log.screenshot_path)
                 if os.path.exists(ss_path):
                     os.remove(ss_path)
             except:

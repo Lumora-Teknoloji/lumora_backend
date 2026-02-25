@@ -57,9 +57,12 @@ class CreateTaskRequest(BaseModel):
     task_name: str
     target_platform: str = "Trendyol"
     search_term: str
+    mode: str = "normal"  # normal, linker, worker
+    page_limit: int = 50
+    source_task_id: Optional[int] = None  # Worker botu için kaynak linker ID
     start_time: Optional[str] = "09:00"
     end_time: Optional[str] = "18:00"
-    scrape_interval: int = 24  # hours
+    scrape_interval: int = 24  # hours (frontend sends page_limit here sometimes)
     is_active: bool = False
 
 

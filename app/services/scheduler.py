@@ -12,22 +12,35 @@ from pathlib import Path
 
 def get_scrapper_dir() -> Path:
     """Scrapper dizinini çalışma ortamına göre (Docker veya Local) döner."""
+    # 1. Env variable (en yüksek öncelik)
+    env_path = os.getenv("SCRAPPER_DIR")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+    
+    # 2. Docker ortamında
     docker_path = Path("/Scrapper")
-    if docker_path.exists():
+    if docker_path.exists() and (docker_path / "main.py").exists():
         return docker_path
     
-    # Yerel Windows ortamında (Yedek mantık)
+    # Linux Remote Server
+    linux_path = Path("/var/www/scrapper/Scrapper")
+    if linux_path.exists():
+        return linux_path
+    
+    # Yerel Windows ortamında
     # scheduler.py -> services -> app -> LangChain_backend -> (Project Root)
     project_root = Path(__file__).resolve().parent.parent.parent.parent
     
     # Olası Scrapper yolları
     possible_paths = [
         project_root / "Scrapper",
-        project_root / "Scrapper-main" / "Scrapper"
+        project_root / "Scrapper-main",
     ]
     
     for path in possible_paths:
-        if path.exists():
+        if path.exists() and (path / "main.py").exists():
             return path
             
     # Fallback

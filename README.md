@@ -16,33 +16,28 @@ copy env.template .env.local
 cp env.template .env.local
 ```
 
-**Minimum Gerekli Ayarlar:**
+**Minimum Gerekli Ayarlar** (`.env.example` dosyasını `.env` olarak kopyalayın):
 ```env
-APP_NAME=Lumora Backend
-API_PREFIX=/api
-APP_ENV=development
-PORT=8000
-
-# PostgreSQL bağlantısı - Docker kullanıyorsanız varsayılan değerleri kullanabilirsiniz
+# PostgreSQL bağlantısı
 POSTGRESQL_HOST=localhost
 POSTGRESQL_PORT=5432
-POSTGRESQL_DATABASE=your_database_name
-POSTGRESQL_USERNAME=your_username
-POSTGRESQL_PASSWORD=your_secure_password
+POSTGRESQL_DATABASE=lumora_db
+POSTGRESQL_USERNAME=postgres
+POSTGRESQL_PASSWORD=postgres
 
 # JWT
-JWT_SECRET=change-me
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=120
+JWT_SECRET=change-me-to-a-strong-random-string
 
-# CORS
+# Frontend & CORS
 FRONTEND_URL=http://localhost:3000
 CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 
+# Scrapper dizini (opsiyonel, belirtilmezse otomatik algılanır)
+# SCRAPPER_DIR=C:\Users\Admin\Documents\vscode\Scrapper
+
+# AI Keys
 OPENAI_API_KEY=your-openai-api-key-here
 TAVILY_API_KEY=your-tavily-api-key-here
-STABILITY_API_KEY=your-stability-api-key-here
-FAL_API_KEY=your-fal-api-key-here
 ```
 
 ### 2. Docker ile Çalıştırma (Önerilen)
