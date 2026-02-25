@@ -98,12 +98,27 @@ async def create_scraping_task(
     from datetime import timedelta
     
     try:
+        # Build search_params
+        params = {"search_term": request.search_term, "mode": request.mode, "page_limit": request.page_limit}
+        if request.source_task_id:
+            params["source_task_id"] = request.source_task_id
+        
+        # For worker bots, copy source bot's URL if no keyword given
+        target_url = f"https://www.trendyol.com/sr?q={request.search_term}" if request.search_term else ""
+        if request.mode == "worker" and request.source_task_id:
+            source = db.query(ScrapingTask).filter(ScrapingTask.id == request.source_task_id).first()
+            if source:
+                base_url = source.target_url or target_url
+                # Append worker identifier to avoid unique constraint on target_url
+                import time
+                target_url = f"{base_url}&worker={int(time.time())}"
+        
         # Create new task with frontend fields
         new_task = ScrapingTask(
             task_name=request.task_name,
             target_platform=request.target_platform,
-            search_params={"search_term": request.search_term},
-            target_url=f"https://www.trendyol.com/sr?q={request.search_term}",
+            search_params=params,
+            target_url=target_url,
             scrape_interval_hours=request.scrape_interval,
             is_active=request.is_active,
             start_time=request.start_time,
@@ -124,7 +139,11 @@ async def create_scraping_task(
     except Exception as e:
         db.rollback()
         error_msg = str(e)
-        if "unique constraint" in error_msg.lower():
+        print(f"[CREATE_TASK_ERROR] mode={request.mode} task_name={request.task_name} search_term={request.search_term} source_task_id={getattr(request, 'source_task_id', None)}")
+        print(f"[CREATE_TASK_ERROR] Full error: {repr(e)}")
+        if "unique" in error_msg.lower() or "duplicate" in error_msg.lower():
+            if request.mode == "worker":
+                raise HTTPException(status_code=400, detail=f"'{request.task_name}' isimli bir bot zaten mevcut.")
             raise HTTPException(status_code=400, detail=f"'{request.search_term}' araması için zaten bir bot mevcut.")
         raise HTTPException(status_code=500, detail=f"Görev oluşturma hatası: {error_msg}")
 
@@ -226,16 +245,26 @@ async def get_bots_status(db: Session = Depends(get_db)):
         # Count products scraped based on ACTUAL items in products table for THIS bot
         try:
             from app.models.product import Product
-            scraped_count = db.query(func.count(Product.id)).filter(Product.task_id == task.id).scalar() or 0
+            bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+            
+            if bot_mode == "linker":
+                # Linker bot: count total queue items (links found) instead of products
+                total_queue = db.execute(
+                    text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid"),
+                    {"tid": task.id}
+                ).scalar() or 0
+                scraped_count = total_queue
+            else:
+                scraped_count = db.query(func.count(Product.id)).filter(Product.task_id == task.id).scalar() or 0
         except Exception as e:
             logger.warning(f"Scraped count error for task {task.id}: {e}")
             scraped_count = 0
         
-        # Count errors from scraping_logs
+        # Count errors from scraping_logs — use SUM for actual total
         error_count = 0
         try:
             result = db.execute(
-                text("SELECT COUNT(*) FROM scraping_logs WHERE task_id = :tid AND errors > 0"),
+                text("SELECT COALESCE(SUM(errors), 0) FROM scraping_logs WHERE task_id = :tid"),
                 {"tid": task.id}
             ).scalar()
             error_count = result or 0
@@ -248,22 +277,38 @@ async def get_bots_status(db: Session = Depends(get_db)):
             now_aware = datetime.now(timezone.utc)
             one_hour_ago = now_aware - timedelta(hours=1)
             
-            recent_count_query = db.query(func.count(Product.id)).filter(
-                Product.task_id == task.id,
-                Product.last_scraped_at >= one_hour_ago
-            )
-            recent_count = recent_count_query.scalar() or 0
+            if bot_mode == "linker":
+                # Linker: count recently added queue items
+                try:
+                    recent_count = db.execute(
+                        text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid AND created_at >= :since"),
+                        {"tid": task.id, "since": one_hour_ago}
+                    ).scalar() or 0
+                except:
+                    db.rollback()
+                    recent_count = 0
+            else:
+                recent_count_query = db.query(func.count(Product.id)).filter(
+                    Product.task_id == task.id,
+                    Product.last_scraped_at >= one_hour_ago
+                )
+                recent_count = recent_count_query.scalar() or 0
             # Speed = Items / 60 mins (average over last hour)
             speed = round(recent_count / 60, 1) if recent_count > 0 else 0
         except Exception as e:
             logger.warning(f"Speed calc error for task {task.id}: {e}")
             speed = 0
         
-        # Count pending links in queue for THIS bot
+        # Count pending links in queue
+        # For worker bots, show SOURCE linker's queue count
+        queue_task_id = task.id
+        bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+        if bot_mode == "worker" and task.search_params and task.search_params.get("source_task_id"):
+            queue_task_id = task.search_params["source_task_id"]
         try:
             pending_count = db.execute(
                 text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid AND status = 'pending'"),
-                {"tid": task.id}
+                {"tid": queue_task_id}
             ).scalar() or 0
         except:
             pending_count = 0
@@ -299,17 +344,50 @@ async def get_bots_status(db: Session = Depends(get_db)):
                 last_msg = f"🛍️ {last_product.brand} {last_product.name}{price_str}"
                 last_url = last_product.url
 
+        # For worker bots, get source bot name
+        source_task_id = task.search_params.get("source_task_id") if task.search_params else None
+        source_bot_name = None
+        if source_task_id:
+            try:
+                source_task = db.query(ScrapingTask).filter(ScrapingTask.id == source_task_id).first()
+                source_bot_name = source_task.task_name if source_task else None
+            except:
+                pass
+        # Get pages_scraped for linker bots
+        pages_scraped = 0
+        if bot_mode == "linker":
+            try:
+                active_log = db.query(ScrapingLog).filter(
+                    ScrapingLog.task_id == task.id,
+                    ScrapingLog.status == "running"
+                ).order_by(desc(ScrapingLog.started_at)).first()
+                if active_log and active_log.pages_scraped:
+                    pages_scraped = active_log.pages_scraped
+                elif not active_log:
+                    # Bitmişse en son logu al
+                    last_log = db.query(ScrapingLog).filter(
+                        ScrapingLog.task_id == task.id
+                    ).order_by(desc(ScrapingLog.started_at)).first()
+                    if last_log and last_log.pages_scraped:
+                        pages_scraped = last_log.pages_scraped
+            except:
+                pass
+
         bot = {
             "id": task.id,
             "name": task.task_name or "Unnamed Bot",
             "platform": task.target_platform or "Trendyol",
             "status": actual_status,
             "keyword": task.search_params.get("search_term", "") if task.search_params else "",
+            "mode": task.search_params.get("mode", "normal") if task.search_params else "normal",
+            "source_task_id": source_task_id,
+            "source_bot_name": source_bot_name,
             "start_time": task.start_time or "09:00",
             "end_time": task.end_time or "18:00",
             "page_limit": task.search_params.get("page_limit", 24) if task.search_params else 24,
             "is_active": task.is_active,
             "pending_links": pending_count,
+            "pages_scraped": pages_scraped,
             "stats": {
                 "scraped": scraped_count,
                 "validated": speed,      # Frontend shows this as SPEED (Items/Min)
@@ -381,6 +459,37 @@ async def get_scraper_status(db: Session = Depends(get_db)):
 
 # ==================== BOT CONTROL ENDPOINTS ====================
 
+
+@router.get("/bots/linkers")
+async def get_linker_bots(db: Session = Depends(get_db)):
+    """Linker botlarını listeler (Worker oluştururken kaynak seçimi için)."""
+    from app.models.scraping_task import ScrapingTask
+    from sqlalchemy import text
+    
+    tasks = db.query(ScrapingTask).all()
+    linkers = []
+    for task in tasks:
+        mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+        if mode == "linker":
+            # Count queue items for this linker
+            try:
+                queue_count = db.execute(
+                    text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid"),
+                    {"tid": task.id}
+                ).scalar() or 0
+            except:
+                queue_count = 0
+            
+            keyword = task.search_params.get("search_term", "") if task.search_params else ""
+            linkers.append({
+                "id": task.id,
+                "name": task.task_name,
+                "keyword": keyword,
+                "queue_count": queue_count
+            })
+    
+    return linkers
+
 @router.post("/bots/{bot_id}/start")
 async def start_bot(bot_id: int, db: Session = Depends(get_db)):
     """Botu başlatır - dosya tabanlı komut sistemi (Docker → Windows)."""
@@ -401,15 +510,30 @@ async def start_bot(bot_id: int, db: Session = Depends(get_db)):
     commands_dir.mkdir(parents=True, exist_ok=True)
     
     cmd_file = commands_dir / f"start_{bot_id}.json"
+    
+    # Read mode from search_params (linker/worker/normal)
+    bot_mode = "normal"
+    if task.search_params and task.search_params.get("mode"):
+        bot_mode = task.search_params["mode"]
+    
+    # Get source_task_id for worker bots
+    source_task_id = None
+    if task.search_params and task.search_params.get("source_task_id"):
+        source_task_id = task.search_params["source_task_id"]
+    
     with open(cmd_file, "w") as f:
-        json.dump({
+        cmd_data = {
             "type": "START",
             "task_id": bot_id,
             "target_url": task.target_url,
             "task_name": task.task_name,
-            "max_pages": task.scrape_interval_hours or 50, # Default to 50 if 0/Null
-            "force": True # Manual start override
-        }, f)
+            "max_pages": task.search_params.get("page_limit", 50) if task.search_params else 50,
+            "mode": bot_mode,
+            "force": True
+        }
+        if source_task_id:
+            cmd_data["source_task_id"] = source_task_id
+        json.dump(cmd_data, f)
     
     return {"success": True, "message": f"Bot {task.task_name} başlatma komutu gönderildi"}
 
@@ -429,15 +553,22 @@ async def worker_start_bot(bot_id: int, db: Session = Depends(get_db)):
     commands_dir = scrapper_dir / "commands"
     commands_dir.mkdir(parents=True, exist_ok=True)
     
+    # Get source_task_id for worker bots
+    source_task_id = None
+    if task.search_params and task.search_params.get("source_task_id"):
+        source_task_id = task.search_params["source_task_id"]
+    
     cmd_file = commands_dir / f"worker_{bot_id}.json"
     with open(cmd_file, "w") as f:
-        json.dump({
+        cmd_data = {
             "type": "WORKER",
             "task_id": bot_id,
             "target_url": task.target_url,
             "task_name": task.task_name,
+            "source_task_id": source_task_id or bot_id,
             "force": True
-        }, f)
+        }
+        json.dump(cmd_data, f)
     
     return {"success": True, "message": f"Bot {task.task_name} kuyruk eritme (worker) komutu gönderildi"}
 
@@ -605,6 +736,7 @@ async def update_bot_settings(
 async def get_system_logs(
     limit: int = 100,
     filter: Optional[str] = None,
+    bot_id: int = 0,
     db: Session = Depends(get_db)
 ):
     """Sistem loglarını ve hataları veritabanı ve dosya sisteminden getirir."""
@@ -620,8 +752,12 @@ async def get_system_logs(
         if not os.path.exists(base_dir):
             base_dir = "Scrapper" # Fallback for local testing
             
-        # Find all bot logs
-        log_files = glob.glob(os.path.join(base_dir, "bot_*.log"))
+        # Find bot log files — filter by bot_id if specified
+        if bot_id > 0:
+            log_files = [os.path.join(base_dir, f"bot_{bot_id}.log")]
+            log_files = [f for f in log_files if os.path.exists(f)]
+        else:
+            log_files = glob.glob(os.path.join(base_dir, "bot_*.log"))
         
         all_lines = []
         for log_file in log_files:
@@ -655,9 +791,12 @@ async def get_system_logs(
             line = line.strip()
             if not line: continue
             
-            # User Request: Only show rich product logs and errors
-            # Filter out verbose steps like "Sayfa", "Link", "Kazılıyor"
-            if "🛍️" not in line and "❌" not in line:
+            # Show meaningful logs from all bot types:
+            # 🛍️ Product scraped, ❌ Error, 🔗 Link found (Linker)
+            # 📡 Linker status, 🔍 Worker status, 🏁 Finished
+            # ⚠️ Warning, 🔄 IP rotation, 🛑 Stop signal
+            meaningful_emojis = ["🛍️", "❌", "🔗", "📡", "🔍", "🏁", "⚠️", "🔄", "🛑"]
+            if not any(emoji in line for emoji in meaningful_emojis):
                 continue
 
             if filter and filter.lower() not in line.lower():
@@ -674,15 +813,17 @@ async def get_system_logs(
     try:
         from app.models.scraping_task import ScrapingTask
         
-        # Join with ScrapingTask to get real bot name
-        results = db.query(ScrapingLog, ScrapingTask.task_name).outerjoin(
+        # Join with ScrapingTask to get real bot name + mode
+        results = db.query(ScrapingLog, ScrapingTask.task_name, ScrapingTask.search_params).outerjoin(
             ScrapingTask, ScrapingLog.task_id == ScrapingTask.id
         ).filter(ScrapingLog.errors > 0).order_by(ScrapingLog.started_at.desc()).limit(20).all()
         
-        for log, t_name in results:
+        for log, t_name, s_params in results:
+             bot_mode = s_params.get("mode", "normal") if s_params else "normal"
              detailed_errors.append({
                 "id": log.id,
                 "task_name": t_name or f"Görev {log.task_id}",
+                "mode": bot_mode,
                 "error": log.error_details or "Hata detayı yok.",
                 "screenshot": log.screenshot_path,
                 "date": log.started_at.strftime("%d.%m.%Y %H:%M") if log.started_at else ""
