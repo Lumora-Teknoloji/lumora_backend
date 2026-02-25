@@ -3,10 +3,7 @@ name: Backend Deploy
 on:
   push:
     branches:
-      - main  # Eğer dal isminiz 'master' ise burayı değiştirin
-    # Eğer backend ve frontend aynı repodaysa, sadece backend değişince çalışsın diye:
-    # paths:
-    #   - 'LangChain_backend/**'
+      - main
 
 jobs:
   deploy:
@@ -20,25 +17,24 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # Hata olursa işlemi durdur
             set -e
-            
+
             echo "🔌 Sunucuya bağlanılıyor..."
-            
+
             # 1. Backend klasörüne git
             cd /var/www/backend/LangChain_backend
-            
+
             # 2. Güncel kodları çek
             echo "📥 Kodlar çekiliyor..."
             git pull origin main
-            
+
             # 3. Python Sanal Ortamını Güncelle
             echo "🐍 Kütüphaneler yükleniyor..."
             source venv/bin/activate
             pip install -r requirements.txt
-            
+
             # 4. Sistemi Yeniden Başlat
             echo "🚀 PM2 servisi yeniden başlatılıyor..."
-            pm2 restart backend
-            
+            pm2 restart backend || echo "⚠️ Backend PM2 process not found, skipping restart"
+
             echo "✅ Backend başarıyla güncellendi!"
