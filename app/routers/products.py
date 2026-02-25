@@ -43,6 +43,14 @@ class ProductOut(BaseModel):
     avg_rating: Optional[float] = None
     rating_count: Optional[int] = None
     qa_count: Optional[int] = None
+    # Price details from DailyMetric
+    original_price: Optional[float] = None
+    discounted_price: Optional[float] = None
+    # Search ranking from DailyMetric
+    page_number: Optional[int] = None
+    search_rank: Optional[int] = None
+    absolute_rank: Optional[int] = None
+    search_term: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -154,6 +162,12 @@ async def list_products(
             avg_rating=latest_metric.avg_rating if latest_metric else None,
             rating_count=latest_metric.rating_count if latest_metric else None,
             qa_count=latest_metric.qa_count if latest_metric else None,
+            original_price=latest_metric.price if latest_metric else None,
+            discounted_price=latest_metric.discounted_price if latest_metric else None,
+            page_number=latest_metric.page_number if latest_metric else None,
+            search_rank=latest_metric.search_rank if latest_metric else None,
+            absolute_rank=latest_metric.absolute_rank if latest_metric else None,
+            search_term=latest_metric.search_term if latest_metric else None,
         )
         items.append(item)
     
@@ -251,6 +265,12 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         avg_rating=latest_metric.avg_rating if latest_metric else None,
         rating_count=latest_metric.rating_count if latest_metric else None,
         qa_count=latest_metric.qa_count if latest_metric else None,
+        original_price=latest_metric.price if latest_metric else None,
+        discounted_price=latest_metric.discounted_price if latest_metric else None,
+        page_number=latest_metric.page_number if latest_metric else None,
+        search_rank=latest_metric.search_rank if latest_metric else None,
+        absolute_rank=latest_metric.absolute_rank if latest_metric else None,
+        search_term=latest_metric.search_term if latest_metric else None,
     )
 
 
