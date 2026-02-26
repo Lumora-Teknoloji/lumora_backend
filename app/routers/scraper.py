@@ -366,25 +366,24 @@ async def get_bots_status(db: Session = Depends(get_db)):
                 source_bot_name = source_task.task_name if source_task else None
             except:
                 pass
-        # Get pages_scraped for linker bots
+        # Get pages_scraped for all bot modes (live progress tracking)
         pages_scraped = 0
-        if bot_mode == "linker":
-            try:
-                active_log = db.query(ScrapingLog).filter(
-                    ScrapingLog.task_id == task.id,
-                    ScrapingLog.status == "running"
+        try:
+            active_log = db.query(ScrapingLog).filter(
+                ScrapingLog.task_id == task.id,
+                ScrapingLog.status == "running"
+            ).order_by(desc(ScrapingLog.started_at)).first()
+            if active_log and active_log.pages_scraped:
+                pages_scraped = active_log.pages_scraped
+            elif not active_log:
+                # Bot çalışmıyorsa en son logu al
+                last_finished_log = db.query(ScrapingLog).filter(
+                    ScrapingLog.task_id == task.id
                 ).order_by(desc(ScrapingLog.started_at)).first()
-                if active_log and active_log.pages_scraped:
-                    pages_scraped = active_log.pages_scraped
-                elif not active_log:
-                    # Bitmişse en son logu al
-                    last_log = db.query(ScrapingLog).filter(
-                        ScrapingLog.task_id == task.id
-                    ).order_by(desc(ScrapingLog.started_at)).first()
-                    if last_log and last_log.pages_scraped:
-                        pages_scraped = last_log.pages_scraped
-            except:
-                pass
+                if last_finished_log and last_finished_log.pages_scraped:
+                    pages_scraped = last_finished_log.pages_scraped
+        except:
+            pass
         # Derive bot_state from active log's [STATE:xxx] or [STATE:xxx:seconds] prefix
         bot_state = "idle"
         state_message = ""
