@@ -204,16 +204,15 @@ async def update_task_status(
 @router.get("/tasks")
 async def list_active_tasks(db: Session = Depends(get_db)):
     """Aktif görevleri listeler."""
-    service = TrendyolScraperService(db)
-    tasks = service.get_active_tasks()
+    tasks = db.query(ScrapingTask).all()
     
     return [
         TaskResponse(
             id=t.id,
-            search_term=t.search_term,
-            status=t.status,
-            task_type=t.task_type,
-            last_scraped_at=t.last_scraped_at
+            search_term=t.task_name or "",
+            status="active" if t.is_active else "paused",
+            task_type=t.target_platform or "trendyol",
+            last_scraped_at=t.last_run_at
         )
         for t in tasks
     ]
