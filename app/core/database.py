@@ -109,13 +109,16 @@ def ensure_user_avatar_column():
 
 def ensure_vector_extension() -> bool:
     """pgvector eklentisinin yüklü olduğundan emin olur. Başarılıysa True döner."""
+    import os
     try:
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             logger.info("✅ vector eklentisi kontrol edildi")
+            os.environ["PGVECTOR_AVAILABLE"] = "1"
             return True
     except Exception as e:
         logger.warning(f"⚠️ pgvector eklentisi yüklenemedi (lokal geliştirmede normal): {e}")
+        os.environ["PGVECTOR_AVAILABLE"] = "0"
         return False
 
 def ensure_admin_user():
@@ -156,13 +159,13 @@ def setup_database():
     # Vector eklentisini kontrol et
     has_pgvector = ensure_vector_extension()
     
-    # pgvector yoksa, vector kolonunu geçici olarak metadata'dan çıkar
-    vector_column = None
-    products_table = Base.metadata.tables.get('products')
-    if not has_pgvector and products_table is not None and 'feature_vector' in products_table.columns:
-        vector_column = products_table.columns['feature_vector']
-        products_table._columns.remove(vector_column)
-        logger.info("⚠️ pgvector yok — feature_vector kolonu atlanıyor (lokal geliştirme modu)")
+    # pgvector varsa feature_vector kolonunu Product modeline ekle
+    if has_pgvector:
+        try:
+            from app.models.product import _add_vector_column
+            _add_vector_column()
+        except Exception as e:
+            logger.warning(f"feature_vector kolonu eklenemedi: {e}")
 
     try:
         # Önce tabloların varlığını kontrol et
@@ -209,11 +212,9 @@ def setup_database():
         
         # Admin kullanıcısını kontrol et/oluştur
         ensure_admin_user()
-    finally:
-        # vector kolonunu geri ekle (model tanımı bozulmasın)
-        if vector_column is not None and products_table is not None:
-            products_table.append_column(vector_column)
-            logger.info("✅ feature_vector kolon tanımı geri yüklendi")
+    except Exception as e:
+        logger.error(f"setup_database hatası: {e}")
+        raise
 
 def sync_schema():
     """
