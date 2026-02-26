@@ -1,7 +1,11 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from pgvector.sqlalchemy import Vector
+try:
+    from pgvector.sqlalchemy import Vector
+    _vector_type = Vector(1536)
+except Exception:
+    _vector_type = LargeBinary  # Fallback when pgvector not installed
 from .base import Base
 
 
@@ -31,7 +35,7 @@ class Product(Base):
     
     # ==================== AI VEKTÖRLERİ ====================
     # pgvector: CREATE EXTENSION vector; yapmayı unutma.
-    feature_vector = Column(Vector(1536))  # Görsel/metin embedding
+    feature_vector = Column(_vector_type)  # Görsel/metin embedding
     
     # ==================== ÖZELLİKLER ====================
     # Dinamik özellikler JSONB olarak saklanır

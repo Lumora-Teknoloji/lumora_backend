@@ -230,50 +230,6 @@ async def get_data_quality(db: Session = Depends(get_db)):
     )
 
 
-@router.get("/{product_id}", response_model=ProductOut)
-async def get_product(product_id: int, db: Session = Depends(get_db)):
-    """Tek ürün detayı."""
-    p = db.query(Product).filter(Product.id == product_id).first()
-    if not p:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
-    
-    latest_metric = db.query(DailyMetric).filter(
-        DailyMetric.product_id == p.id
-    ).order_by(desc(DailyMetric.recorded_at)).first()
-    
-    return ProductOut(
-        id=p.id,
-        product_code=p.product_code,
-        name=p.name,
-        brand=p.brand,
-        seller=p.seller,
-        url=p.url,
-        image_url=p.image_url,
-        category_tag=p.category_tag,
-        attributes=p.attributes,
-        review_summary=p.review_summary,
-        sizes=p.sizes,
-        last_price=p.last_price,
-        last_discount_rate=p.last_discount_rate,
-        avg_sales_velocity=p.avg_sales_velocity,
-        first_seen_at=p.first_seen_at,
-        last_scraped_at=p.last_scraped_at,
-        favorite_count=latest_metric.favorite_count if latest_metric else None,
-        cart_count=latest_metric.cart_count if latest_metric else None,
-        view_count=latest_metric.view_count if latest_metric else None,
-        avg_rating=latest_metric.avg_rating if latest_metric else None,
-        rating_count=latest_metric.rating_count if latest_metric else None,
-        qa_count=latest_metric.qa_count if latest_metric else None,
-        original_price=latest_metric.price if latest_metric else None,
-        discounted_price=latest_metric.discounted_price if latest_metric else None,
-        page_number=latest_metric.page_number if latest_metric else None,
-        search_rank=latest_metric.search_rank if latest_metric else None,
-        absolute_rank=latest_metric.absolute_rank if latest_metric else None,
-        search_term=latest_metric.search_term if latest_metric else None,
-    )
-
-
 @router.get("/reports/summary")
 async def get_report_summary(
     days: int = Query(7, ge=1, le=90),
@@ -325,3 +281,48 @@ async def get_report_summary(
         "unique_sellers": result[8],
         "top_brands": [{"brand": r[0], "count": r[1]} for r in top_brands],
     }
+
+
+@router.get("/{product_id}", response_model=ProductOut)
+async def get_product(product_id: int, db: Session = Depends(get_db)):
+    """Tek ürün detayı."""
+    p = db.query(Product).filter(Product.id == product_id).first()
+    if not p:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
+    
+    latest_metric = db.query(DailyMetric).filter(
+        DailyMetric.product_id == p.id
+    ).order_by(desc(DailyMetric.recorded_at)).first()
+    
+    return ProductOut(
+        id=p.id,
+        product_code=p.product_code,
+        name=p.name,
+        brand=p.brand,
+        seller=p.seller,
+        url=p.url,
+        image_url=p.image_url,
+        category_tag=p.category_tag,
+        attributes=p.attributes,
+        review_summary=p.review_summary,
+        sizes=p.sizes,
+        last_price=p.last_price,
+        last_discount_rate=p.last_discount_rate,
+        avg_sales_velocity=p.avg_sales_velocity,
+        first_seen_at=p.first_seen_at,
+        last_scraped_at=p.last_scraped_at,
+        favorite_count=latest_metric.favorite_count if latest_metric else None,
+        cart_count=latest_metric.cart_count if latest_metric else None,
+        view_count=latest_metric.view_count if latest_metric else None,
+        avg_rating=latest_metric.avg_rating if latest_metric else None,
+        rating_count=latest_metric.rating_count if latest_metric else None,
+        qa_count=latest_metric.qa_count if latest_metric else None,
+        original_price=latest_metric.price if latest_metric else None,
+        discounted_price=latest_metric.discounted_price if latest_metric else None,
+        page_number=latest_metric.page_number if latest_metric else None,
+        search_rank=latest_metric.search_rank if latest_metric else None,
+        absolute_rank=latest_metric.absolute_rank if latest_metric else None,
+        search_term=latest_metric.search_term if latest_metric else None,
+    )
+
