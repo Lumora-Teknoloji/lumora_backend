@@ -13,6 +13,7 @@ from datetime import datetime
 from app.core.database import get_db
 from app.models.product import Product
 from app.models.daily_metric import DailyMetric
+from app.models.scraping_task import ScrapingTask
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
@@ -28,6 +29,7 @@ class ProductOut(BaseModel):
     url: Optional[str] = None
     image_url: Optional[str] = None
     category_tag: Optional[str] = None
+    category: Optional[str] = None
     attributes: Optional[dict] = None
     review_summary: Optional[str] = None
     sizes: Optional[list] = None
@@ -51,6 +53,10 @@ class ProductOut(BaseModel):
     search_rank: Optional[int] = None
     absolute_rank: Optional[int] = None
     search_term: Optional[str] = None
+    # Bot info
+    bot_mode: Optional[str] = None
+    task_name: Optional[str] = None
+    scrape_mode: Optional[str] = None  # api, dom, speed
 
     class Config:
         from_attributes = True
@@ -139,6 +145,14 @@ async def list_products(
             DailyMetric.product_id == p.id
         ).order_by(desc(DailyMetric.recorded_at)).first()
         
+        # Get bot mode from ScrapingTask
+        task_obj = db.query(ScrapingTask).filter(ScrapingTask.id == p.task_id).first() if p.task_id else None
+        bot_mode = None
+        t_name = None
+        if task_obj:
+            bot_mode = task_obj.search_params.get("mode", "normal") if task_obj.search_params else "normal"
+            t_name = task_obj.task_name
+
         item = ProductOut(
             id=p.id,
             product_code=p.product_code,
@@ -148,6 +162,7 @@ async def list_products(
             url=p.url,
             image_url=p.image_url,
             category_tag=p.category_tag,
+            category=p.category,
             attributes=p.attributes,
             review_summary=p.review_summary,
             sizes=p.sizes,
@@ -168,6 +183,9 @@ async def list_products(
             search_rank=latest_metric.search_rank if latest_metric else None,
             absolute_rank=latest_metric.absolute_rank if latest_metric else None,
             search_term=latest_metric.search_term if latest_metric else None,
+            bot_mode=bot_mode,
+            task_name=t_name,
+            scrape_mode=getattr(latest_metric, 'scrape_mode', None) if latest_metric else None,
         )
         items.append(item)
     
@@ -251,6 +269,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         url=p.url,
         image_url=p.image_url,
         category_tag=p.category_tag,
+        category=p.category,
         attributes=p.attributes,
         review_summary=p.review_summary,
         sizes=p.sizes,

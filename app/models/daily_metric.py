@@ -45,6 +45,7 @@ class DailyMetric(Base):
     search_rank = Column(Integer)                   # Sayfadaki sıra (1-48)
     page_number = Column(Integer)                   # Hangi sayfa (1, 2, 3...)
     absolute_rank = Column(Integer)                 # Toplam sıra = (page-1)*48 + rank
+    scrape_mode = Column(String(20))                # Kazıma modu: api, dom, speed
     
     # ==================== HESAPLANAN SKORLAR ====================
     # Anlık skorlar (tek snapshot ile hesaplanır)

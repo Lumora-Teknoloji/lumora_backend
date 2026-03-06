@@ -12,6 +12,7 @@ import logging
 import os
 import glob
 import json
+from datetime import datetime, timezone
 import psutil
 import platform
 import traceback
@@ -258,7 +259,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
         if task.is_active and actual_status == "stopped":
             actual_status = "idle"  # Aktif ama henüz çalışmıyor
         
-        # Count products scraped based on ACTUAL items in products table for THIS bot
+        # Count products scraped — bot'un o anki oturumunda işlediği ürün sayısı
         try:
             from app.models.product import Product
             bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
@@ -271,19 +272,41 @@ async def get_bots_status(db: Session = Depends(get_db)):
                 ).scalar() or 0
                 scraped_count = total_queue
             else:
-                scraped_count = db.query(func.count(Product.id)).filter(Product.task_id == task.id).scalar() or 0
+                # Worker/Normal: TÜM oturumların toplam (added + updated) sayısı
+                # Bot durdurup başlatınca sıfırlanmaz
+                result = db.execute(
+                    text("""
+                        SELECT COALESCE(SUM(COALESCE(products_added, 0) + COALESCE(products_updated, 0)), 0)
+                        FROM scraping_logs WHERE task_id = :tid
+                    """),
+                    {"tid": task.id}
+                ).scalar()
+                scraped_count = result or 0
+                
+                if scraped_count == 0:
+                    # Hiç log yoksa ürün sayısından göster (fallback)
+                    scraped_count = db.query(func.count(Product.id)).filter(Product.task_id == task.id).scalar() or 0
         except Exception as e:
             logger.warning(f"Scraped count error for task {task.id}: {e}")
             scraped_count = 0
         
-        # Count errors from scraping_logs — use SUM for actual total
+        # Count errors — aktif oturumdaki hatalar (tüm oturumların toplamı değil)
         error_count = 0
         try:
-            result = db.execute(
-                text("SELECT COALESCE(SUM(errors), 0) FROM scraping_logs WHERE task_id = :tid"),
-                {"tid": task.id}
-            ).scalar()
-            error_count = result or 0
+            # Önce aktif (running) log'a bak
+            err_log = db.query(ScrapingLog).filter(
+                ScrapingLog.task_id == task.id,
+                ScrapingLog.status == "running"
+            ).order_by(desc(ScrapingLog.started_at)).first()
+            
+            if not err_log:
+                # Aktif log yoksa en son log'u al
+                err_log = db.query(ScrapingLog).filter(
+                    ScrapingLog.task_id == task.id
+                ).order_by(desc(ScrapingLog.started_at)).first()
+            
+            if err_log:
+                error_count = err_log.errors or 0
         except:
             pass
             
@@ -428,6 +451,45 @@ async def get_bots_status(db: Session = Depends(get_db)):
                         state_message = msg
             except:
                 pass
+        # Uptime (çalışma süresi — aktif log'un başlangıcından bu ana)
+        uptime_seconds = 0
+        session_started_at = None
+        try:
+            if actual_status in ["running", "worker_running"]:
+                # Çalışıyor — aktif log'dan canlı hesapla
+                uptime_log = db.query(ScrapingLog).filter(
+                    ScrapingLog.task_id == task.id,
+                    ScrapingLog.status == "running"
+                ).order_by(desc(ScrapingLog.started_at)).first()
+                
+                if uptime_log and uptime_log.started_at:
+                    started = uptime_log.started_at
+                    if started.tzinfo is None:
+                        started = started.replace(tzinfo=timezone.utc)
+                    now_utc = datetime.now(timezone.utc)
+                    uptime_seconds = int((now_utc - started).total_seconds())
+                    session_started_at = started.isoformat()
+            else:
+                # Durdurulmuş — son oturumun toplam süresini göster (sabit)
+                last_log = db.query(ScrapingLog).filter(
+                    ScrapingLog.task_id == task.id
+                ).order_by(desc(ScrapingLog.started_at)).first()
+                
+                if last_log and last_log.started_at:
+                    started = last_log.started_at
+                    if started.tzinfo is None:
+                        started = started.replace(tzinfo=timezone.utc)
+                    # Log bitmişse finished_at, bitmemişse şimdiki zaman
+                    if last_log.finished_at:
+                        ended = last_log.finished_at
+                        if ended.tzinfo is None:
+                            ended = ended.replace(tzinfo=timezone.utc)
+                    else:
+                        ended = datetime.now(timezone.utc)
+                    uptime_seconds = int((ended - started).total_seconds())
+                    session_started_at = started.isoformat()
+        except:
+            pass
 
         bot = {
             "id": task.id,
@@ -448,6 +510,8 @@ async def get_bots_status(db: Session = Depends(get_db)):
             "state_message": state_message,
             "state_countdown": state_countdown,
             "state_started_at": state_started_at,
+            "uptime_seconds": uptime_seconds,
+            "session_started_at": session_started_at,
             "stats": {
                 "scraped": scraped_count,
                 "validated": speed,
@@ -663,6 +727,66 @@ async def stop_bot(bot_id: int, db: Session = Depends(get_db)):
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
 
 
+@router.post("/bots/{bot_id}/speed-mode")
+async def toggle_speed_mode(bot_id: int, minutes: int = 30, db: Session = Depends(get_db)):
+    """Hız modunu aktif/deaktif eder. Max 30 dakika, sonra otomatik güvenli moda döner."""
+    from app.models.scraping_task import ScrapingTask
+    import json
+    
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Bot bulunamadı")
+    
+    # Max 30 dakika sınırı
+    minutes = min(minutes, 30)
+    
+    # Komut dosyası oluştur (scrapper okuyacak)
+    scrapper_dir = get_scrapper_dir()
+    commands_dir = scrapper_dir / "commands"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+    
+    cmd_file = commands_dir / f"speed_{bot_id}.json"
+    with open(cmd_file, "w") as f:
+        json.dump({
+            "type": "SPEED_MODE",
+            "task_id": bot_id,
+            "minutes": minutes
+        }, f)
+    
+    return {
+        "success": True, 
+        "message": f"⚡ Hız modu {minutes} dakika aktif — {task.task_name}",
+        "expires_in_minutes": minutes
+    }
+
+@router.post("/bots/{bot_id}/api-mode")
+async def toggle_api_mode(bot_id: int, db: Session = Depends(get_db)):
+    """API modunu toggle eder (aç/kapat). DOM yerine API-first scraping."""
+    from app.models.scraping_task import ScrapingTask
+    import json
+    
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Bot bulunamadı")
+    
+    # Komut dosyası oluştur (scrapper okuyacak)
+    scrapper_dir = get_scrapper_dir()
+    commands_dir = scrapper_dir / "commands"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+    
+    cmd_file = commands_dir / f"api_{bot_id}.json"
+    with open(cmd_file, "w") as f:
+        json.dump({
+            "type": "API_MODE",
+            "task_id": bot_id,
+            "action": "toggle"
+        }, f)
+    
+    return {
+        "success": True, 
+        "message": f"🔌 API modu toggle edildi — {task.task_name}"
+    }
+
 @router.delete("/bots/{bot_id}")
 async def delete_bot(bot_id: int, db: Session = Depends(get_db)):
     """Botu ve onunla ilişkili tüm verileri siler."""
@@ -675,6 +799,31 @@ async def delete_bot(bot_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Bot bulunamadı")
         
         task_name = task.task_name
+        
+        # 0. Çalışıyorsa ÖNCE durdur (orphan process önleme)
+        scrapper_dir = get_scrapper_dir()
+        pid_file = scrapper_dir / f"bot_{bot_id}.pid"
+        stop_file = scrapper_dir / f"bot_{bot_id}.stop"
+        
+        if pid_file.exists():
+            # Stop sinyali gönder
+            stop_file.write_text("1")
+            try:
+                pid = int(pid_file.read_text().strip())
+                import subprocess as sp
+                if os.name == 'nt':
+                    sp.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=10)
+                else:
+                    import signal as sig
+                    os.kill(pid, sig.SIGKILL)
+            except:
+                pass
+            # Dosyaları temizle
+            for f in [pid_file, stop_file, scrapper_dir / f"bot_{bot_id}.force", scrapper_dir / f"bot_{bot_id}.worker"]:
+                try:
+                    if f.exists(): f.unlink()
+                except:
+                    pass
         
         # İlişkili verileri manuel sil (ForeignKey hatalarını önlemek için)
         # SIRA ÖNEMLİ: En uçtaki tablodan başlıyoruz

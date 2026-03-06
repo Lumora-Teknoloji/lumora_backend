@@ -92,21 +92,27 @@ def get_bot_status(task_id):
         return "running"
     return "stopped"
 
-def start_bot(task_id, target_url="", max_pages=0, force=False):
+def start_bot(task_id, target_url="", max_pages=0, force=False, mode="normal", source_task_id=None):
     """Write START command to file bridge"""
     current_status = get_bot_status(task_id)
     if current_status in ["running", "worker_running"]:
         return
     
-    # URL verilmemişse veritabanından çek
-    if not target_url:
+    # URL veya diğer bilgiler eksikse veritabanından çek
+    if not target_url or mode == "normal":
         session = get_db_session()
         try:
             from app.models.scraping_task import ScrapingTask
             task = session.query(ScrapingTask).filter(ScrapingTask.id == task_id).first()
             if task:
-                target_url = task.target_url
-                max_pages = task.scrape_interval_hours or 50
+                target_url = target_url or task.target_url
+                params = task.search_params or {}
+                if mode == "normal":
+                    mode = params.get("mode", "normal")
+                if not source_task_id:
+                    source_task_id = params.get("source_task_id")
+                if not max_pages or max_pages <= 0:
+                    max_pages = params.get("page_limit", 50)
         finally:
             session.close()
             
@@ -116,19 +122,34 @@ def start_bot(task_id, target_url="", max_pages=0, force=False):
         
     try:
         commands_dir.mkdir(parents=True, exist_ok=True)
-        # Use a stable filename to avoid duplicate commands if loop runs fast
-        cmd_file = commands_dir / f"start_{task_id}.json"
         
-        with open(cmd_file, "w") as f:
-            json.dump({
+        # Worker modu için ayrı komut dosyası
+        if mode == "worker":
+            cmd_file = commands_dir / f"worker_{task_id}.json"
+            cmd_data = {
+                "type": "WORKER",
+                "task_id": task_id,
+                "target_url": target_url,
+                "source_task_id": source_task_id or task_id,
+                "force": force
+            }
+        else:
+            cmd_file = commands_dir / f"start_{task_id}.json"
+            cmd_data = {
                 "type": "START",
                 "task_id": task_id,
                 "target_url": target_url,
                 "max_pages": max_pages,
+                "mode": mode,
                 "force": force
-            }, f)
+            }
+            if source_task_id:
+                cmd_data["source_task_id"] = source_task_id
+        
+        with open(cmd_file, "w") as f:
+            json.dump(cmd_data, f)
             
-        logger.info(f"Command queued: START Bot {task_id}")
+        logger.info(f"Command queued: {'WORKER' if mode == 'worker' else 'START'} Bot {task_id} (mode={mode})")
         return True
     except Exception as e:
         logger.error(f"Failed to queue start command for bot {task_id}: {e}")
@@ -206,9 +227,11 @@ def start_scheduler_thread():
 
                     if is_in_window:
                         if status == "stopped":
-                            logger.info(f"Starting bot {task.id} (Schedule Match: {start}-{end})")
-                            max_pages = task.scrape_interval_hours or 50
-                            start_bot(task.id, task.target_url, max_pages=max_pages)
+                            bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+                            page_limit = task.search_params.get("page_limit", 50) if task.search_params else 50
+                            src_task_id = task.search_params.get("source_task_id") if task.search_params else None
+                            logger.info(f"Starting bot {task.id} (Schedule Match: {start}-{end}, mode={bot_mode})")
+                            start_bot(task.id, task.target_url, max_pages=page_limit, mode=bot_mode, source_task_id=src_task_id)
                     else:
                         # Zaman dışı ve force değilse -> DURDUR
                         if status == "running":

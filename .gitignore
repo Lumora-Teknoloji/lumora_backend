@@ -20,6 +20,8 @@ myenv/
 .env
 .env.local
 .env.*.local
+.env.backup
+.env.production
 
 # IDE Settings
 .vscode/
