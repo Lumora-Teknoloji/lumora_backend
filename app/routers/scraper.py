@@ -515,7 +515,8 @@ async def get_bots_status(db: Session = Depends(get_db)):
                 "processed": ip_change_count
             },
             "last_message": last_msg,
-            "last_product_url": last_url
+            "last_product_url": last_url,
+            "use_proxy": task.search_params.get("use_proxy", False) if task.search_params else False
         }
         bots.append(bot)
     
@@ -781,6 +782,44 @@ async def toggle_api_mode(bot_id: int, db: Session = Depends(get_db)):
     return {
         "success": True, 
         "message": f"🔌 API modu toggle edildi — {task.task_name}"
+    }
+
+@router.post("/bots/{bot_id}/proxy-mode")
+async def toggle_proxy_mode(bot_id: int, db: Session = Depends(get_db)):
+    """Proxy modunu toggle eder (aç/kapat). Bright Data residential proxy."""
+    from app.models.scraping_task import ScrapingTask
+    import json
+    
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Bot bulunamadı")
+    
+    # Komut dosyası oluştur (scrapper okuyacak)
+    scrapper_dir = get_scrapper_dir()
+    commands_dir = scrapper_dir / "commands"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+    
+    cmd_file = commands_dir / f"proxy_{bot_id}.json"
+    with open(cmd_file, "w") as f:
+        json.dump({
+            "type": "PROXY_MODE",
+            "task_id": bot_id,
+            "action": "toggle"
+        }, f)
+    
+    # search_params'a use_proxy kaydet (sayfa yenilenince korunsun)
+    params = task.search_params or {}
+    params["use_proxy"] = not params.get("use_proxy", False)
+    task.search_params = params
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(task, "search_params")
+    db.commit()
+    
+    status_text = "aktif" if params["use_proxy"] else "deaktif"
+    return {
+        "success": True, 
+        "use_proxy": params["use_proxy"],
+        "message": f"🌐 Proxy modu {status_text} — {task.task_name}"
     }
 
 @router.delete("/bots/{bot_id}")
