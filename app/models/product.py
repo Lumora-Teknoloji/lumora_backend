@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from pgvector.sqlalchemy import Vector
+import os
 from .base import Base
 
 
@@ -29,10 +29,6 @@ class Product(Base):
     category = Column(String, index=True)  # Ana kategori
     category_tag = Column(String)  # Alt kategori/etiket
     
-    # ==================== AI VEKTÖRLERİ ====================
-    # pgvector: CREATE EXTENSION vector; yapmayı unutma.
-    feature_vector = Column(Vector(1536))  # Görsel/metin embedding
-    
     # ==================== ÖZELLİKLER ====================
     # Dinamik özellikler JSONB olarak saklanır
     # Örnek: {renk: "Siyah", kumaş: "Pamuk", beden: ["S","M","L"]}
@@ -58,3 +54,20 @@ class Product(Base):
     daily_metrics = relationship("DailyMetric", back_populates="product", cascade="all, delete-orphan")
     designs = relationship("GeneratedDesign", back_populates="product")
     forecasts = relationship("SalesForecast", back_populates="product")
+
+
+# ==================== AI VEKTÖRLERİ (dinamik) ====================
+# pgvector extension PostgreSQL'de yüklüyse feature_vector kolonu otomatik eklenir.
+# Bu kontrol database.py'deki ensure_vector_extension() tarafından yapılır.
+def _add_vector_column():
+    """pgvector varsa feature_vector kolonunu Product modeline ekler."""
+    if os.environ.get("PGVECTOR_AVAILABLE", "0") == "1":
+        try:
+            from pgvector.sqlalchemy import Vector
+            Product.feature_vector = Column(Vector(1536))
+        except ImportError:
+            pass
+
+# NOT: Bu fonksiyon database.py setup_database() içinde çağrılır.
+# Model ilk yüklendiğinde pgvector durumu henüz bilinmediği için
+# kolon ekleme işlemi setup_database() sırasında yapılır.

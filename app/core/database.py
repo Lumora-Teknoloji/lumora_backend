@@ -107,14 +107,19 @@ def ensure_user_avatar_column():
         logger.warning(f"users tablosu avatar_url kolonu kontrol edilirken uyarı: {e}")
 
 
-def ensure_vector_extension():
-    """pgvector eklentisinin yüklü olduğundan emin olur."""
+def ensure_vector_extension() -> bool:
+    """pgvector eklentisinin yüklü olduğundan emin olur. Başarılıysa True döner."""
+    import os
     try:
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            logger.info("vector eklentisi kontrol edildi")
+            logger.info("✅ vector eklentisi kontrol edildi")
+            os.environ["PGVECTOR_AVAILABLE"] = "1"
+            return True
     except Exception as e:
-        logger.warning(f"vector eklentisi kontrol edilirken uyarı: {e}")
+        logger.warning(f"⚠️ pgvector eklentisi yüklenemedi (lokal geliştirmede normal): {e}")
+        os.environ["PGVECTOR_AVAILABLE"] = "0"
+        return False
 
 def ensure_admin_user():
     """Admin kullanıcısı yoksa oluşturur. Varsa dokunmaz."""
@@ -152,52 +157,64 @@ def setup_database():
     import app.models  # noqa
     
     # Vector eklentisini kontrol et
-    ensure_vector_extension()
-
-    # Önce tabloların varlığını kontrol et
-    inspector = inspect(engine)
-    existing_tables = inspector.get_table_names()
+    has_pgvector = ensure_vector_extension()
     
-    # Metadata'daki beklenen tablolar
-    metadata_tables = set(Base.metadata.tables.keys())
-    
-    logger.info(f"🔍 Veritabanı Şeması Kontrol Ediliyor...")
-    logger.info(f"📋 Model Tanımları ({len(metadata_tables)}): {sorted(list(metadata_tables))}")
-    logger.info(f"🗄️  Mevcut Tablolar ({len(existing_tables)}): {sorted(existing_tables)}")
-    
-    missing_tables = metadata_tables - set(existing_tables)
-    
-    if missing_tables:
-        logger.warning(f"⚠️  Eksik Tablolar Tespit Edildi ({len(missing_tables)}): {missing_tables}")
-        logger.info("🛠️  Tablolar oluşturuluyor...")
+    # pgvector varsa feature_vector kolonunu Product modeline ekle
+    if has_pgvector:
         try:
-            Base.metadata.create_all(bind=engine)
-            
-            # Doğrulama Testi
-            inspector = inspect(engine)
-            new_tables = set(inspector.get_table_names())
-            still_missing = metadata_tables - new_tables
-            
-            if still_missing:
-                logger.error(f"❌ KRİTİK HATA: Tablolar oluşturulamadı: {still_missing}")
-                raise RuntimeError(f"Tablo oluşturma başarısız: {still_missing}")
-            
-            logger.info("✅ Eksik tablolar başarıyla oluşturuldu.")
+            from app.models.product import _add_vector_column
+            _add_vector_column()
         except Exception as e:
-            logger.error(f"❌ Tablo oluşturma sırasında hata: {e}")
-            raise
-    else:
-        logger.info("✅ Tüm tablolar eksiksiz mevcut.")
-    
-    # Mevcut tablolar için kolon kontrollerini yap
-    ensure_conversation_history_columns()
-    ensure_user_avatar_column()
-    
-    # Generic Schema Sync (Eksik tablo/kolon otomatik tamamlama)
-    sync_schema()
-    
-    # Admin kullanıcısını kontrol et/oluştur
-    ensure_admin_user()
+            logger.warning(f"feature_vector kolonu eklenemedi: {e}")
+
+    try:
+        # Önce tabloların varlığını kontrol et
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        
+        # Metadata'daki beklenen tablolar
+        metadata_tables = set(Base.metadata.tables.keys())
+        
+        logger.info(f"🔍 Veritabanı Şeması Kontrol Ediliyor...")
+        logger.info(f"📋 Model Tanımları ({len(metadata_tables)}): {sorted(list(metadata_tables))}")
+        logger.info(f"🗄️  Mevcut Tablolar ({len(existing_tables)}): {sorted(existing_tables)}")
+        
+        missing_tables = metadata_tables - set(existing_tables)
+        
+        if missing_tables:
+            logger.warning(f"⚠️  Eksik Tablolar Tespit Edildi ({len(missing_tables)}): {missing_tables}")
+            logger.info("🛠️  Tablolar oluşturuluyor...")
+            try:
+                Base.metadata.create_all(bind=engine)
+                
+                # Doğrulama Testi
+                inspector = inspect(engine)
+                new_tables = set(inspector.get_table_names())
+                still_missing = metadata_tables - new_tables
+                
+                if still_missing:
+                    logger.error(f"❌ KRİTİK HATA: Tablolar oluşturulamadı: {still_missing}")
+                    raise RuntimeError(f"Tablo oluşturma başarısız: {still_missing}")
+                
+                logger.info("✅ Eksik tablolar başarıyla oluşturuldu.")
+            except Exception as e:
+                logger.error(f"❌ Tablo oluşturma sırasında hata: {e}")
+                raise
+        else:
+            logger.info("✅ Tüm tablolar eksiksiz mevcut.")
+        
+        # Mevcut tablolar için kolon kontrollerini yap
+        ensure_conversation_history_columns()
+        ensure_user_avatar_column()
+        
+        # Generic Schema Sync (Eksik tablo/kolon otomatik tamamlama)
+        sync_schema()
+        
+        # Admin kullanıcısını kontrol et/oluştur
+        ensure_admin_user()
+    except Exception as e:
+        logger.error(f"setup_database hatası: {e}")
+        raise
 
 def sync_schema():
     """

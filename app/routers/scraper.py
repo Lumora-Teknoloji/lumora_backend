@@ -168,18 +168,17 @@ async def create_scraping_task(
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
 async def get_task(task_id: int, db: Session = Depends(get_db)):
     """Görev detaylarını getirir."""
-    service = TrendyolScraperService(db)
-    task = service.get_task_by_id(task_id)
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == task_id).first()
     
     if not task:
         raise HTTPException(status_code=404, detail="Görev bulunamadı")
     
     return TaskResponse(
         id=task.id,
-        search_term=task.search_term,
-        status=task.status,
-        task_type=task.task_type,
-        last_scraped_at=task.last_scraped_at
+        search_term=task.task_name or "",
+        status="active" if task.is_active else "paused",
+        task_type=task.target_platform or "trendyol",
+        last_scraped_at=task.last_run_at
     )
 
 
@@ -190,13 +189,12 @@ async def update_task_status(
     db: Session = Depends(get_db)
 ):
     """Görev durumunu günceller."""
-    service = TrendyolScraperService(db)
-    task = service.get_task_by_id(task_id)
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == task_id).first()
     
     if not task:
         raise HTTPException(status_code=404, detail="Görev bulunamadı")
     
-    service.update_task_status(task_id, status)
+    task.is_active = (status == "active")
     db.commit()
     
     return {"success": True, "task_id": task_id, "new_status": status}
@@ -205,16 +203,15 @@ async def update_task_status(
 @router.get("/tasks")
 async def list_active_tasks(db: Session = Depends(get_db)):
     """Aktif görevleri listeler."""
-    service = TrendyolScraperService(db)
-    tasks = service.get_active_tasks()
+    tasks = db.query(ScrapingTask).all()
     
     return [
         TaskResponse(
             id=t.id,
-            search_term=t.search_term,
-            status=t.status,
-            task_type=t.task_type,
-            last_scraped_at=t.last_scraped_at
+            search_term=t.task_name or "",
+            status="active" if t.is_active else "paused",
+            task_type=t.target_platform or "trendyol",
+            last_scraped_at=t.last_run_at
         )
         for t in tasks
     ]
@@ -392,25 +389,24 @@ async def get_bots_status(db: Session = Depends(get_db)):
                 source_bot_name = source_task.task_name if source_task else None
             except:
                 pass
-        # Get pages_scraped for linker bots
+        # Get pages_scraped for all bot modes (live progress tracking)
         pages_scraped = 0
-        if bot_mode == "linker":
-            try:
-                active_log = db.query(ScrapingLog).filter(
-                    ScrapingLog.task_id == task.id,
-                    ScrapingLog.status == "running"
+        try:
+            active_log = db.query(ScrapingLog).filter(
+                ScrapingLog.task_id == task.id,
+                ScrapingLog.status == "running"
+            ).order_by(desc(ScrapingLog.started_at)).first()
+            if active_log and active_log.pages_scraped:
+                pages_scraped = active_log.pages_scraped
+            elif not active_log:
+                # Bot çalışmıyorsa en son logu al
+                last_finished_log = db.query(ScrapingLog).filter(
+                    ScrapingLog.task_id == task.id
                 ).order_by(desc(ScrapingLog.started_at)).first()
-                if active_log and active_log.pages_scraped:
-                    pages_scraped = active_log.pages_scraped
-                elif not active_log:
-                    # Bitmişse en son logu al
-                    last_log = db.query(ScrapingLog).filter(
-                        ScrapingLog.task_id == task.id
-                    ).order_by(desc(ScrapingLog.started_at)).first()
-                    if last_log and last_log.pages_scraped:
-                        pages_scraped = last_log.pages_scraped
-            except:
-                pass
+                if last_finished_log and last_finished_log.pages_scraped:
+                    pages_scraped = last_finished_log.pages_scraped
+        except:
+            pass
         # Derive bot_state from active log's [STATE:xxx] or [STATE:xxx:seconds] prefix
         bot_state = "idle"
         state_message = ""
