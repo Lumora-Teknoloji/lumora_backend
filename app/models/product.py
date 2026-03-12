@@ -44,7 +44,21 @@ class Product(Base):
     last_discount_rate = Column(Float)
     last_engagement_score = Column(Float)
     avg_sales_velocity = Column(Float)  # Ortalama satış hızı
-    
+
+    # ==================== STİL ÖZELLİKLERİ (JSONB'den çıkarılmış) ====================
+    # attributes JSONB'den extract edilen en sık sorgulanan alanlar
+    # Scraper_service veya nightly batch tarafından doldurulur
+    dominant_color = Column(String(50), index=True)   # Ürünün ana rengi (Siyah, Beyaz, ...)
+    fabric_type    = Column(String(50))               # Kumaş tipi (Pamuk, Polyester, ...)
+    fit_type       = Column(String(50))               # Kalıp tipi (Regular, Oversize, ...)
+
+    # ==================== INTELLIGENCE ALANLARI ====================
+    # Lumora Intelligence mikro servisi tarafından güncellenir (:8001)
+    # Bu kolonlara SADECE Intelligence yazar — backend SADECE okur
+    trend_score     = Column(Float, index=True)           # 0-100 ensemble skor
+    trend_direction = Column(String(30))                  # TREND / POTANSIYEL / STABIL / DUSEN
+    last_scored_at  = Column(DateTime(timezone=True))     # Son Intelligence güncellemesi
+
     # ==================== ZAMAN BİLGİLERİ ====================
     first_seen_at = Column(DateTime(timezone=True), server_default=func.now())
     last_scraped_at = Column(DateTime(timezone=True), onupdate=func.now())

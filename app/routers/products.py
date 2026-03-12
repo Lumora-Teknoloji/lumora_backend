@@ -17,6 +17,11 @@ from app.models.scraping_task import ScrapingTask
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
+# Staleness trigger cooldown — en fazla saatte 1 Intelligence tetikle
+_last_staleness_trigger = None
+STALENESS_TRIGGER_COOLDOWN_MIN = 60
+
+
 
 # ==================== SCHEMAS ====================
 
@@ -109,7 +114,42 @@ async def list_products(
 ):
     """Ürünleri listele — filtreleme, sıralama, pagination destekli."""
     query = db.query(Product)
-    
+
+    # ── Staleness Guard: 6 saatten eski score varsa Intelligence'ı tetikle ──
+    # Mevcut istek anında döner — yeniden hesaplama arka planda olur
+    # Cooldown: saatte 1 kez tetikle (yüksek trafikte spam önleme)
+    try:
+        from datetime import datetime, timezone, timedelta
+        global _last_staleness_trigger
+        now = datetime.now(timezone.utc)
+        cooldown_ok = (
+            _last_staleness_trigger is None or
+            (now - _last_staleness_trigger).total_seconds() / 60 >= STALENESS_TRIGGER_COOLDOWN_MIN
+        )
+        if cooldown_ok:
+            from sqlalchemy import text as _text
+            stale_count = db.execute(_text(
+                "SELECT COUNT(*) FROM products WHERE last_scored_at IS NULL "
+                "OR last_scored_at < NOW() - INTERVAL '6 hours'"
+            )).scalar() or 0
+            if stale_count > 0:
+                import threading, urllib.request, json as _json
+                from app.core.config import settings as _cfg
+                _url = f"{_cfg.intelligence_url}/trigger"
+                _last_staleness_trigger = now
+                def _retrigger():
+                    try:
+                        body = _json.dumps({"scope": "all", "priority": "low"}).encode()
+                        req = urllib.request.Request(
+                            _url, data=body,
+                            headers={"Content-Type": "application/json"})
+                        urllib.request.urlopen(req, timeout=4).read()
+                    except Exception:
+                        pass
+                threading.Thread(target=_retrigger, daemon=True, name="ScoreStalenessCheck").start()
+    except Exception:
+        pass  # DB hatası → ürünleri yine de listele
+
     # Filters
     if brand:
         query = query.filter(Product.brand.ilike(f"%{brand}%"))
@@ -346,46 +386,4 @@ async def get_report_summary(
     }
 
 
-@router.get("/{product_id}", response_model=ProductOut)
-async def get_product(product_id: int, db: Session = Depends(get_db)):
-    """Tek ürün detayı."""
-    p = db.query(Product).filter(Product.id == product_id).first()
-    if not p:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
-    
-    latest_metric = db.query(DailyMetric).filter(
-        DailyMetric.product_id == p.id
-    ).order_by(desc(DailyMetric.recorded_at)).first()
-    
-    return ProductOut(
-        id=p.id,
-        product_code=p.product_code,
-        name=p.name,
-        brand=p.brand,
-        seller=p.seller,
-        url=p.url,
-        image_url=p.image_url,
-        category_tag=p.category_tag,
-        attributes=p.attributes,
-        review_summary=p.review_summary,
-        sizes=p.sizes,
-        last_price=p.last_price,
-        last_discount_rate=p.last_discount_rate,
-        avg_sales_velocity=p.avg_sales_velocity,
-        first_seen_at=p.first_seen_at,
-        last_scraped_at=p.last_scraped_at,
-        favorite_count=latest_metric.favorite_count if latest_metric else None,
-        cart_count=latest_metric.cart_count if latest_metric else None,
-        view_count=latest_metric.view_count if latest_metric else None,
-        avg_rating=latest_metric.avg_rating if latest_metric else None,
-        rating_count=latest_metric.rating_count if latest_metric else None,
-        qa_count=latest_metric.qa_count if latest_metric else None,
-        original_price=latest_metric.price if latest_metric else None,
-        discounted_price=latest_metric.discounted_price if latest_metric else None,
-        page_number=latest_metric.page_number if latest_metric else None,
-        search_rank=latest_metric.search_rank if latest_metric else None,
-        absolute_rank=latest_metric.absolute_rank if latest_metric else None,
-        search_term=latest_metric.search_term if latest_metric else None,
-    )
 

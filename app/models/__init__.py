@@ -8,3 +8,8 @@ from .generated_design import GeneratedDesign
 from .sales_forecast import SalesForecast
 from .scraping_log import ScrapingLog
 from .scraping_queue import ScrapingQueue
+# Feedback loop tabloları
+from .production_decision import ProductionDecision
+from .actual_sale import ActualSale
+# Intelligence kategori sinyalleri
+from .category_signal import CategoryDailySignal

@@ -11,52 +11,50 @@ class DailyMetric(Base):
     __tablename__ = "daily_metrics"
 
     id = Column(Integer, primary_key=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"))
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), index=True)
     recorded_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
     product = relationship("Product", back_populates="daily_metrics")
     
     # ==================== TEMEL VERİLER ====================
-    # Fiyat bilgileri
-    price = Column(Float)  # Orijinal fiyat
-    discounted_price = Column(Float)  # İndirimli fiyat
-    discount_rate = Column(Float)  # İndirim yüzdesi (0-100)
+    price = Column(Float)            # Orijinal fiyat
+    discounted_price = Column(Float) # İndirimli fiyat
+    discount_rate = Column(Float)    # İndirim yüzdesi (0-100)
     
     # Stok durumu
-    stock_status = Column(Boolean, default=True)
+    stock_status   = Column(Boolean, default=True)
     available_sizes = Column(Integer)  # Mevcut beden sayısı
-    
+    stock_depth    = Column(Integer)   # Toplam stok adedi (varsa scraper'dan)
+
     # ==================== HAM METRİKLER ====================
-    # Trendyol'dan direkt gelen sayılar
-    cart_count = Column(Integer)  # "X kişinin sepetinde"
-    favorite_count = Column(Integer)  # "X kişi favoriledi"
-    view_count = Column(Integer)  # "X kişi görüntüledi"
-    
-    # Değerlendirmeler
-    rating_count = Column(Integer)  # Yorum sayısı
-    avg_rating = Column(Float)  # Ortalama puan (1-5)
-    qa_count = Column(Integer)  # Soru-cevap sayısı
-    
-    # Sıralama
-    sales_rank = Column(Integer)  # Kategori sıralaması
-    
+    cart_count     = Column(Integer)   # "X kişinin sepetinde"
+    favorite_count = Column(Integer)   # "X kişi favoriledi"
+    view_count     = Column(Integer)   # "X kişi görüntüledi"
+    rating_count   = Column(Integer)   # Yorum sayısı
+    avg_rating     = Column(Float)     # Ortalama puan (1-5)
+    qa_count       = Column(Integer)   # Soru-cevap sayısı
+
     # ==================== ARAMA SIRALAMA TAKİBİ ====================
-    search_term = Column(String(200), index=True)  # Hangi arama terimi ile bu sırada bulundu
-    search_rank = Column(Integer)                   # Sayfadaki sıra (1-48)
-    page_number = Column(Integer)                   # Hangi sayfa (1, 2, 3...)
+    search_term  = Column(String(200), index=True)  # Hangi arama terimi
+    search_rank  = Column(Integer)                  # Sayfadaki sıra (1-48)
+    page_number  = Column(Integer)                  # Hangi sayfa
     absolute_rank = Column(Integer)                 # Toplam sıra = (page-1)*48 + rank
-    scrape_mode = Column(String(20))                # Kazıma modu: api, dom, speed
-    
+    scrape_mode  = Column(String(20))               # Kazıma modu
+    # DEPRECATED — absolute_rank kullanın
+    sales_rank   = Column(Integer)
+
+    # ==================== RANK MOMENTUM (Intelligence Faz 1) ====================
+    # Lumora Intelligence nightly batch tarafından güncellenir
+    rank_change_1d  = Column(Integer)              # Dünden bugüne rank değişimi (+iyileşme, -kötüleşme)
+    rank_change_3d  = Column(Integer)              # 3 günlük rank değişimi
+    rank_velocity   = Column(Float)                # Rank değişim hızı (expon. moving avg)
+    momentum_score  = Column(Float)                # tanh(rank_change_3d / 100) → [-1, +1]
+    is_new_entrant  = Column(Boolean, default=False)  # İlk kez top100'e giren ürün
+
     # ==================== HESAPLANAN SKORLAR ====================
-    # Anlık skorlar (tek snapshot ile hesaplanır)
-    engagement_score = Column(Float)  # Etkileşim skoru: (sepet×3 + fav×2 + view)
-    popularity_score = Column(Float)  # Popülerlik skoru: rating×review_count normalize
-    
-    # Zaman bazlı skorlar (önceki snapshot ile karşılaştırılarak)
-    # Bu değerler scraper_service tarafından hesaplanır
-    sales_velocity = Column(Float)  # Saatlik sepet artış hızı: (yeni_sepet - eski_sepet) / saat
-    demand_acceleration = Column(Float)  # Talep ivmesi: (yeni_velocity - eski_velocity)
-    trend_direction = Column(Integer)  # Trend yönü: -1 (düşüş), 0 (sabit), 1 (yükseliş)
-    
-    # Eski alan (geriye uyumluluk için)
-    velocity_score = Column(Float)  # DEPRECATED: engagement_score kullanın
+    engagement_score    = Column(Float)   # Etkileşim skoru
+    popularity_score    = Column(Float)   # Popülerlik skoru
+    sales_velocity      = Column(Float)   # Saatlik sepet artış hızı
+    demand_acceleration = Column(Float)   # Talep ivmesi
+    trend_direction     = Column(Integer) # -1 düşüş, 0 sabit, 1 yükseliş
+    velocity_score      = Column(Float)   # DEPRECATED: engagement_score kullanın

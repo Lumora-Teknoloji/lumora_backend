@@ -16,6 +16,11 @@ from app.services.metrics_service import metrics
 
 logger = logging.getLogger(__name__)
 
+# Intelligence tetikleme cooldown — en az 30 dakikada bir tetikle
+_last_intelligence_trigger: Optional[datetime] = None
+INTELLIGENCE_COOLDOWN_MINUTES = 30
+
+
 
 class TrendyolScraperService:
     """Scraper verilerini işleyen ve veritabanına kaydeden servis."""
@@ -62,19 +67,19 @@ class TrendyolScraperService:
         image_urls = scraped.get("Image_URLs", [])
         first_image = image_urls[0] if image_urls else None
         
-        # Dinamik özellikler - scraper'dan gelen attributes varsa kullan, yoksa eski field'lardan oluştur
+        # Dinamik özellikler — scraper'dan gelen attributes varsa kullan
         raw_attributes = scraped.get("attributes", {})
         if isinstance(raw_attributes, list):
-            # [{attribute_name: "Renk", attribute_value: "Siyah"}, ...] formatından dict'e çevir
-            raw_attributes = {a.get("attribute_name", ""): a.get("attribute_value", "") 
+            # [{attribute_name: "Renk", attribute_value: "Siyah"}, ...] → dict
+            raw_attributes = {a.get("attribute_name", ""): a.get("attribute_value", "")
                              for a in raw_attributes if a.get("attribute_name")}
         
         attributes = {
             "image_urls": image_urls,
-            **raw_attributes,  # Scraper'dan gelen tüm özellikleri ekle
+            **raw_attributes,
         }
         
-        # Eski field mapping fallback (sadece attributes boşsa)
+        # Fallback: attributes boşsa eski field mapping
         if not raw_attributes:
             attributes.update({
                 "color": scraped.get("Renk") or scraped.get("Color"),
@@ -86,11 +91,32 @@ class TrendyolScraperService:
                 "origin": scraped.get("Menşei"),
             })
         
-        # Sizes - beden bilgisi
+        # Sizes — beden bilgisi
         sizes = scraped.get("sizes") or scraped.get("Size", [])
         if isinstance(sizes, str):
             sizes = [sizes]
         
+        # ── Queryable stil kolonları (attributes JSONB'den çıkar) ──────────
+        # Hem Türkçe hem İngilizce key'leri destekler
+        dominant_color = (
+            raw_attributes.get("Renk") or raw_attributes.get("color")
+            or raw_attributes.get("Color") or scraped.get("Renk") or scraped.get("Color")
+        )
+        fabric_type = (
+            raw_attributes.get("Kumaş Tipi") or raw_attributes.get("fabric_type")
+            or raw_attributes.get("FabricType") or scraped.get("Kumaş Tipi") or scraped.get("FabricType")
+        )
+        fit_type = (
+            raw_attributes.get("Kalıp") or raw_attributes.get("fit_type")
+            or raw_attributes.get("FitType") or scraped.get("Kalıp")
+        )
+
+        # ── category: arama terimi veya category_tag kaynaklı ─────────────
+        category = (
+            scraped.get("search_term")       # linker/worker modundan gelir
+            or scraped.get("category_tag")   # fallback
+        )
+
         return {
             "task_id": task_id,
             "product_code": str(scraped.get("product_id")),
@@ -99,10 +125,15 @@ class TrendyolScraperService:
             "seller": scraped.get("Seller"),
             "url": scraped.get("URL"),
             "image_url": first_image,
+            "category": category,
             "category_tag": scraped.get("category_tag"),
             "attributes": attributes,
             "review_summary": scraped.get("review_summary"),
             "sizes": sizes if sizes else None,
+            # Queryable stil kolonları
+            "dominant_color": dominant_color,
+            "fabric_type":    fabric_type,
+            "fit_type":       fit_type,
         }
 
     def _map_scraped_to_daily_metric(self, scraped: dict, previous_metric: Optional[DailyMetric] = None) -> dict:
@@ -203,6 +234,12 @@ class TrendyolScraperService:
             # Değerlendirmeler
             "rating_count": rating_count,
             "avg_rating": avg_rating,
+            # ── Arama sıralama takibi (Intelligence için kritik sinyal) ──
+            "search_term":   scraped.get("search_term") or scraped.get("category_tag"),
+            "search_rank":   scraped.get("search_rank"),
+            "page_number":   scraped.get("page_number"),
+            "absolute_rank": scraped.get("absolute_rank"),
+            "scrape_mode":   scraped.get("scrape_mode"),
             # Anlık skorlar
             "engagement_score": engagement_score,
             "popularity_score": popularity_score,
@@ -329,8 +366,66 @@ class TrendyolScraperService:
         
         self.db.commit()
         logger.info(f"Batch tamamlandı: {stats}")
-        
+
+        # ── Intelligence'ı tetikle (fire & forget) ────────────────────
+        # Yeni veri geldi → scraping bitince Intelligence hemen hesaplasın
+        # (gece 02:00'yi beklemeye gerek yok)
+        total_written = stats["inserted"] + stats["updated"]
+        if total_written >= 5:
+            self._trigger_intelligence_async(search_term=None)
+
         return stats
+
+    def _trigger_intelligence_async(self, search_term: str = None):
+        """
+        Intelligence /trigger endpoint'ini arka planda çağırır.
+        Cooldown: 30 dakikada bir tetiklenebilir (sunucu aşırı yükü önleme).
+        """
+        global _last_intelligence_trigger
+        import threading
+        import urllib.request, json
+        from datetime import datetime, timezone, timedelta
+
+        # Cooldown kontrolü
+        now = datetime.now(timezone.utc)
+        if _last_intelligence_trigger is not None:
+            elapsed = (now - _last_intelligence_trigger).total_seconds() / 60
+            if elapsed < INTELLIGENCE_COOLDOWN_MINUTES:
+                remaining = int(INTELLIGENCE_COOLDOWN_MINUTES - elapsed)
+                logger.debug(
+                    f"Intelligence trigger cooldown: {remaining} dakika bekleniyor"
+                )
+                return  # Cooldown dolmadı — atla
+
+        _last_intelligence_trigger = now
+
+        def _post():
+            try:
+                from app.core.config import settings as _cfg
+                _trigger_url = f"{_cfg.intelligence_url}/trigger"
+                body = json.dumps({
+                    "scope": "category" if search_term else "all",
+                    "category": search_term,
+                    "priority": "normal"
+                }).encode()
+                req = urllib.request.Request(
+                    _trigger_url,
+                    data=body,
+                    headers={"Content-Type": "application/json"}
+                )
+                urllib.request.urlopen(req, timeout=5).read()
+                logger.info(
+                    f"Intelligence tetiklendi (cooldown: {INTELLIGENCE_COOLDOWN_MINUTES}dk): "
+                    f"scope={'category' if search_term else 'all'}"
+                    + (f" ({search_term})" if search_term else "")
+                )
+            except Exception as e:
+                # Kritik değil — gece nightly_batch yedek olarak çalışır
+                logger.debug(f"Intelligence trigger gönderilemedi (normal): {e}")
+
+        t = threading.Thread(target=_post, daemon=True, name="IntelligenceTrigger")
+        t.start()
+
 
     # ==================== STATISTICS ====================
     

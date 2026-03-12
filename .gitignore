@@ -1,84 +1,39 @@
-# General
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
 
-# Virtual Environments
-env/
+# Virtual environments
 venv/
-ENV/
-myenv/
 .venv/
-
-# Environment Variables
-.env
+env/
 .env.local
-.env.*.local
-.env.backup
-.env.production
 
-# IDE Settings
+# !! ASLA commit etme !!
+.env
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Distribution / Build
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Testing & Coverage
+# Test / Temp
+.pytest_cache/
 .coverage
 htmlcov/
-.pytest_cache/
-.mypy_cache/
-
-# Docker
-.dockerignore
-docker-compose.override.yml
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
 *.log
 logs/
-*.log.*
+system_test.py
+check_db.py
+run_schema_sync.py
 
-# Application Specific
-# Ignore all content in static/uploads and static/avatars but keep the directories
-static/uploads/*
-!static/uploads/.gitkeep
-static/avatars/*
-!static/avatars/.gitkeep
-
-# Ignore generated images if stored here
-static/design_*
-
-# Test Helper Scripts
-create_test_db.py
-
-# Generated / temporary files
-openapi.json
-openapi_formatted.json
-routes.txt
-security_tests/
+# Scraper bot files (ayrı repo)
+Scrapper/
+commands/

@@ -29,8 +29,28 @@ async def lifespan(app: FastAPI):
     
     asyncio.create_task(cleanup_old_guest_data())
     logger.info("Guest data cleanup task started")
+
+    # Intelligence Client başlat (non-blocking — servis kapalı olsa bile backend çalışır)
+    from app.services.intelligence_client import intelligence_client
+    await intelligence_client.startup()
+    # Startup ping — sadece loglama, hata atmaz
+    try:
+        ping = await intelligence_client.health()
+        if ping.get("status") == "ok":
+            logger.info(f"✅ Intelligence servisi aktif — engine_trained={ping.get('engine_trained')}")
+        else:
+            logger.warning(
+                f"⚠️  Intelligence servisi erişilemiyor (startup ping: {ping.get('status', 'unknown')}). "
+                "Backend normal çalışmaya devam eder, /api/intelligence/* endpointleri 503 döner."
+            )
+    except Exception as e:
+        logger.warning(
+            f"⚠️  Intelligence startup ping başarısız: {e}. "
+            "Intelligence servisini ayrıca başlatmayı unutmayın."
+        )
     
     yield
     
-    # Shutdown (gerekirse temizlik işlemleri buraya)
+    # Shutdown
+    await intelligence_client.shutdown()
     logger.info("Application shutting down")

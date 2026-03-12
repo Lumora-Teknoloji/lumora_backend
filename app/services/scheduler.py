@@ -117,7 +117,9 @@ def start_bot(task_id, target_url="", max_pages=0, force=False, mode="normal", s
             session.close()
             
     if not target_url:
-        logger.error(f"Cannot start bot {task_id}: No URL found")
+        # is_active=False olan test task'ları için sadece debug log (her 10s spam önleme)
+        log_level = logger.error if task_id else logger.debug
+        logger.debug(f"Bot {task_id}: URL bulunamadı, başlatılamıyor (target_url boş)")
         return
         
     try:
