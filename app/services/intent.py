@@ -3,7 +3,7 @@ Intent Analysis - Kullanıcı niyet analizi ve sohbet yönetimi
 """
 import json
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime
 import locale
 from .clients import openai_client
@@ -41,14 +41,19 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     2. IMAGE_GENERATION: User gives EXPLICIT command to CREATE/DRAW NEW images.
        Examples: "v yaka çiz", "3 tane elbise göster", "kırmızı ceket üret", "bana bir gömlek tasarla"
     
-    3. MARKET_RESEARCH: User gives EXPLICIT and SPECIFIC command for trend analysis or report.
-       Examples: "2026 abiye trendleri analiz et", "Spor ayakkabı modası raporu hazırla", "Kadın mont trendlerini araştır"
-       NOTE: User must give a SPECIFIC topic. Vague requests are NOT market research.
+    3. TREND_ANALYSIS: User asks about OUR INTERNAL product trends, rankings, or predictions.
+       Examples: "crop top trendleri", "hangi ürünler yükseliyor", "kazak kategorisinde ne popüler",
+                "trend skorları", "en çok yükselen ürünler", "tahminleri göster"
+       NOTE: This is about OUR DATABASE predictions, not general fashion news.
     
-    4. FOLLOW_UP: User refers to specific data in a PREVIOUS report (non-image related).
+    4. MARKET_RESEARCH: User gives EXPLICIT and SPECIFIC command for EXTERNAL trend analysis or report.
+       Examples: "2026 abiye trendleri analiz et", "Spor ayakkabı modası raporu hazırla", "Kadın mont trendlerini araştır"
+       NOTE: This is about GLOBAL/WEB fashion research, different from internal data.
+    
+    5. FOLLOW_UP: User refers to specific data in a PREVIOUS report (non-image related).
        Examples: "Bu fiyat neden yüksek?", "Kumaşı değiştir", "Daha fazla detay ver"
     
-    5. GENERAL_CHAT: ALL of the following cases:
+    6. GENERAL_CHAT: ALL of the following cases:
        - Greetings: "Merhaba", "Selam", "Nasılsın"
        - Questions ending with "?" that ask for permission or preference
        - Messages containing: "konuşalım mı", "ne dersin", "isteklerime göre", "sana göre"
@@ -59,8 +64,10 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     CRITICAL RULES:
     - If message ends with "mı?", "mi?", "mu?", "mü?" (Turkish question suffix) → likely GENERAL_CHAT
     - If user asks for permission or says "isteklerime göre" → GENERAL_CHAT (they want dialogue first)
-    - MARKET_RESEARCH requires a SPECIFIC product/topic command, not just mentioning "trend"
-    - When uncertain, prefer GENERAL_CHAT over MARKET_RESEARCH (ask for clarification)
+    - TREND_ANALYSIS is about OUR product database ("ürün trendleri", "skor", "tahmin")
+    - MARKET_RESEARCH is about GLOBAL fashion news/reports from web
+    - When uncertain between TREND_ANALYSIS and MARKET_RESEARCH, prefer TREND_ANALYSIS
+    - When uncertain otherwise, prefer GENERAL_CHAT
 
     OUTPUT: Return ONLY one category name.
     """
@@ -77,6 +84,8 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
         if "MODIFICATION" in intent: return "IMAGE_MODIFICATION"
         if "IMAGE" in intent and "GENERATION" in intent: return "IMAGE_GENERATION"
         if "IMAGE" in intent: return "IMAGE_GENERATION"
+        if "TREND" in intent and "ANALYSIS" in intent: return "TREND_ANALYSIS"
+        if "TREND" in intent: return "TREND_ANALYSIS"
         if "MARKET" in intent: return "MARKET_RESEARCH"
         if "FOLLOW" in intent: return "FOLLOW_UP"
         if "GENERAL" in intent: return "GENERAL_CHAT"
@@ -84,6 +93,46 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     except Exception as e:
         logger.error(f"Niyet analizi hatası: {e}")
         return "GENERAL_CHAT"  # Hata durumunda da güvenli varsayılan
+
+
+def extract_category_from_message(message: str) -> Optional[str]:
+    """
+    Kullanıcı mesajından ürün kategorisi çıkarır.
+    Örn: "crop top trendleri neler?" → "crop top"
+    Kategori bulunamazsa None döner.
+    """
+    if not openai_client:
+        return None
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{
+                "role": "system",
+                "content": """Extract the fashion product CATEGORY from the user message.
+Return ONLY the category name in Turkish, lowercase.
+Examples:
+  "crop top trendleri" → crop top
+  "kazak kategorisinde ne popüler" → kazak
+  "hangi ürünler yükseliyor" → (return NONE — no specific category)
+  "tayt satışları nasıl" → tayt
+  "tüm kategorileri göster" → (return NONE)
+If no specific category mentioned, return exactly: NONE"""
+            }, {
+                "role": "user",
+                "content": message
+            }],
+            temperature=0.0,
+            max_tokens=20
+        )
+        result = response.choices[0].message.content.strip().lower()
+        if result in ("none", "yok", ""):
+            return None
+        logger.info(f"🏷️ Kategori çıkarıldı: '{message}' → '{result}'")
+        return result
+    except Exception as e:
+        logger.warning(f"Kategori çıkarma hatası: {e}")
+        return None
 
 
 async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] = [], stream_callback=None) -> str:

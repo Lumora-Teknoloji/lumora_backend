@@ -7,7 +7,8 @@ import re
 import secrets
 from typing import List, Dict, Any
 from .clients import openai_client
-from .intent import analyze_user_intent, handle_general_chat, handle_follow_up
+from .intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message
+from .intelligence_formatter import get_intelligence_context
 from .research import (
     analyze_runway_trends,
     deep_market_research,
@@ -79,6 +80,57 @@ async def generate_ai_response(
         # handle_general_chat artık async ve streaming destekliyor + chat_history ile bağlam koruyor
         content = await handle_general_chat(user_message, chat_history, stream_callback)
         return {"content": content, "image_urls": [], "image_links": {}, "process_log": ["Sohbet edildi."]}
+
+    # --- TREND_ANALYSIS --- (Intelligence servisinden gerçek tahmin verileri)
+    if intent == "TREND_ANALYSIS":
+        logger.info("📊 TREND_ANALYSIS akışı başlatıldı")
+
+        # 1. Mesajdan kategori çıkar
+        category = await loop.run_in_executor(None, extract_category_from_message, user_message)
+        logger.info(f"🏷️ Kategori: {category or 'tüm kategoriler'}")
+
+        # 2. Intelligence servisinden veri çek
+        intel_context = await get_intelligence_context(category=category, top_n=20)
+
+        if not intel_context:
+            # Intelligence kapalı/boş — graceful fallback: MARKET_RESEARCH gibi davran
+            logger.warning("Intelligence veri döndürmedi, MARKET_RESEARCH'e fallback")
+            intent = "MARKET_RESEARCH"  # Aşağıdaki MARKET_RESEARCH bloğuna düşecek
+        else:
+            # 3. Intelligence verileri + GPT-4o = zengin trend raporu
+            system_prompt = f"""Sen Kıdemli Moda Analisti ve Trend Uzmanısın.
+İşte ürün veritabanımızdaki GERÇEK trend tahmin verileri:
+
+{intel_context}
+
+GÖREVİN:
+1. Yukarıdaki verileri kullanıcının mesajına göre analiz et ve yorumla.
+2. Trend skorlarını, etiketleri ve güven yüzdelerini açıkla.
+3. Stratejik önerilerde bulun (hangi ürünlere odaklanılmalı, neden).
+4. Türkçe yaz, profesyonel ama anlaşılır dil kullan.
+5. Markdown formatla (başlıklar, tablolar, bold).
+6. Veriyi OLDUĞU GİBİ göster, sonra yorum ekle."""
+
+            try:
+                response = openai_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    temperature=0.5
+                )
+                content = response.choices[0].message.content
+            except Exception as e:
+                logger.error(f"TREND_ANALYSIS GPT hatası: {e}")
+                content = f"## 📊 Trend Analizi\n\n{intel_context}\n\n*Detaylı yorum şu an oluşturulamadı.*"
+
+            return {
+                "content": content,
+                "image_urls": [],
+                "image_links": {},
+                "process_log": [f"Intelligence trend analizi tamamlandı (kategori={category or 'hepsi'})."]
+            }
 
     # --- IMAGE_GENERATION durumu - Yeni görsel üretimi ---
     if intent == "IMAGE_GENERATION":
@@ -228,11 +280,16 @@ async def generate_ai_response(
         return {"content": response_text, "image_urls": combined_images, "image_links": {}, "process_log": ["Devam yanıtı verildi."]}
 
     # === MARKET RESEARCH ===
-    # Paralel veri toplama: Tavily + Google Trends
+    # Paralel veri toplama: Tavily + Google Trends + Intelligence
     f_m = loop.run_in_executor(None, deep_market_research, user_message)
     f_r = loop.run_in_executor(None, analyze_runway_trends, user_message)
-    f_t = loop.run_in_executor(None, get_google_trends, user_message)  # YENİ: Google Trends
-    market_res, runway_res, trends_res = await asyncio.gather(f_m, f_r, f_t)
+    f_t = loop.run_in_executor(None, get_google_trends, user_message)
+
+    # Intelligence verisini de paralel çek (kategori varsa filtrele)
+    extracted_category = await loop.run_in_executor(None, extract_category_from_message, user_message)
+    f_intel = get_intelligence_context(category=extracted_category, top_n=10)
+
+    market_res, runway_res, trends_res, intel_context = await asyncio.gather(f_m, f_r, f_t, f_intel)
 
     # Google Trends verisini formatla
     trends_text = format_trends_for_report(trends_res)
@@ -240,6 +297,8 @@ async def generate_ai_response(
     full_data = f"{runway_res.get('context','')}\n===\n{market_res.get('context','')}"
     if trends_text:
         full_data += f"\n\n=== GOOGLE TRENDS VERİSİ ===\n{trends_text}"
+    if intel_context:
+        full_data += f"\n\n=== LUMORA INTELLIGENCE TAHMİNLERİ ===\n{intel_context}"
     
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, full_data)
 
