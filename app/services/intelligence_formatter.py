@@ -16,29 +16,75 @@ logger = logging.getLogger(__name__)
 # ─── Formatlayıcılar ──────────────────────────────────────────────────────────
 
 def format_predictions_for_chat(predictions: List[Dict], category: Optional[str] = None) -> str:
-    """Intelligence predict sonuçlarını Markdown tablosuna çevirir."""
+    """Intelligence predict sonuçlarını zengin Markdown formatına çevirir."""
     if not predictions:
         return ""
 
     header = f"### 📊 Intelligence Trend Tahminleri"
     if category:
         header += f" — *{category}*"
-    header += "\n\n"
+    header += f"\n\n**{len(predictions)} ürün analiz edildi**\n\n"
 
-    # Tablo başlığı
-    table = "| # | Ürün ID | Kategori | Etiket | Trend Skoru | Güven |\n"
-    table += "|---|---------|----------|--------|-------------|-------|\n"
-
+    # Her ürün için detaylı kart
+    items = []
     for i, p in enumerate(predictions, 1):
         label = p.get("trend_label", "—")
-        # Emoji etiket
         emoji = {"TREND": "🔥", "POTANSIYEL": "📈", "STABIL": "➡️", "DUSEN": "📉"}.get(label, "❓")
         score = p.get("trend_score", 0)
         conf = p.get("confidence", 0)
-        cat = p.get("category", "—")
-        pid = p.get("product_id", 0)
 
-        table += f"| {i} | {pid} | {cat} | {emoji} {label} | {score:.1f} | %{conf:.0f} |\n"
+        name = p.get("name") or f"Ürün #{p.get('product_id', '?')}"
+        brand = p.get("brand") or "—"
+
+        # Fiyat bilgisi
+        price = p.get("price") or p.get("discounted_price")
+        price_str = f"{price:.0f} TL" if price else "—"
+        discount = p.get("discount_rate")
+        if discount and discount > 0:
+            price_str += f" (-%{discount:.0f})"
+
+        # Stil özellikleri
+        style_parts = []
+        if p.get("dominant_color"):
+            style_parts.append(f"Renk: {p['dominant_color']}")
+        if p.get("fabric_type"):
+            style_parts.append(f"Kumaş: {p['fabric_type']}")
+        if p.get("fit_type"):
+            style_parts.append(f"Kalıp: {p['fit_type']}")
+        style_str = " | ".join(style_parts) if style_parts else ""
+
+        # Performans metrikleri
+        fav = p.get("favorite_count", 0)
+        cart = p.get("cart_count", 0)
+        view = p.get("view_count", 0)
+        rating = p.get("avg_rating")
+        rating_str = f"⭐ {rating:.1f}" if rating else ""
+        rank = p.get("search_rank")
+
+        item = f"**{i}. {name}** — {emoji} {label} (Skor: {score:.1f}, Güven: %{conf:.0f})\n"
+        item += f"   Marka: **{brand}** | Fiyat: **{price_str}**\n"
+        if style_str:
+            item += f"   {style_str}\n"
+        
+        perf_parts = []
+        if fav:
+            perf_parts.append(f"❤️ {fav:,} favori")
+        if cart:
+            perf_parts.append(f"🛒 {cart:,} sepet")
+        if view:
+            perf_parts.append(f"👁️ {view:,} görüntülenme")
+        if rating_str:
+            perf_parts.append(rating_str)
+        if rank:
+            perf_parts.append(f"📍 Sıra: {rank}")
+        if perf_parts:
+            item += f"   {' | '.join(perf_parts)}\n"
+        
+        url = p.get("url")
+        if url:
+            item += f"   🔗 {url}\n"
+
+        items.append(item)
 
     # Özet istatistikler
     trend_count = sum(1 for p in predictions if p.get("trend_label") == "TREND")
@@ -46,11 +92,22 @@ def format_predictions_for_chat(predictions: List[Dict], category: Optional[str]
     falling_count = sum(1 for p in predictions if p.get("trend_label") == "DUSEN")
     avg_score = sum(p.get("trend_score", 0) for p in predictions) / max(len(predictions), 1)
 
-    summary = f"\n**Özet:** {len(predictions)} ürün analiz edildi — "
-    summary += f"🔥 {trend_count} trend, 📈 {pot_count} potansiyel, 📉 {falling_count} düşen"
-    summary += f" | Ort. skor: {avg_score:.1f}\n"
+    # Fiyat aralığı
+    prices = [p.get("price") or p.get("discounted_price") for p in predictions if p.get("price") or p.get("discounted_price")]
+    price_range = f" | Fiyat: {min(prices):.0f}–{max(prices):.0f} TL" if prices else ""
 
-    return header + table + summary
+    # Popüler renkler
+    colors = [p.get("dominant_color") for p in predictions if p.get("dominant_color")]
+    color_summary = ""
+    if colors:
+        from collections import Counter
+        top_colors = Counter(colors).most_common(3)
+        color_summary = f" | Popüler renkler: {', '.join(c[0] for c in top_colors)}"
+
+    summary = f"\n**Özet:** 🔥 {trend_count} trend, 📈 {pot_count} potansiyel, 📉 {falling_count} düşen"
+    summary += f" | Ort. skor: {avg_score:.1f}{price_range}{color_summary}\n"
+
+    return header + "\n".join(items) + summary
 
 
 def format_analysis_for_chat(analysis: Dict) -> str:
