@@ -41,10 +41,18 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     2. IMAGE_GENERATION: User gives EXPLICIT command to CREATE/DRAW NEW images.
        Examples: "v yaka çiz", "3 tane elbise göster", "kırmızı ceket üret", "bana bir gömlek tasarla"
     
-    3. TREND_ANALYSIS: User asks about OUR INTERNAL product trends, rankings, or predictions.
-       Examples: "crop top trendleri", "hangi ürünler yükseliyor", "kazak kategorisinde ne popüler",
-                "trend skorları", "en çok yükselen ürünler", "tahminleri göster"
-       NOTE: This is about OUR DATABASE predictions, not general fashion news.
+    3. TREND_ANALYSIS: User asks about trends OR needs data-driven product advice.
+       This includes ALL of these scenarios:
+       a) Direct trend queries: "crop top trendleri", "hangi ürünler yükseliyor", "trend skorları"
+       b) Product design/creation with trend intent: "dantel kumaşla trend elbise yapabilirim",
+          "elimdeki kumaşla ne üretmeliyim", "hangi model popüler", "nasıl bir ürün tasarlamalıyım"
+       c) Category performance questions: "kazak kategorisi nasıl gidiyor", "elbise satışları iyi mi"
+       d) Strategy/competition questions: "rakipler ne yapıyor", "hangi ürünlere odaklanmalıyım",
+          "ne üretmeliyim", "ne satabilirim", "hangi model daha çok satar"
+       e) Material/fabric + product questions: "elimde X kumaş var", "şu kumaşla ne yapılır",
+          "kadife ile trend ürün", "deri ceket popüler mi"
+       KEY SIGNAL: If user mentions a product category, material, or asks "what should I make/sell" → TREND_ANALYSIS
+       NOTE: This uses OUR DATABASE predictions to give data-backed recommendations.
     
     4. MARKET_RESEARCH: User gives EXPLICIT and SPECIFIC command for EXTERNAL trend analysis or report.
        Examples: "2026 abiye trendleri analiz et", "Spor ayakkabı modası raporu hazırla", "Kadın mont trendlerini araştır"
@@ -58,16 +66,17 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
        - Questions ending with "?" that ask for permission or preference
        - Messages containing: "konuşalım mı", "ne dersin", "isteklerime göre", "sana göre"
        - Meta-questions about AI: "Nasıl çalışıyorsun?", "Ne yapabilirsin?"
-       - Vague/unclear requests that need clarification
-       - When in doubt, choose GENERAL_CHAT
+       - Vague/unclear requests WITHOUT any product/fashion/material context
+       - When in doubt AND no product/category/material mentioned, choose GENERAL_CHAT
 
     CRITICAL RULES:
-    - If message ends with "mı?", "mi?", "mu?", "mü?" (Turkish question suffix) → likely GENERAL_CHAT
+    - If user mentions a PRODUCT TYPE (elbise, ceket, kazak...) or MATERIAL (dantel, kadife, deri...) 
+      combined with a desire to sell/produce/design → TREND_ANALYSIS (not GENERAL_CHAT!)
+    - If message ends with "mı?", "mi?", "mu?", "mü?" but mentions product/material → still TREND_ANALYSIS
     - If user asks for permission or says "isteklerime göre" → GENERAL_CHAT (they want dialogue first)
-    - TREND_ANALYSIS is about OUR product database ("ürün trendleri", "skor", "tahmin")
-    - MARKET_RESEARCH is about GLOBAL fashion news/reports from web
+    - TREND_ANALYSIS = internal data-backed advice | MARKET_RESEARCH = global web research
     - When uncertain between TREND_ANALYSIS and MARKET_RESEARCH, prefer TREND_ANALYSIS
-    - When uncertain otherwise, prefer GENERAL_CHAT
+    - When uncertain between TREND_ANALYSIS and GENERAL_CHAT and a product/material is mentioned → TREND_ANALYSIS
 
     OUTPUT: Return ONLY one category name.
     """

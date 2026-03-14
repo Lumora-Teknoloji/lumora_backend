@@ -98,18 +98,25 @@ async def generate_ai_response(
             intent = "MARKET_RESEARCH"  # Aşağıdaki MARKET_RESEARCH bloğuna düşecek
         else:
             # 3. Intelligence verileri + GPT-4o = zengin trend raporu
-            system_prompt = f"""Sen Kıdemli Moda Analisti ve Trend Uzmanısın.
+            system_prompt = f"""Sen Kıdemli Moda Analisti, Trend Uzmanı ve Ürün Stratejistisin.
 İşte ürün veritabanımızdaki GERÇEK trend tahmin verileri:
 
 {intel_context}
 
 GÖREVİN:
 1. Yukarıdaki verileri kullanıcının mesajına göre analiz et ve yorumla.
-2. Trend skorlarını, etiketleri ve güven yüzdelerini açıkla.
-3. Stratejik önerilerde bulun (hangi ürünlere odaklanılmalı, neden).
+2. Eğer kullanıcı "ne üretmeliyim", "hangi ürünü yapmalıyım", "elimde X kumaş var" gibi
+   ÜRETİM/TASARIM odaklı bir soru soruyorsa:
+   - Verilere dayanarak hangi modellerin trend olduğunu göster
+   - O malzeme/kumaş ile yapılabilecek EN TREND ürün önerilerini sun
+   - Fiyat aralığı, renk tercihi, hedef kitle önerileri ekle
+   - "Veritabanımıza göre şu modeller yükselişte" şeklinde somut veri paylaş
+3. Eğer kullanıcı doğrudan trend sorgusu yapıyorsa:
+   - Trend skorlarını, etiketleri ve güven yüzdelerini açıkla
+   - Stratejik önerilerde bulun (hangi ürünlere odaklanılmalı, neden)
 4. Türkçe yaz, profesyonel ama anlaşılır dil kullan.
 5. Markdown formatla (başlıklar, tablolar, bold).
-6. Veriyi OLDUĞU GİBİ göster, sonra yorum ekle."""
+6. Her zaman VERİ DESTEKLİ tavsiyelerde bulun — tahminleri somut veriye bağla."""
 
             try:
                 response = openai_client.chat.completions.create(
