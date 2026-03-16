@@ -143,6 +143,43 @@ If no specific category mentioned, return exactly: NONE"""
         logger.warning(f"Kategori çıkarma hatası: {e}")
         return None
 
+def extract_production_parameters(message: str) -> Dict[str, Any]:
+    """
+    Kullanıcı mesajından üretim/tasarım detaylarını çıkarır.
+    """
+    if not openai_client:
+        return {"product_category": None, "target_audience": "Genel", "seasonality": "Genel", "material": None, "budget_segment": "Genel", "user_goal": "Genel"}
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            response_format={ "type": "json_object" },
+            messages=[{
+                "role": "system",
+                "content": """Extract the following production parameters from the user message and return as a strict JSON object:
+- "product_category": Category (e.g., "crop", "elbise", "pantolon", "t-shirt"). Return null if none.
+- "target_audience": Target Audience (e.g., "genç", "kadın", "erkek", "unisex"). Default: "Genel".
+- "seasonality": Season/Time (e.g., "yaz", "kış", "sonbahar"). Default: "Genel".
+- "material": Fabric/Material (e.g., "keten", "pamuk", "deri"). Return null if none.
+- "budget_segment": Budget/Price Segment (e.g., "premium", "uygun fiyatlı", "orta segment"). Default: "Genel".
+- "user_goal": Primary Goal (e.g., "üretim", "tasarım", "pazar araştırması", "stok eritme"). Default: "Genel".
+Make sure all string values are in lowercase Turkish."""
+            }, {
+                "role": "user",
+                "content": message
+            }],
+            temperature=0.0
+        )
+        result = response.choices[0].message.content.strip()
+        data = json.loads(result)
+        logger.info(f"🏷️ Parametreler çıkarıldı: {data}")
+        return data
+    except Exception as e:
+        logger.warning(f"Parametre çıkarma hatası: {e}")
+        return {"product_category": None, "target_audience": "Genel", "seasonality": "Genel", "material": None, "budget_segment": "Genel", "user_goal": "Genel"}
+
+
+
 
 async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] = [], stream_callback=None) -> str:
     """
@@ -152,7 +189,6 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
     if not openai_client:
         return "Üzgünüm, şu an yanıt veremiyorum."
 
-    from .clients import tavily_client
 
     current_time = datetime.now().strftime("%d %B %Y, %A - Saat: %H:%M")
     
@@ -195,58 +231,65 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
             # Hata durumunda güvenli fallback: Soru eki varsa ara
             needs_search = "?" in message or "nedir" in message.lower()
     
-    if needs_search and tavily_client:
+    if needs_search:
         try:
-            # 1. Arama sorgusunu belirle (Sadece son mesaja bakma!)
+            # Intelligence /research/context endpoint'ini çağır
+            import httpx
+            from app.core.config import settings
+
+            # 1. Bağlamsal sorgu oluştur
             search_query = message
-            
             if chat_history and len(chat_history) > 0:
-                # Bağlamsal sorgu oluşturmak için mini-LLM çağrısı
-                # Örn: "araştır" dediğinde neyi araştıracağını geçmişten bulsun
                 context_messages = chat_history[-6:] + [{"role": "user", "content": message}]
                 history_str = json.dumps(context_messages, ensure_ascii=False)
-                
                 query_gen_prompt = f"""
                 Refine the search query based on conversation history.
-                
                 HISTORY: {history_str}
                 LAST MESSAGE: "{message}"
-                
-                Task: Create a concise Google search query to answer the user's intent.
-                If they say "research this", look at previous messages to find WHAT to research.
-                If the last message specific enough, just use that.
-                
+                Task: Create a concise search query.
                 OUTPUT: ONLY the search query text. No quotes.
                 """
-                
                 try:
                     q_response = openai_client.chat.completions.create(
                         model="gpt-4o",
                         messages=[{"role": "user", "content": query_gen_prompt}],
-                        temperature=0.0,
-                        max_tokens=30
+                        temperature=0.0, max_tokens=30
                     )
                     search_query = q_response.choices[0].message.content.strip()
                     logger.info(f"🔍 Bağlamsal Arama Sorgusu: '{message}' -> '{search_query}'")
-                except Exception as qe:
-                    logger.warning(f"Sorgu oluşturma hatası: {qe}")
+                except Exception:
                     search_query = message
 
-            # 2. Tavily ile ara
-            search_result = tavily_client.search(
-                query=search_query,
-                search_depth="advanced",
-                max_results=5
-            )
-            if search_result.get('results'):
-                web_context = "\n\n[WEB ARAŞTIRMASI SONUÇLARI]\n"
-                for res in search_result['results'][:5]:
-                    title = res.get('title', '')
-                    content = res.get('content', '')[:400]
-                    url = res.get('url', '')
-                    web_context += f"• {title}: {content}\n  Kaynak: {url}\n\n"
+            # 2. Intelligence'dan ara
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{settings.intelligence_url}/research/context",
+                    json={"query": search_query, "max_results": 5},
+                    headers={"X-Internal-Key": settings.intelligence_internal_key},
+                )
+                if resp.status_code == 200:
+                    data = resp.json().get("data", {})
+                    ctx = data.get("context", "")
+                    sources = data.get("sources", [])
+                    if ctx:
+                        web_context = "\n\n[WEB ARAŞTIRMASI SONUÇLARI]\n" + ctx
+                        for src in sources[:5]:
+                            web_context += f"  Kaynak: {src}\n"
         except Exception as e:
-            logger.warning(f"Web arama hatası: {e}")
+            logger.warning(f"Intelligence context search hatası: {e}")
+            # Fallback: direkt Tavily (eski davranış)
+            try:
+                from .clients import tavily_client
+                if tavily_client:
+                    search_result = tavily_client.search(
+                        query=message, search_depth="advanced", max_results=5
+                    )
+                    if search_result.get('results'):
+                        web_context = "\n\n[WEB ARAŞTIRMASI SONUÇLARI]\n"
+                        for res in search_result['results'][:5]:
+                            web_context += f"• {res.get('title', '')}: {res.get('content', '')[:400]}\n  Kaynak: {res.get('url', '')}\n\n"
+            except Exception:
+                pass
     
     # --- EN GÜÇLÜ SYSTEM PROMPT ---
     system_prompt = f"""You are a helpful, friendly AI assistant. You excel at understanding context and maintaining coherent conversations.

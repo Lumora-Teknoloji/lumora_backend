@@ -7,11 +7,10 @@ import re
 import secrets
 from typing import List, Dict, Any
 from .clients import openai_client
-from .intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message
+from .intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message, extract_production_parameters
+import json
 from .intelligence_formatter import get_intelligence_context
 from .research import (
-    analyze_runway_trends,
-    deep_market_research,
     generate_strategic_report,
     find_visual_match_for_model,
     extract_visual_search_terms
@@ -85,9 +84,15 @@ async def generate_ai_response(
     if intent == "TREND_ANALYSIS":
         logger.info("📊 TREND_ANALYSIS akışı başlatıldı")
 
-        # 1. Mesajdan kategori çıkar
-        category = await loop.run_in_executor(None, extract_category_from_message, user_message)
-        logger.info(f"🏷️ Kategori: {category or 'tüm kategoriler'}")
+        # 1. Mesajdan detaylı üretim parametreleri çıkar
+        params = await loop.run_in_executor(None, extract_production_parameters, user_message)
+        category = params.get("product_category")
+        target_audience = params.get("target_audience", "Genel")
+        seasonality = params.get("seasonality", "Genel")
+        material = params.get("material", "Belirtilmedi")
+        budget_segment = params.get("budget_segment", "Genel")
+        
+        logger.info(f"🏷️ Extracted Params: {json.dumps(params, ensure_ascii=False)}")
 
         # 2. Intelligence servisinden veri çek
         intel_context = await get_intelligence_context(category=category, top_n=20)
@@ -103,20 +108,39 @@ async def generate_ai_response(
 
 {intel_context}
 
+Kullanıcı Profili ve İstek Detayları:
+- Kategori: {category or 'Tümü'}
+- Hedef Kitle: {target_audience}
+- Sezon: {seasonality}
+- Materyal/Kumaş: {material}
+- Bütçe/Segment: {budget_segment}
+
 GÖREVİN:
-1. Yukarıdaki verileri kullanıcının mesajına göre analiz et ve yorumla.
-2. Eğer kullanıcı "ne üretmeliyim", "hangi ürünü yapmalıyım", "elimde X kumaş var" gibi
-   ÜRETİM/TASARIM odaklı bir soru soruyorsa:
-   - Verilere dayanarak hangi modellerin trend olduğunu göster
-   - O malzeme/kumaş ile yapılabilecek EN TREND ürün önerilerini sun
-   - Fiyat aralığı, renk tercihi, hedef kitle önerileri ekle
-   - "Veritabanımıza göre şu modeller yükselişte" şeklinde somut veri paylaş
-3. Eğer kullanıcı doğrudan trend sorgusu yapıyorsa:
-   - Trend skorlarını, etiketleri ve güven yüzdelerini açıkla
-   - Stratejik önerilerde bulun (hangi ürünlere odaklanılmalı, neden)
-4. Türkçe yaz, profesyonel ama anlaşılır dil kullan.
-5. Markdown formatla (başlıklar, tablolar, bold).
-6. Her zaman VERİ DESTEKLİ tavsiyelerde bulun — tahminleri somut veriye bağla."""
+Yanıtını KESİNLİKLE aşağıdaki Markdown şablon formatına uygun olarak oluştur. Standart dışına çıkma:
+
+# 📊 [{category or 'Genel Moda'}] - Sezonluk Üretim Stratejisi
+
+> **Yapay Zeka Öngörüsü:** "Bu sezon [{category or 'pazar'}] alanında [Trend Özeti]."
+
+## 1. Pazar Dinamikleri ve Trend Skoru
+- **Güncel Trend Skoru:** [Veritabanından ortalama skor]
+- **Tüketici İlgi Odağı:** [En çok aranan/yükselen özellikler]
+
+## 2. Üretim Önerileri ({material} / {seasonality})
+| Özellik | Önerilen | Alternatif (Riskli/Niş) |
+| :--- | :--- | :--- |
+| **Kumaş** | [{material} ve uyumlu kumaşlar] | [Alternatifler] |
+| **Kalıp/Tarz** | [Trend olan kalıplar] | [Niş kalıplar] |
+| **Öne Çıkan Renkler** | [Trend veri renkleri] | [Canlı/Farklı renkler] |
+
+## 3. Fiyatlandırma ve Konumlandırma ({budget_segment})
+*Sistem verilerimize göre rakiplerin fiyat analizi:*
+- **Tavsiye Edilen Konumlandırma:** [Strateji]
+- **Hedef Kitle ({target_audience}) Beklentisi:** [Beklenti]
+
+## 4. Tasarım Departmanı İçin Aksiyon Maddeleri
+1. [Somut veri destekli tavsiye 1]
+2. [Somut veri destekli tavsiye 2]"""
 
             try:
                 response = openai_client.chat.completions.create(
@@ -287,25 +311,46 @@ GÖREVİN:
         return {"content": response_text, "image_urls": combined_images, "image_links": {}, "process_log": ["Devam yanıtı verildi."]}
 
     # === MARKET RESEARCH ===
-    # Paralel veri toplama: Tavily + Google Trends + Intelligence
-    f_m = loop.run_in_executor(None, deep_market_research, user_message)
-    f_r = loop.run_in_executor(None, analyze_runway_trends, user_message)
+    # Intelligence servisinden kapsamlı araştırma (Tavily + DB trend verileri)
+    extracted_category = await loop.run_in_executor(None, extract_category_from_message, user_message)
     f_t = loop.run_in_executor(None, get_google_trends, user_message)
 
-    # Intelligence verisini de paralel çek (kategori varsa filtrele)
-    extracted_category = await loop.run_in_executor(None, extract_category_from_message, user_message)
-    f_intel = get_intelligence_context(category=extracted_category, top_n=10)
+    # Intelligence /research/comprehensive endpoint'ini çağır
+    async def _call_intelligence_research():
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{settings.intelligence_url}/research/comprehensive",
+                    json={"topic": user_message, "category": extracted_category},
+                    headers={"X-Internal-Key": settings.intelligence_internal_key},
+                )
+                if resp.status_code == 200:
+                    return resp.json().get("data", {})
+        except Exception as e:
+            logger.warning(f"Intelligence research hatası: {e}")
+        return None
 
-    market_res, runway_res, trends_res, intel_context = await asyncio.gather(f_m, f_r, f_t, f_intel)
+    f_research = _call_intelligence_research()
+    trends_res, research_data = await asyncio.gather(f_t, f_research)
 
     # Google Trends verisini formatla
     trends_text = format_trends_for_report(trends_res)
-    
-    full_data = f"{runway_res.get('context','')}\n===\n{market_res.get('context','')}"
+
+    # Intelligence'dan gelen birleşik veri (Tavily + DB trend)
+    if research_data and research_data.get("combined_context"):
+        full_data = research_data["combined_context"]
+        runway_res = research_data.get("runway", {})
+    else:
+        # Fallback: Intelligence kapalıysa direkt Tavily (eski davranış)
+        from .research import analyze_runway_trends, deep_market_research
+        f_m = loop.run_in_executor(None, deep_market_research, user_message)
+        f_r = loop.run_in_executor(None, analyze_runway_trends, user_message)
+        market_res, runway_res = await asyncio.gather(f_m, f_r)
+        full_data = f"{runway_res.get('context','')}\n===\n{market_res.get('context','')}"
+
     if trends_text:
         full_data += f"\n\n=== GOOGLE TRENDS VERİSİ ===\n{trends_text}"
-    if intel_context:
-        full_data += f"\n\n=== LUMORA INTELLIGENCE TAHMİNLERİ ===\n{intel_context}"
     
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, full_data)
 
