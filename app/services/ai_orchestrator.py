@@ -65,6 +65,7 @@ async def generate_ai_response(
     Kullanıcı mesajını analiz eder ve uygun yanıtı üretir
     """
     loop = asyncio.get_event_loop()
+    fallback_warning = False
 
     # Niyet analizi
     if generate_images:
@@ -111,6 +112,7 @@ async def generate_ai_response(
             # Intelligence kapalı/boş — graceful fallback: MARKET_RESEARCH gibi davran
             logger.warning("Intelligence veri döndürmedi, MARKET_RESEARCH'e fallback")
             intent = "MARKET_RESEARCH"  # Aşağıdaki MARKET_RESEARCH bloğuna düşecek
+            fallback_warning = True
         else:
             # 3. Intelligence verileri + GPT-4o = zengin trend raporu
             system_prompt = f"""Sen Kıdemli Moda Analisti, Trend Uzmanı ve Ürün Stratejistisin.
@@ -378,6 +380,10 @@ KRİTİK KURALLAR:
         full_data += f"\n\n=== GOOGLE TRENDS VERİSİ ===\n{trends_text}"
     
     final_report = await loop.run_in_executor(None, generate_strategic_report, user_message, full_data)
+
+    if fallback_warning:
+        warning_msg = "> ℹ️ **Bilgilendirme:** Bu konu için analiz motorumuzda (Intelligence) yeterli güncel veri bulunamadı. Bu yüzden aşağıdaki rapor, veritabanımız yerine güncel **internet trend araştırmalarına (Tavily & Google)** dayanılarak hazırlanmıştır.\n\n"
+        final_report = warning_msg + final_report
 
     user_needs_visuals = await loop.run_in_executor(None, check_visual_necessity, user_message)
     if not user_needs_visuals:
