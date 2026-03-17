@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 from .clients import openai_client
 from .intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message, extract_production_parameters
 import json
-from .intelligence_formatter import get_intelligence_context
+from .intelligence_formatter import get_intelligence_context, get_structured_intelligence_context
 from .research import (
     generate_strategic_report,
     find_visual_match_for_model,
@@ -88,14 +88,24 @@ async def generate_ai_response(
         params = await loop.run_in_executor(None, extract_production_parameters, user_message)
         category = params.get("product_category")
         target_audience = params.get("target_audience", "Genel")
+        gender = params.get("gender", "Genel")
+        age_group = params.get("age_group", "Genel")
         seasonality = params.get("seasonality", "Genel")
         material = params.get("material", "Belirtilmedi")
+        fit = params.get("fit", "Belirtilmedi")
+        length = params.get("length", "Belirtilmedi")
+        collar = params.get("collar", "Belirtilmedi")
+        sleeve = params.get("sleeve", "Belirtilmedi")
+        occasion = params.get("occasion", "Genel")
         budget_segment = params.get("budget_segment", "Genel")
+        style_keywords = ", ".join(params.get("style_keywords", [])) or "Belirtilmedi"
         
         logger.info(f"🏷️ Extracted Params: {json.dumps(params, ensure_ascii=False)}")
 
-        # 2. Intelligence servisinden veri çek
-        intel_context = await get_intelligence_context(category=category, top_n=20)
+        # 2. Intelligence servisinden yapılandırılmış veri çek
+        intel_context = await get_structured_intelligence_context(
+            category=category, top_n=20, params=params
+        )
 
         if not intel_context:
             # Intelligence kapalı/boş — graceful fallback: MARKET_RESEARCH gibi davran
@@ -104,43 +114,58 @@ async def generate_ai_response(
         else:
             # 3. Intelligence verileri + GPT-4o = zengin trend raporu
             system_prompt = f"""Sen Kıdemli Moda Analisti, Trend Uzmanı ve Ürün Stratejistisin.
-İşte ürün veritabanımızdaki GERÇEK trend tahmin verileri:
+Aşağıda veritabanımızdaki GERÇEK trend verileri var. Tüm yorumların bu verilere dayansın.
 
 {intel_context}
 
-Kullanıcı Profili ve İstek Detayları:
+Kullanıcı Profili ve Tasarım Detayları:
 - Kategori: {category or 'Tümü'}
+- Cinsiyet / Yaş: {gender} / {age_group}
 - Hedef Kitle: {target_audience}
 - Sezon: {seasonality}
-- Materyal/Kumaş: {material}
+- Kullanım Alanı: {occasion}
 - Bütçe/Segment: {budget_segment}
+- Stil Anahtar Kelimeleri: {style_keywords}
+
+Tasarımsal Kısıtlamalar:
+- Kumaş: {material}
+- Kalıp: {fit}
+- Boy: {length}
+- Yaka: {collar}
+- Kol: {sleeve}
 
 GÖREVİN:
-Yanıtını KESİNLİKLE aşağıdaki Markdown şablon formatına uygun olarak oluştur. Standart dışına çıkma:
+Yukarıdaki gerçek verileri kullanarak profesyonel bir trend raporu oluştur.
+KESİNLİKLE aşağıdaki Markdown şablonuna uygun yaz:
 
-# 📊 [{category or 'Genel Moda'}] - Sezonluk Üretim Stratejisi
+# 📊 [{category or 'Genel Moda'}] — Sezonluk Üretim Stratejisi
 
-> **Yapay Zeka Öngörüsü:** "Bu sezon [{category or 'pazar'}] alanında [Trend Özeti]."
+> **AI Öngörüsü:** "[Veriye dayalı 1-2 cümle özet]"
 
-## 1. Pazar Dinamikleri ve Trend Skoru
-- **Güncel Trend Skoru:** [Veritabanından ortalama skor]
-- **Tüketici İlgi Odağı:** [En çok aranan/yükselen özellikler]
+## 1. Pazar Dinamikleri
+- Yukarıdaki trend dağılımı ve skorları yorumla
+- Kategorinin genel sağlığı hakkında veri destekli yorum
 
-## 2. Üretim Önerileri ({material} / {seasonality})
-| Özellik | Önerilen | Alternatif (Riskli/Niş) |
-| :--- | :--- | :--- |
-| **Kumaş** | [{material} ve uyumlu kumaşlar] | [Alternatifler] |
-| **Kalıp/Tarz** | [Trend olan kalıplar] | [Niş kalıplar] |
-| **Öne Çıkan Renkler** | [Trend veri renkleri] | [Canlı/Farklı renkler] |
+## 2. Üretim Önerileri ({seasonality})
+| Özellik | Önerilen | Alternatif |
+|:---|:---|:---|
+| **Kumaş** | [Veri + {material} bazlı öneri] | [Risk/Niş alternatif] |
+| **Kalıp** | [Top ürünlerden çıkan kalıp trendi] | [Farklılaşma önerisi] |
+| **Renk** | [Yukarıdaki renk verisinden] | [Cesur seçenek] |
 
-## 3. Fiyatlandırma ve Konumlandırma ({budget_segment})
-*Sistem verilerimize göre rakiplerin fiyat analizi:*
-- **Tavsiye Edilen Konumlandırma:** [Strateji]
-- **Hedef Kitle ({target_audience}) Beklentisi:** [Beklenti]
+## 3. Fiyatlandırma ({budget_segment})
+- Yukarıdaki fiyat dağılımını yorumla
+- Hedef kitle ({target_audience}) için konumlandırma önerisi
 
-## 4. Tasarım Departmanı İçin Aksiyon Maddeleri
-1. [Somut veri destekli tavsiye 1]
-2. [Somut veri destekli tavsiye 2]"""
+## 4. Aksiyon Maddeleri
+1. [Veri destekli somut tavsiye]
+2. [Veri destekli somut tavsiye]
+3. [Opsiyonel 3. tavsiye]
+
+KRİTİK KURALLAR:
+- Her iddiayı yukarıdaki verilerle destekle (skor, fiyat, renk istatistikleri)
+- Top 5 ürün tablosunu doğrudan dahil et
+- Hayali veri UYDURMA, sadece verilen istatistikleri kullan"""
 
             try:
                 response = openai_client.chat.completions.create(

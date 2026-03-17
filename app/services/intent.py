@@ -3,7 +3,7 @@ Intent Analysis - Kullanıcı niyet analizi ve sohbet yönetimi
 """
 import json
 import logging
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from datetime import datetime
 import locale
 from .clients import openai_client
@@ -148,7 +148,11 @@ def extract_production_parameters(message: str) -> Dict[str, Any]:
     Kullanıcı mesajından üretim/tasarım detaylarını çıkarır.
     """
     if not openai_client:
-        return {"product_category": None, "target_audience": "Genel", "seasonality": "Genel", "material": None, "budget_segment": "Genel", "user_goal": "Genel"}
+        return {
+            "product_category": None, "target_audience": "Genel", "gender": "Genel", "age_group": "Genel",
+            "seasonality": "Genel", "material": None, "fit": None, "length": None, "collar": None, "sleeve": None,
+            "budget_segment": "Genel", "user_goal": "Genel", "occasion": "Genel", "style_keywords": [], "price_range": None
+        }
 
     try:
         response = openai_client.chat.completions.create(
@@ -156,13 +160,22 @@ def extract_production_parameters(message: str) -> Dict[str, Any]:
             response_format={ "type": "json_object" },
             messages=[{
                 "role": "system",
-                "content": """Extract the following production parameters from the user message and return as a strict JSON object:
-- "product_category": Category (e.g., "crop", "elbise", "pantolon", "t-shirt"). Return null if none.
-- "target_audience": Target Audience (e.g., "genç", "kadın", "erkek", "unisex"). Default: "Genel".
-- "seasonality": Season/Time (e.g., "yaz", "kış", "sonbahar"). Default: "Genel".
-- "material": Fabric/Material (e.g., "keten", "pamuk", "deri"). Return null if none.
+                "content": """Extract the following detailed fashion production parameters from the user message and return as a strict JSON object. If a specific param is not mentioned, use the specified default or null:
+- "product_category": Category (e.g., "crop", "elbise", "pantolon", "ceket"). Return null if none.
+- "target_audience": Target Audience summary (e.g., "genç", "unisex"). Default: "Genel".
+- "gender": Gender explicitly mentioned (e.g., "kadın", "erkek", "unisex", "kız çocuk", "erkek çocuk"). Default: "Genel".
+- "age_group": Age group explicitly mentioned (e.g., "yetişkin", "genç", "çocuk", "bebek"). Default: "Genel".
+- "seasonality": Season/Time (e.g., "yaz", "kış", "sonbahar", "ilkbahar", "dört mevsim"). Default: "Genel".
+- "material": Fabric/Material (e.g., "keten", "pamuk", "deri", "şifon", "ipek"). Return null if none.
+- "fit": Fit/Cut type (e.g., "oversize", "slim fit", "regular", "dar", "bol"). Return null if none.
+- "length": Item length (e.g., "mini", "midi", "maxi", "kısa", "uzun"). Return null if none.
+- "collar": Collar/Neckline type (e.g., "v yaka", "bisiklet yaka", "boğazlı", "polo", "kare yaka"). Return null if none.
+- "sleeve": Sleeve length/type (e.g., "kısa kol", "uzun kol", "sıfır kol", "askılı", "karpuz kol"). Return null if none.
+- "occasion": Usage occasion (e.g., "günlük", "gece", "abiye", "spor", "ofis", "plaj"). Default: "Genel".
 - "budget_segment": Budget/Price Segment (e.g., "premium", "uygun fiyatlı", "orta segment"). Default: "Genel".
 - "user_goal": Primary Goal (e.g., "üretim", "tasarım", "pazar araştırması", "stok eritme"). Default: "Genel".
+- "style_keywords": List of aesthetic/style descriptors (e.g., ["bohem", "romantik", "minimalist", "vintage"]). Default: [].
+- "price_range": Price range if mentioned (e.g., {"min": 100, "max": 500}). Return null if none.
 Make sure all string values are in lowercase Turkish."""
             }, {
                 "role": "user",
@@ -172,11 +185,15 @@ Make sure all string values are in lowercase Turkish."""
         )
         result = response.choices[0].message.content.strip()
         data = json.loads(result)
-        logger.info(f"🏷️ Parametreler çıkarıldı: {data}")
+        logger.info(f"🏷️ Detaylı Parametreler çıkarıldı: {data}")
         return data
     except Exception as e:
         logger.warning(f"Parametre çıkarma hatası: {e}")
-        return {"product_category": None, "target_audience": "Genel", "seasonality": "Genel", "material": None, "budget_segment": "Genel", "user_goal": "Genel"}
+        return {
+            "product_category": None, "target_audience": "Genel", "gender": "Genel", "age_group": "Genel",
+            "seasonality": "Genel", "material": None, "fit": None, "length": None, "collar": None, "sleeve": None,
+            "budget_segment": "Genel", "user_goal": "Genel", "occasion": "Genel", "style_keywords": [], "price_range": None
+        }
 
 
 

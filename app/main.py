@@ -71,8 +71,8 @@ if settings.app_env == "development":
 mount_static_files(app)
 
 # Socket.IO entegrasyonu
-socketio_app = ASGIApp(sio, app)
-app_asgi = socketio_app
+# Defined at the bottom of the file to capture all FastAPI routes.
+app_asgi = app  # Keep backwards compatibility for run_server.py
 
 # Exception Handlers
 add_exception_handlers(app)
@@ -82,6 +82,12 @@ add_exception_handlers(app)
 def health_check():
     """Health check endpoint."""
     return {"status": "ok", "environment": settings.app_env}
+
+
+# Wrap the final FastAPI app with Socket.IO ASGIApp
+fastapi_app = app
+app = ASGIApp(sio, fastapi_app)
+app_asgi = app  # Keep backwards compatibility for run_server.py
 
 
 # Server configuration for production deployment
