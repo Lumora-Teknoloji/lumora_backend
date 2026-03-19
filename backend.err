@@ -1,0 +1,1835 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\Admin\\Documents\\vscode\\LangChain_backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [6044] using WatchFiles
+⚠️ Tavily API key bulunamadı
+⚠️ SerpApi API key bulunamadı (SERPAPI_API_KEY)
+Server initialized for asgi.
+INFO:     Started server process [12332]
+INFO:     Waiting for application startup.
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 21, in lifespan
+    logger.info("✅ API keys validated successfully")
+Message: '✅ API keys validated successfully'
+Arguments: ()
+2026-03-17 15:11:13,385 - app.core.lifespan - INFO - ✅ API keys validated successfully
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.FeatureNotSupported: extension "vector" is not available
+DETAIL:  Could not open extension control file "C:/Program Files/PostgreSQL/17/share/extension/vector.control": No such file or directory.
+HINT:  The extension must first be installed on the system where PostgreSQL is running.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 115, in ensure_vector_extension
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 527, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2363, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.NotSupportedError: (psycopg2.errors.FeatureNotSupported) extension "vector" is not available
+DETAIL:  Could not open extension control file "C:/Program Files/PostgreSQL/17/share/extension/vector.control": No such file or directory.
+HINT:  The extension must first be installed on the system where PostgreSQL is running.
+
+[SQL: CREATE EXTENSION IF NOT EXISTS vector]
+(Background on this error at: https://sqlalche.me/e/20/tw8g)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 56-57: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 160, in setup_database
+    has_pgvector = ensure_vector_extension()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 120, in ensure_vector_extension
+    logger.warning(f"⚠️ pgvector eklentisi yüklenemedi (lokal geliştirmede normal): {e}")
+Message: '⚠️ pgvector eklentisi yüklenemedi (lokal geliştirmede normal): (psycopg2.errors.FeatureNotSupported) extension "vector" is not available\nDETAIL:  Could not open extension control file "C:/Program Files/PostgreSQL/17/share/extension/vector.control": No such file or directory.\nHINT:  The extension must first be installed on the system where PostgreSQL is running.\n\n[SQL: CREATE EXTENSION IF NOT EXISTS vector]\n(Background on this error at: https://sqlalche.me/e/20/tw8g)'
+Arguments: ()
+2026-03-17 15:11:13,442 - app.core.database - WARNING - ⚠️ pgvector eklentisi yüklenemedi (lokal geliştirmede normal): (psycopg2.errors.FeatureNotSupported) extension "vector" is not available
+DETAIL:  Could not open extension control file "C:/Program Files/PostgreSQL/17/share/extension/vector.control": No such file or directory.
+HINT:  The extension must first be installed on the system where PostgreSQL is running.
+
+[SQL: CREATE EXTENSION IF NOT EXISTS vector]
+(Background on this error at: https://sqlalche.me/e/20/tw8g)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f50d' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 178, in setup_database
+    logger.info(f"🔍 Veritabanı Şeması Kontrol Ediliyor...")
+Message: '🔍 Veritabanı Şeması Kontrol Ediliyor...'
+Arguments: ()
+2026-03-17 15:11:13,459 - app.core.database - INFO - 🔍 Veritabanı Şeması Kontrol Ediliyor...
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4cb' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 179, in setup_database
+    logger.info(f"📋 Model Tanımları ({len(metadata_tables)}): {sorted(list(metadata_tables))}")
+Message: "📋 Model Tanımları (13): ['actual_sales', 'category_daily_signals', 'conversations', 'daily_metrics', 'generated_designs', 'messages', 'production_decisions', 'products', 'sales_forecasts', 'scraping_logs', 'scraping_queue', 'scraping_tasks', 'users']"
+Arguments: ()
+2026-03-17 15:11:13,467 - app.core.database - INFO - 📋 Model Tanımları (13): ['actual_sales', 'category_daily_signals', 'conversations', 'daily_metrics', 'generated_designs', 'messages', 'production_decisions', 'products', 'sales_forecasts', 'scraping_logs', 'scraping_queue', 'scraping_tasks', 'users']
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 53-54: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 180, in setup_database
+    logger.info(f"🗄️  Mevcut Tablolar ({len(existing_tables)}): {sorted(existing_tables)}")
+Message: "🗄️  Mevcut Tablolar (21): ['actual_sales', 'categories_registry', 'category_daily_signals', 'conversations', 'daily_metrics', 'generated_designs', 'intelligence_results', 'messages', 'model_versions', 'product_reviews', 'production_decisions', 'products', 'sales_forecasts', 'scraping_logs', 'scraping_queue', 'scraping_tasks', 'seo_rankings', 'style_trends', 'trend_alerts', 'trend_insights', 'users']"
+Arguments: ()
+2026-03-17 15:11:13,472 - app.core.database - INFO - 🗄️  Mevcut Tablolar (21): ['actual_sales', 'categories_registry', 'category_daily_signals', 'conversations', 'daily_metrics', 'generated_designs', 'intelligence_results', 'messages', 'model_versions', 'product_reviews', 'production_decisions', 'products', 'sales_forecasts', 'scraping_logs', 'scraping_queue', 'scraping_tasks', 'seo_rankings', 'style_trends', 'trend_alerts', 'trend_insights', 'users']
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 204, in setup_database
+    logger.info("✅ Tüm tablolar eksiksiz mevcut.")
+Message: '✅ Tüm tablolar eksiksiz mevcut.'
+Arguments: ()
+2026-03-17 15:11:13,480 - app.core.database - INFO - ✅ Tüm tablolar eksiksiz mevcut.
+2026-03-17 15:11:13,488 - app.core.database - INFO - conversations tablosu kolonları kontrol edildi
+2026-03-17 15:11:13,491 - app.core.database - INFO - users tablosu avatar_url kolonu kontrol edildi
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f504' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 211, in setup_database
+    sync_schema()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 224, in sync_schema
+    logger.info("🔄 Schema Senkronizasyonu Başlatılıyor...")
+Message: '🔄 Schema Senkronizasyonu Başlatılıyor...'
+Arguments: ()
+2026-03-17 15:11:13,492 - app.core.database - INFO - 🔄 Schema Senkronizasyonu Başlatılıyor...
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 211, in setup_database
+    sync_schema()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 343, in sync_schema
+    logger.info("✅ Schema senkronizasyonu tamamlandı — değişiklik gerekmiyor, tüm şema güncel.")
+Message: '✅ Schema senkronizasyonu tamamlandı — değişiklik gerekmiyor, tüm şema güncel.'
+Arguments: ()
+2026-03-17 15:11:13,583 - app.core.database - INFO - ✅ Schema senkronizasyonu tamamlandı — değişiklik gerekmiyor, tüm şema güncel.
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 23, in lifespan
+    setup_database()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 214, in setup_database
+    ensure_admin_user()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\database.py", line 147, in ensure_admin_user
+    logger.info("✅ Admin kullanıcısı zaten mevcut.")
+Message: '✅ Admin kullanıcısı zaten mevcut.'
+Arguments: ()
+2026-03-17 15:11:13,612 - app.core.database - INFO - ✅ Admin kullanıcısı zaten mevcut.
+2026-03-17 15:11:13,620 - Scheduler - INFO - Scheduler thread started (Safe Path Mode)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 53: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 28, in lifespan
+    logger.info("✅ Bot scheduler started")
+Message: '✅ Bot scheduler started'
+Arguments: ()
+2026-03-17 15:11:13,620 - app.core.lifespan - INFO - ✅ Bot scheduler started
+2026-03-17 15:11:13,624 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:11:13,626 - app.core.lifespan - INFO - Guest data cleanup task started
+2026-03-17 15:11:13,626 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 98: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 35, in lifespan
+    await intelligence_client.startup()
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\services\intelligence_client.py", line 43, in startup
+    logger.info(f"IntelligenceClient başlatıldı → {self._client.base_url}")
+Message: 'IntelligenceClient başlatıldı → http://host.docker.internal:8001'
+Arguments: ()
+2026-03-17 15:11:13,775 - app.services.intelligence_client - INFO - IntelligenceClient başlatıldı → http://host.docker.internal:8001
+2026-03-17 15:11:16,257 - app.services.intelligence_client - WARNING - Intelligence /health erişilemiyor: ConnectError: All connection attempts failed
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1254.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 56-57: character maps to <undefined>
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 645, in run_forever
+    self._run_once()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1999, in _run_once
+    handle._run()
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\lifespan\on.py", line 86, in main
+    await app(scope, self.receive, self.send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 29, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\cors.py", line 77, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\base.py", line 103, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 49, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 725, in app
+    await self.lifespan(scope, receive, send)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\starlette\routing.py", line 694, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\fastapi\routing.py", line 153, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+  File "C:\Users\Admin\Documents\vscode\LangChain_backend\app\core\lifespan.py", line 42, in lifespan
+    logger.warning(
+Message: '⚠️  Intelligence servisi erişilemiyor (startup ping: unreachable). Backend normal çalışmaya devam eder, /api/intelligence/* endpointleri 503 döner.'
+Arguments: ()
+2026-03-17 15:11:16,258 - app.core.lifespan - WARNING - ⚠️  Intelligence servisi erişilemiyor (startup ping: unreachable). Backend normal çalışmaya devam eder, /api/intelligence/* endpointleri 503 döner.
+INFO:     Application startup complete.
+2026-03-17 15:11:23,636 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:11:23,636 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:11:33,640 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:11:33,641 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:46815 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:10322 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:11:43,643 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:11:43,646 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:40826 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:28627 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:11:53,649 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:11:53,651 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:29833 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:25930 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:47408 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:18331 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:12:03,655 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:03,656 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:65503 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:55433 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:12:13,662 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:13,663 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:7588 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:12:23,667 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:23,668 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:33,671 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:33,673 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:43,676 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:43,676 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:53,680 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:12:53,684 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:03,687 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:03,689 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:13,692 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:13,693 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:23,697 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:23,699 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:33,702 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:33,702 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:43,708 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:43,710 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:53,714 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:13:53,714 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:03,719 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:03,720 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:13,724 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:13,725 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:23,729 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:23,731 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:33,733 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:33,736 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:43,739 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:43,741 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:53,744 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:14:53,746 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:03,749 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:03,751 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:13,754 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:13,756 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:23,760 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:23,761 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:33,765 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:33,766 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:43,769 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:43,770 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:53,774 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:15:53,776 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:03,779 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:03,781 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:13,783 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:13,786 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:23,789 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:23,789 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:33,794 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:33,794 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:43,799 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:43,802 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:53,805 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:16:53,807 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:03,810 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:03,812 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:13,815 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:13,817 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:23,820 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:23,821 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:33,826 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:33,829 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:43,831 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:43,832 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:53,835 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:17:53,837 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:03,841 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:03,842 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:13,847 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:13,848 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:23,852 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:23,854 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:33,856 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:33,858 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:43,862 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:43,864 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:53,868 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:18:53,872 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:03,876 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:03,878 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:13,882 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:13,884 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:23,888 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:23,890 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:33,892 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:33,894 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:43,898 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:43,900 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:53,902 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:19:53,905 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:03,908 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:03,910 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:13,913 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:13,915 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:23,918 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:23,920 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:33,924 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:33,928 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:43,932 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:43,934 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:53,936 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:20:53,939 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:03,942 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:03,946 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:13,950 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:13,952 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:23,956 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:23,958 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:33,962 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:33,963 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:43,966 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:43,967 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:53,970 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:21:53,971 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:03,974 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:03,977 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\jwt\api_jwt.py:153: InsecureKeyLengthWarning: The HMAC key is 14 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+C:\Users\Admin\Documents\vscode\LangChain_backend\venv\Lib\site-packages\jwt\api_jwt.py:371: InsecureKeyLengthWarning: The HMAC key is 14 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  decoded = self.decode_complete(
+INFO:     127.0.0.1:37280 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:22:13,979 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:13,979 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:51212 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:2466 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:18281 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:22:23,986 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:23,987 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:35657 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:64310 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:22:33,990 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:33,992 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:43,994 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:43,994 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:54,000 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:22:54,002 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:04,006 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:04,008 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:14,011 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:14,013 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:24,017 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:24,019 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:34,023 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:34,023 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:44,027 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:44,029 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:54,032 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:23:54,032 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:04,036 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:04,038 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:14,040 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:14,043 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:24,046 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:24,047 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:34,050 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:34,053 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:44,057 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:44,059 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:54,063 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:24:54,063 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:04,067 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:04,067 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:14,074 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:14,074 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:24,078 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:24,080 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:34,083 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:34,085 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:44,089 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:44,091 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:54,095 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:25:54,097 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:04,100 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:04,102 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:14,106 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:14,108 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:24,111 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:24,112 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:34,115 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:34,117 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:44,121 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:44,122 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:54,126 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:26:54,127 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:22248 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:20986 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:12579 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:27:04,131 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:04,131 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:50808 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+INFO:     127.0.0.1:57199 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:27:14,135 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:14,138 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     127.0.0.1:49631 - "WebSocket /socket.io/?EIO=4&transport=websocket" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     connection closed
+2026-03-17 15:27:24,140 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:24,144 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:34,147 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:34,151 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:44,154 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:44,156 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:54,159 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:27:54,161 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:04,164 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:04,166 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:14,168 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:14,168 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:24,174 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:24,176 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:34,178 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:34,178 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:44,184 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:44,186 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:54,191 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:28:54,193 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:04,196 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:04,199 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:14,204 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:14,205 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:24,209 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:24,210 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:34,213 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:34,213 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:44,220 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:44,224 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:54,228 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:29:54,230 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:04,233 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:04,235 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:14,240 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:14,242 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:24,246 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:24,248 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:34,253 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:34,255 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:44,258 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:44,260 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:54,263 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:30:54,263 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:04,267 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:04,269 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:14,273 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:14,274 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:24,278 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:24,280 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:34,284 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:34,285 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:44,288 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:44,289 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:54,293 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:31:54,297 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:04,305 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:04,307 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:14,311 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:14,315 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:24,320 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:24,323 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:34,327 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:34,328 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:44,332 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:44,334 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:54,337 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:32:54,339 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:04,342 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:04,344 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:14,347 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:14,349 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:24,352 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:24,353 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:34,359 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:34,361 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:44,366 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:44,369 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:54,372 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:33:54,374 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:04,377 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:04,379 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:14,383 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:14,385 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:24,388 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:24,391 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:34,399 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:34,401 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:44,405 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:44,406 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:54,415 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:34:54,419 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:04,426 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:04,428 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:14,432 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:14,433 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:24,437 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:24,439 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:34,443 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:34,445 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:44,450 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:44,453 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:54,456 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:35:54,458 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:04,462 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:04,463 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:14,467 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:14,467 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:24,473 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:24,474 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:34,477 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:34,480 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:44,483 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:44,485 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:54,487 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:36:54,489 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:04,493 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:04,494 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:14,498 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:14,499 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:24,503 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:24,504 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:34,508 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:34,511 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:44,518 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:44,519 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:54,525 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:37:54,527 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:04,530 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:04,532 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:14,535 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:14,536 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:24,540 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:24,540 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:34,544 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:34,547 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:44,551 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:44,552 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:54,556 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:38:54,558 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:04,560 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:04,563 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:14,567 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:14,568 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:24,572 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:24,575 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:34,580 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:34,583 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:44,589 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:44,591 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:54,594 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:39:54,596 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:04,600 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:04,602 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:14,606 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:14,607 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:24,612 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:24,614 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:34,618 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:34,622 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:44,626 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:44,631 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:54,635 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:40:54,637 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:04,640 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:04,642 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:14,645 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:14,648 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:24,655 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:24,657 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:34,661 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:34,663 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:44,666 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:44,668 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:54,670 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:41:54,673 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:04,676 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:04,678 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:14,680 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:14,682 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:24,685 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:24,688 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:34,690 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:34,694 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:44,699 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:44,702 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:54,707 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:42:54,708 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:04,712 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:04,714 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:14,720 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:14,722 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:24,726 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:24,729 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:34,735 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:34,737 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:44,740 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:44,741 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:54,745 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:43:54,746 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:04,749 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:04,751 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:14,753 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:14,756 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:24,759 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:24,761 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:34,767 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:34,769 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:44,773 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:44,773 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:54,778 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:44:54,779 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:04,782 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:04,784 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:14,788 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:14,788 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:24,793 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:24,796 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:34,799 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:34,799 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:44,804 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:44,806 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:54,811 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:45:54,811 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:04,814 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:04,816 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:14,820 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:14,821 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:24,826 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:24,826 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:34,830 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:34,832 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+WARNING:  WatchFiles detected changes in 'test_sio.py'. Reloading...
+2026-03-17 15:46:44,836 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:44,836 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:54,840 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:46:54,843 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:04,845 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:04,849 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:14,851 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:14,853 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:24,856 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:24,859 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:34,861 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:34,861 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:44,866 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:44,868 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:54,872 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:47:54,873 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:04,876 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:04,879 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:14,882 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:14,885 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:24,891 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:24,893 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:34,896 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:34,899 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:44,901 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:44,903 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:54,906 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:48:54,909 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:04,912 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:04,912 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:14,916 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:14,919 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:24,923 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:24,925 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:34,929 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:34,931 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:44,933 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:44,935 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:54,938 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:49:54,941 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:04,943 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:04,943 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:14,949 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:14,949 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:24,953 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:24,953 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:34,959 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:34,961 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:44,963 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:44,966 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:54,970 - Scheduler - INFO - Starting bot 1 (Schedule Match: 09:00-18:00, mode=normal)
+2026-03-17 15:50:54,971 - Scheduler - INFO - Starting bot 2 (Schedule Match: 09:00-18:00, mode=normal)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-17 15:50:59,181 - app.services.intelligence_client - INFO - IntelligenceClient kapatıldı
+2026-03-17 15:50:59,181 - app.core.lifespan - INFO - Application shutting down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [12332]

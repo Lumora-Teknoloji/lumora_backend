@@ -6,8 +6,8 @@ import json
 import re
 import asyncio
 from typing import List, Dict, Any
-from .clients import tavily_client, openai_client
-from .image_gen_service import (
+from app.services.core.clients import tavily_client, openai_client
+from app.services.ai.image_gen_service import (
     is_quality_fashion_image,
     validate_images_with_vision,
     validate_image_content_match

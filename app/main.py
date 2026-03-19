@@ -5,7 +5,7 @@ import asyncio
 
 from .core.config import settings
 from .api.v1.endpoints import auth, users, conversations, messages
-from .services.socket_manager import sio
+from app.services.core.socket_manager import sio
 
 # Middleware Imports
 from .middleware.security import add_security_headers

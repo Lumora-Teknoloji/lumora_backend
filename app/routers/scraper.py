@@ -21,7 +21,7 @@ from sqlalchemy import func, desc, text
 from datetime import datetime, timezone, time, timedelta
 
 from app.core.database import get_db
-from app.services.scraper_service import TrendyolScraperService
+from app.services.data.scraper_service import TrendyolScraperService
 from app.models.scraping_task import ScrapingTask
 from app.models.product import Product
 from app.models.scraping_log import ScrapingLog

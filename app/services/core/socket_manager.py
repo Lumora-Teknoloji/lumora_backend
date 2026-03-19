@@ -12,7 +12,7 @@ from pydantic import ValidationError as PydanticValidationError
 from app.core.database import get_db
 from app.models import Conversation, Message, User
 from app.core.config import settings
-from app.services.ai_orchestrator import generate_ai_response
+from app.services.ai.ai_orchestrator import generate_ai_response
 from app.schemas.socketio import UserMessageInput, GuestGetConversationInput
 from app.core.security import decode_token
 from fastapi import HTTPException
@@ -271,7 +271,7 @@ async def user_message(sid, data):
 
         # İlk kullanıcı mesajından takma ad üret (ChatGPT gibi akıllı başlık)
         if message_text:
-            from app.services.title_generator import generate_conversation_title
+            from app.services.ai.title_generator import generate_conversation_title
             try:
                 # AI ile akıllı başlık oluştur
                 guest_alias = await generate_conversation_title(message_text)
@@ -472,7 +472,7 @@ async def user_message(sid, data):
 
         # İlk kullanıcı mesajından otomatik takma ad üret (ChatGPT gibi akıllı başlık)
         if not conversation.alias and user_message.content:
-            from app.services.title_generator import generate_conversation_title
+            from app.services.ai.title_generator import generate_conversation_title
             try:
                 # AI ile akıllı başlık oluştur
                 auto_alias = await generate_conversation_title(user_message.content)

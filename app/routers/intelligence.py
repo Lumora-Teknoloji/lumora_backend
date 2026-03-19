@@ -13,7 +13,7 @@ import httpx
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.intelligence_client import intelligence_client
+from app.services.intelligence.intelligence_client import intelligence_client
 
 router = APIRouter(prefix="/intelligence", tags=["Intelligence"])
 

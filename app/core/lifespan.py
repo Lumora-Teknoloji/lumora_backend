@@ -5,7 +5,7 @@ import logging
 
 from app.core.config import settings
 from app.core.database import setup_database
-from app.services.socket_manager import cleanup_old_guest_data
+from app.services.core.socket_manager import cleanup_old_guest_data
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     setup_database()
     
     # Start scheduler for bot management
-    from app.services.scheduler import start_scheduler_thread
+    from app.services.core.scheduler import start_scheduler_thread
     start_scheduler_thread()
     logger.info("✅ Bot scheduler started")
     
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     logger.info("Guest data cleanup task started")
 
     # Intelligence Client başlat (non-blocking — servis kapalı olsa bile backend çalışır)
-    from app.services.intelligence_client import intelligence_client
+    from app.services.intelligence.intelligence_client import intelligence_client
     await intelligence_client.startup()
     # Startup ping — sadece loglama, hata atmaz
     try:

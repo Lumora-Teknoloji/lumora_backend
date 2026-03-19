@@ -2,14 +2,14 @@
 Intelligence Formatter — Intelligence servis verilerini chatbot yanıtına uygun Markdown'a çevirir.
 
 Kullanım:
-    from .intelligence_formatter import get_intelligence_context
+    from app.services.intelligence.intelligence_formatter import get_intelligence_context
     context = await get_intelligence_context(category="crop top")
 """
 import logging
 from collections import Counter
 from typing import Optional, List, Dict, Any
 
-from app.services.intelligence_client import intelligence_client
+from app.services.intelligence.intelligence_client import intelligence_client
 
 logger = logging.getLogger(__name__)
 

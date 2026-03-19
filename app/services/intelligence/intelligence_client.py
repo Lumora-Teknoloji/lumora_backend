@@ -37,7 +37,7 @@ class IntelligenceClient:
         """Uygulama başlangıcında HTTP client'ı oluşturur."""
         self._client = httpx.AsyncClient(
             base_url=getattr(settings, "intelligence_url", "http://localhost:8001"),
-            timeout=httpx.Timeout(10.0, connect=5.0),
+            timeout=httpx.Timeout(60.0, connect=10.0),
             headers=self._build_headers(),
         )
         logger.info(f"IntelligenceClient başlatıldı → {self._client.base_url}")

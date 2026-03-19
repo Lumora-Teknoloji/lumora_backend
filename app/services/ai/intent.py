@@ -6,7 +6,7 @@ import logging
 from typing import Any, List, Dict, Optional
 from datetime import datetime
 import locale
-from .clients import openai_client
+from app.services.core.clients import openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,8 @@ def extract_production_parameters(message: str) -> Dict[str, Any]:
         return {
             "product_category": None, "target_audience": "Genel", "gender": "Genel", "age_group": "Genel",
             "seasonality": "Genel", "material": None, "fit": None, "length": None, "collar": None, "sleeve": None,
-            "budget_segment": "Genel", "user_goal": "Genel", "occasion": "Genel", "style_keywords": [], "price_range": None
+            "budget_segment": "Genel", "user_goal": "Genel", "occasion": "Genel", "style_keywords": [], "price_range": None,
+            "dominant_color": None, "search_terms": []
         }
 
     try:
@@ -167,6 +168,7 @@ def extract_production_parameters(message: str) -> Dict[str, Any]:
 - "age_group": Age group explicitly mentioned (e.g., "yetişkin", "genç", "çocuk", "bebek"). Default: "Genel".
 - "seasonality": Season/Time (e.g., "yaz", "kış", "sonbahar", "ilkbahar", "dört mevsim"). Default: "Genel".
 - "material": Fabric/Material (e.g., "keten", "pamuk", "deri", "şifon", "ipek"). Return null if none.
+- "dominant_color": Main color mentioned (e.g., "kırmızı", "siyah", "mavi", "beyaz"). Return null if none.
 - "fit": Fit/Cut type (e.g., "oversize", "slim fit", "regular", "dar", "bol"). Return null if none.
 - "length": Item length (e.g., "mini", "midi", "maxi", "kısa", "uzun"). Return null if none.
 - "collar": Collar/Neckline type (e.g., "v yaka", "bisiklet yaka", "boğazlı", "polo", "kare yaka"). Return null if none.
@@ -175,6 +177,7 @@ def extract_production_parameters(message: str) -> Dict[str, Any]:
 - "budget_segment": Budget/Price Segment (e.g., "premium", "uygun fiyatlı", "orta segment"). Default: "Genel".
 - "user_goal": Primary Goal (e.g., "üretim", "tasarım", "pazar araştırması", "stok eritme"). Default: "Genel".
 - "style_keywords": List of aesthetic/style descriptors (e.g., ["bohem", "romantik", "minimalist", "vintage"]). Default: [].
+- "search_terms": Simple list of 2-4 keywords extracted that characterize the item for search systems (e.g. ["kirmizi", "sort", "yaz"]). Use lowercase turkish characters (slug-like). Default: [].
 - "price_range": Price range if mentioned (e.g., {"min": 100, "max": 500}). Return null if none.
 Make sure all string values are in lowercase Turkish."""
             }, {
@@ -192,7 +195,8 @@ Make sure all string values are in lowercase Turkish."""
         return {
             "product_category": None, "target_audience": "Genel", "gender": "Genel", "age_group": "Genel",
             "seasonality": "Genel", "material": None, "fit": None, "length": None, "collar": None, "sleeve": None,
-            "budget_segment": "Genel", "user_goal": "Genel", "occasion": "Genel", "style_keywords": [], "price_range": None
+            "budget_segment": "Genel", "user_goal": "Genel", "occasion": "Genel", "style_keywords": [], "price_range": None,
+            "dominant_color": None, "search_terms": []
         }
 
 
@@ -296,7 +300,7 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
             logger.warning(f"Intelligence context search hatası: {e}")
             # Fallback: direkt Tavily (eski davranış)
             try:
-                from .clients import tavily_client
+                from app.services.core.clients import tavily_client
                 if tavily_client:
                     search_result = tavily_client.search(
                         query=message, search_depth="advanced", max_results=5

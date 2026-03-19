@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.models import Product, DailyMetric
-from app.services.metrics_service import metrics
+from app.services.data.metrics_service import metrics
 
 logger = logging.getLogger(__name__)
 

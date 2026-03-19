@@ -8,7 +8,7 @@ import requests
 import secrets
 from urllib.parse import urlparse
 from typing import List, Dict, Any, Optional
-from .clients import openai_client
+from app.services.core.clients import openai_client
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)

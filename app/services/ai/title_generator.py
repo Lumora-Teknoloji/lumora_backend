@@ -3,7 +3,7 @@ AI Title Generator - Automatically generate conversation titles
 """
 import logging
 from typing import Optional
-from .clients import openai_client
+from app.services.core.clients import openai_client
 
 logger = logging.getLogger(__name__)
 

@@ -6,17 +6,19 @@ import logging
 import re
 import secrets
 from typing import List, Dict, Any
-from .clients import openai_client
-from .intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message, extract_production_parameters
+from app.services.core.clients import openai_client
+from app.services.ai.intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message, extract_production_parameters
 import json
-from .intelligence_formatter import get_intelligence_context, get_structured_intelligence_context
-from .research import (
+from app.services.intelligence.intelligence_formatter import get_intelligence_context, get_structured_intelligence_context, format_structured_report
+from app.services.intelligence.intelligence_client import intelligence_client
+from app.services.ai.semantic_matcher import semantic_match_and_rank
+from app.services.data.research import (
     generate_strategic_report,
     find_visual_match_for_model,
     extract_visual_search_terms
 )
-from .trends import get_google_trends, format_trends_for_report
-from .image_gen_service import (
+from app.services.data.trends import get_google_trends, format_trends_for_report
+from app.services.ai.image_gen_service import (
     generate_image_prompts,
     generate_ai_images,
     _remove_non_http_images,
@@ -103,14 +105,22 @@ async def generate_ai_response(
         
         logger.info(f"🏷️ Extracted Params: {json.dumps(params, ensure_ascii=False)}")
 
-        # 2. Intelligence servisinden yapılandırılmış veri çek
-        intel_context = await get_structured_intelligence_context(
-            category=category, top_n=20, params=params
-        )
+        # 2. Intelligence servisinden raw tahminleri çek ve Semantic Matcher ile filtrele/sırala
+        try:
+            predictions = await intelligence_client.predict(category=category, top_n=50)
+            matched_predictions, confidence = semantic_match_and_rank(predictions, params)
+        except Exception as e:
+            logger.warning(f"Intelligence predict veya semantic match hatası: {e}")
+            matched_predictions, confidence = [], 0.0
+
+        if confidence >= 20:
+            intel_context = format_structured_report(matched_predictions, category=category, params=params)
+        else:
+            intel_context = ""
 
         if not intel_context:
-            # Intelligence kapalı/boş — graceful fallback: MARKET_RESEARCH gibi davran
-            logger.warning("Intelligence veri döndürmedi, MARKET_RESEARCH'e fallback")
+            # İç veride eşleşme yok veya güven çok düşük (<20) — fallback: MARKET_RESEARCH (Tavily)
+            logger.warning(f"İç veri yetersiz (confidence={confidence:.1f}), MARKET_RESEARCH'e (Tavily) fallback")
             intent = "MARKET_RESEARCH"  # Aşağıdaki MARKET_RESEARCH bloğuna düşecek
             fallback_warning = True
         else:
@@ -183,9 +193,37 @@ KRİTİK KURALLAR:
                 logger.error(f"TREND_ANALYSIS GPT hatası: {e}")
                 content = f"## 📊 Trend Analizi\n\n{intel_context}\n\n*Detaylı yorum şu an oluşturulamadı.*"
 
+            # --- FAL.AI GÖRSEL ENTEGRASYONU (TREND_ANALYSIS İÇİN) ---
+            image_urls = []
+            user_needs_visuals = await loop.run_in_executor(None, check_visual_necessity, user_message)
+            
+            if bool(settings.fal_api_key) and user_needs_visuals and matched_predictions:
+                logger.info("TREND_ANALYSIS için Fal.ai görsel üretimi başlatıldı...")
+                from app.services.ai.image_gen_service import generate_ai_images
+                
+                prompt_items = []
+                for idx, p in enumerate(matched_predictions[:3], 1):
+                    name = p.get('name') or "Fashion trend item"
+                    color = p.get('dominant_color') or ""
+                    fabric = p.get('fabric_type') or ""
+                    desc = " ".join([c for c in [color, fabric, name] if c])
+                    base_prompt = f"Fashion product photography of {desc}"
+                    enhanced = enhance_follow_up_prompt(base_prompt)
+                    prompt_items.append({"model_name": name, "prompt": enhanced})
+                    
+                ai_generated = await loop.run_in_executor(None, generate_ai_images, prompt_items)
+                
+                if ai_generated:
+                    content += "\n\n### 🎨 AI Tasarım Yorumları (Fal.ai)\n"
+                    # Resimleri grid mantığına yaklaştırmak için esnek alan
+                    for item in ai_generated:
+                        if item.get("url"):
+                            content += f"\n**{item.get('model_name')}:**\n![{item.get('model_name')}]({item['url']})\n"
+                            image_urls.append(item["url"])
+
             return {
                 "content": content,
-                "image_urls": [],
+                "image_urls": image_urls,
                 "image_links": {},
                 "process_log": [f"Intelligence trend analizi tamamlandı (kategori={category or 'hepsi'})."]
             }
@@ -346,7 +384,7 @@ KRİTİK KURALLAR:
     async def _call_intelligence_research():
         import httpx
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(
                     f"{settings.intelligence_url}/research/comprehensive",
                     json={"topic": user_message, "category": extracted_category},
@@ -370,7 +408,7 @@ KRİTİK KURALLAR:
         runway_res = research_data.get("runway", {})
     else:
         # Fallback: Intelligence kapalıysa direkt Tavily (eski davranış)
-        from .research import analyze_runway_trends, deep_market_research
+        from app.services.data.research import analyze_runway_trends, deep_market_research
         f_m = loop.run_in_executor(None, deep_market_research, user_message)
         f_r = loop.run_in_executor(None, analyze_runway_trends, user_message)
         market_res, runway_res = await asyncio.gather(f_m, f_r)
