@@ -656,6 +656,11 @@ async def start_bot(bot_id: int, db: Session = Depends(get_db)):
             cmd_data["source_task_id"] = source_task_id
         json.dump(cmd_data, f)
     
+    # Force dosyası yaz — Scheduler zaman penceresini es geçsin
+    # Bu sayede gece bile olsa bot hemen başlar
+    force_file = scrapper_dir / f"bot_{bot_id}.force"
+    force_file.write_text("1")
+    
     return {"success": True, "message": f"Bot {task.task_name} başlatma komutu gönderildi"}
 
 
