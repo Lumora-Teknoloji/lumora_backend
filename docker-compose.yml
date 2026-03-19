@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD:-postgres123}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "${POSTGRESQL_PORT:-5432}:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -41,7 +41,7 @@ services:
       - lumora-network
     volumes:
       - .:/app
-      - ../Scrapper-main:/Scrapper
+      - ../Scrapper:/Scrapper
     command: python run_server.py
 
   admin-frontend:
@@ -54,6 +54,7 @@ services:
       - "3001:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://backend:8000/api
+      BACKEND_URL: http://backend:8000
     depends_on:
       - backend
     networks:
