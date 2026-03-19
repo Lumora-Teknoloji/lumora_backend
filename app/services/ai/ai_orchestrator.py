@@ -199,7 +199,6 @@ KRİTİK KURALLAR:
             
             if bool(settings.fal_api_key) and user_needs_visuals and matched_predictions:
                 logger.info("TREND_ANALYSIS için Fal.ai görsel üretimi başlatıldı...")
-                from app.services.ai.image_gen_service import generate_ai_images
                 
                 prompt_items = []
                 for idx, p in enumerate(matched_predictions[:3], 1):
