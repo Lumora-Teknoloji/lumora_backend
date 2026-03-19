@@ -85,6 +85,7 @@ Asla markdown (```json) kullanma, direkt { ile başla } ile bitir."""
                 
                 await session.commit()
                 logger.info(f"✅ Batch {i}-{i+len(batch)} tamamlandı. {updated_count} ürün veritabanında güncellendi.")
+                await asyncio.sleep(1) # Ritim sınırlamasını (Rate Limit) korumak için kısa mola
                 
             except Exception as e:
                 logger.error(f"❌ Batch {i} güncellenirken hata oluştu: {e}")
