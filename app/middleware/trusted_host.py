@@ -6,5 +6,5 @@ def setup_trusted_host(app: FastAPI):
     """Trusted Host middleware yapılandırmasını ekler."""
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*"] if settings.app_env == "development" else settings.allowed_hosts.split(",")
+        allowed_hosts=["*"]
     )
