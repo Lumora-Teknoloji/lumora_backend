@@ -56,10 +56,14 @@ from .routers.scraper import router as scraper_router
 from .routers.bot_commands import router as bot_commands_router
 from .routers.products import router as products_router
 from .routers.intelligence import router as intelligence_router
+from .routers.dashboard import router as dashboard_router
+from .routers.agents import router as agents_router
 app.include_router(scraper_router, prefix=api_prefix)
 app.include_router(bot_commands_router, prefix=api_prefix)
 app.include_router(products_router, prefix=api_prefix)
 app.include_router(intelligence_router, prefix=api_prefix)
+app.include_router(dashboard_router, prefix=api_prefix)
+app.include_router(agents_router, prefix=api_prefix)
 
 # Debug routes only in development
 if settings.app_env == "development":

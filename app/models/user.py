@@ -19,4 +19,7 @@ class User(Base):
     conversations = relationship(
         "Conversation", back_populates="user", cascade="all, delete-orphan"
     )
+    user_products = relationship(
+        "UserProduct", back_populates="user", cascade="all, delete-orphan"
+    )
 
