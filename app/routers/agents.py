@@ -224,8 +224,8 @@ def list_agents(db: Session = Depends(get_db)):
             "status": a.status if is_online else "offline",
             "current_task": a.current_task,
             "stats": a.stats or {},
-            "last_heartbeat": a.last_heartbeat.isoformat() if a.last_heartbeat else None,
-            "registered_at": a.registered_at.isoformat() if a.registered_at else None,
+            "last_heartbeat": a.last_heartbeat.isoformat() + "Z" if a.last_heartbeat else None,
+            "registered_at": getattr(a, 'registered_at', None).isoformat() + "Z" if getattr(a, 'registered_at', None) else None,
         })
     
     return result
