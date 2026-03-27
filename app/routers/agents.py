@@ -55,6 +55,8 @@ class LogBatchRequest(BaseModel):
     agent_id: int
     logs: list[LogEntry] = []
 
+class AgentRenameRequest(BaseModel):
+    name: str
 
 # ─── Register ─────────────────────────────────────────────────────────────────
 
@@ -202,6 +204,21 @@ def delete_agent(agent_id: int, db: Session = Depends(get_db)):
     }
 
 
+# ─── Rename Agent ─────────────────────────────────────────────────────────────
+
+@router.patch("/{agent_id}/name")
+def rename_agent(agent_id: int, req: AgentRenameRequest, db: Session = Depends(get_db)):
+    """Agent'ın görünen yüz (display) ismini günceller."""
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(404, "Agent bulunamadı")
+
+    agent.display_name = req.name
+    db.commit()
+    logger.info(f"✏️ Agent yeniden adlandırıldı: {agent.name} -> {agent.display_name} (ID: {agent.id})")
+    return {"status": "ok", "agent_id": agent.id, "display_name": agent.display_name}
+
+
 # ─── List Agents ──────────────────────────────────────────────────────────────
 
 @router.get("/list")
@@ -219,7 +236,8 @@ def list_agents(db: Session = Depends(get_db)):
         
         result.append({
             "id": a.id,
-            "name": a.name,
+            "name": a.display_name if a.display_name else a.name,
+            "hostname": a.name,
             "os": a.os_info,
             "status": a.status if is_online else "offline",
             "current_task": a.current_task,

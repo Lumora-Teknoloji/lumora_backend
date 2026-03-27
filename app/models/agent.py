@@ -12,6 +12,7 @@ class Agent(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    display_name = Column(String(100), nullable=True)  # UI için özel isim
     os_info = Column(String(100))
     arch = Column(String(50))
     python_version = Column(String(20))
