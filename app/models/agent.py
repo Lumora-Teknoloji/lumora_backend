@@ -1,5 +1,5 @@
 """Agent — Dağıtık scraper agent modeli"""
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
 
@@ -42,3 +42,19 @@ class AgentCommand(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     delivered_at = Column(DateTime)
     completed_at = Column(DateTime)
+
+
+class AgentLogEntry(Base):
+    """Agent'lardan gelen log kayıtları."""
+    __tablename__ = "agent_log_entries"
+    __table_args__ = (
+        Index("ix_agent_log_agent_ts", "agent_id", "timestamp"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, nullable=False, index=True)
+    level = Column(String(20))          # INFO, WARNING, ERROR, CRITICAL
+    logger_name = Column(String(100))   # logger adı (LumoraAgent, agent.heartbeat vb.)
+    message = Column(Text)              # log mesajı
+    timestamp = Column(DateTime)        # log zamanı (agent tarafındaki)
+    received_at = Column(DateTime, default=datetime.utcnow)

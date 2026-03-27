@@ -16,4 +16,4 @@ from .category_signal import CategoryDailySignal
 # User dashboard
 from .user_product import UserProduct
 # Distributed agents
-from .agent import Agent, AgentCommand
+from .agent import Agent, AgentCommand, AgentLogEntry

@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.agent import Agent, AgentCommand
+from app.models.agent import Agent, AgentCommand, AgentLogEntry
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -44,6 +44,16 @@ class HeartbeatRequest(BaseModel):
 class CommandRequest(BaseModel):
     command: str  # scrape, stop, sync, status
     params: dict = {}
+
+class LogEntry(BaseModel):
+    level: str = "INFO"
+    logger: str = ""
+    message: str = ""
+    timestamp: Optional[str] = None
+
+class LogBatchRequest(BaseModel):
+    agent_id: int
+    logs: list[LogEntry] = []
 
 
 # ─── Register ─────────────────────────────────────────────────────────────────
@@ -109,6 +119,22 @@ def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
     agent.is_active = True
     db.commit()
 
+    # 60 dakikadır sessiz kalan agent'ları sil
+    from datetime import timedelta
+    stale_cutoff = datetime.utcnow() - timedelta(minutes=60)
+    stale_agents = db.query(Agent).filter(
+        Agent.id != agent.id,
+        Agent.last_heartbeat < stale_cutoff,
+    ).all()
+    for stale in stale_agents:
+        # İlişkili komutları ve logları da temizle
+        db.query(AgentCommand).filter(AgentCommand.agent_id == stale.id).delete()
+        db.query(AgentLogEntry).filter(AgentLogEntry.agent_id == stale.id).delete()
+        db.delete(stale)
+        logger.info(f"🧹 Sessiz agent silindi: {stale.name} (ID: {stale.id}, son sinyal: {stale.last_heartbeat})")
+    if stale_agents:
+        db.commit()
+
     # Bekleyen komut var mı?
     pending_cmd = db.query(AgentCommand).filter(
         AgentCommand.agent_id == agent.id,
@@ -150,6 +176,30 @@ def send_command(agent_id: int, req: CommandRequest, db: Session = Depends(get_d
     db.refresh(cmd)
 
     return {"command_id": cmd.id, "status": "queued", "agent": agent.name}
+
+
+# ─── Delete Agent ─────────────────────────────────────────────────────────────
+
+@router.delete("/{agent_id}")
+def delete_agent(agent_id: int, db: Session = Depends(get_db)):
+    """Agent'ı ve tüm ilişkili verilerini kalıcı olarak siler."""
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(404, "Agent bulunamadı")
+
+    name = agent.name
+    # İlişkili komutları ve logları temizle
+    deleted_cmds = db.query(AgentCommand).filter(AgentCommand.agent_id == agent_id).delete()
+    deleted_logs = db.query(AgentLogEntry).filter(AgentLogEntry.agent_id == agent_id).delete()
+    db.delete(agent)
+    db.commit()
+
+    logger.info(f"🗑️ Agent silindi: {name} (ID: {agent_id}, {deleted_cmds} komut, {deleted_logs} log)")
+    return {
+        "status": "deleted",
+        "agent": name,
+        "cleaned": {"commands": deleted_cmds, "logs": deleted_logs},
+    }
 
 
 # ─── List Agents ──────────────────────────────────────────────────────────────
@@ -275,3 +325,104 @@ async def sync_data(
         raise HTTPException(500, f"Sync hatası: {str(e)}")
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# ─── Agent Logs ───────────────────────────────────────────────────────────────
+
+@router.post("/logs")
+def ingest_logs(req: LogBatchRequest, db: Session = Depends(get_db)):
+    """Agent'ın batch halinde log göndermesi."""
+    if not req.logs:
+        return {"status": "ok", "ingested": 0}
+
+    count = 0
+    for entry in req.logs:
+        ts = None
+        if entry.timestamp:
+            try:
+                ts = datetime.fromisoformat(entry.timestamp)
+            except (ValueError, TypeError):
+                ts = datetime.utcnow()
+        else:
+            ts = datetime.utcnow()
+
+        log_row = AgentLogEntry(
+            agent_id=req.agent_id,
+            level=entry.level.upper(),
+            logger_name=entry.logger or "",
+            message=entry.message,
+            timestamp=ts,
+        )
+        db.add(log_row)
+        count += 1
+
+    # TTL: 7 günden eski logları temizle
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    old = db.query(AgentLogEntry).filter(AgentLogEntry.timestamp < cutoff).delete()
+    if old:
+        logger.info(f"TTL temizliği: {old} eski log silindi")
+
+    db.commit()
+    logger.debug(f"Agent {req.agent_id} → {count} log kaydedildi")
+    return {"status": "ok", "ingested": count}
+
+
+@router.get("/{agent_id}/logs")
+def get_agent_logs(
+    agent_id: int,
+    limit: int = 50,
+    level: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Belirli bir agent'ın son loglarını döner."""
+    query = db.query(AgentLogEntry).filter(AgentLogEntry.agent_id == agent_id)
+    
+    if level and level.upper() != "ALL":
+        query = query.filter(AgentLogEntry.level == level.upper())
+    
+    logs = query.order_by(AgentLogEntry.timestamp.desc()).limit(limit).all()
+    
+    return [
+        {
+            "id": log.id,
+            "level": log.level,
+            "logger": log.logger_name,
+            "message": log.message,
+            "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+        }
+        for log in reversed(logs)  # Kronolojik sıra (eski → yeni)
+    ]
+
+
+@router.get("/logs/latest")
+def get_latest_logs(
+    limit: int = 50,
+    level: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Tüm agent'lardan son logları döner (genel bakış)."""
+    query = db.query(AgentLogEntry)
+    
+    if level and level.upper() != "ALL":
+        query = query.filter(AgentLogEntry.level == level.upper())
+    
+    logs = query.order_by(AgentLogEntry.timestamp.desc()).limit(limit).all()
+    
+    # Agent isimlerini çek
+    agent_ids = set(log.agent_id for log in logs)
+    agents = db.query(Agent).filter(Agent.id.in_(agent_ids)).all() if agent_ids else []
+    agent_map = {a.id: a.name for a in agents}
+    
+    return [
+        {
+            "id": log.id,
+            "agent_id": log.agent_id,
+            "agent_name": agent_map.get(log.agent_id, "?"),
+            "level": log.level,
+            "logger": log.logger_name,
+            "message": log.message,
+            "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+        }
+        for log in reversed(logs)
+    ]
