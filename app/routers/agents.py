@@ -372,6 +372,23 @@ async def sync_data(
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+@router.delete("/truncate_all")
+async def truncate_all(db: Session = Depends(get_db)):
+    """Tüm veritabanını temizler (Test amaçlı)."""
+    try:
+        from sqlalchemy import text
+        db.execute(text("TRUNCATE TABLE daily_metrics CASCADE;"))
+        db.execute(text("TRUNCATE TABLE products CASCADE;"))
+        db.execute(text("TRUNCATE TABLE agent_log_entries CASCADE;"))
+        db.execute(text("TRUNCATE TABLE scraping_queue CASCADE;"))
+        db.execute(text("TRUNCATE TABLE scraping_tasks CASCADE;"))
+        db.commit()
+        return {"status": "ok", "message": "Tüm veritabanı başarıyla sıfırlandı."}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Truncate hatası: {e}")
+        raise HTTPException(500, f"Veritabanı sıfırlama hatası: {str(e)}")
+
 # ─── Agent Logs ───────────────────────────────────────────────────────────────
 
 @router.post("/logs")
