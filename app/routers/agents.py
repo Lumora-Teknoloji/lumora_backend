@@ -283,10 +283,13 @@ async def sync_data(
                 if existing:
                     # Güncelle
                     for key in ["name", "brand", "seller", "category", "category_tag",
-                                "image_url", "last_price", "last_discount_rate"]:
-                        val = row_dict.get(key)
-                        if val:
-                            setattr(existing, key, val)
+                                "image_url", "last_price", "last_discount_rate",
+                                "attributes", "review_summary", "sizes"]:
+                        if key in row_dict and row_dict[key] is not None:
+                            # if it's empty string and it's image_url, don't override a good image_url with an empty one
+                            if key == "image_url" and row_dict[key] == "" and getattr(existing, "image_url", ""):
+                                continue
+                            setattr(existing, key, row_dict[key])
                     existing.last_scraped_at = datetime.utcnow()
                 else:
                     # Yeni ekle
@@ -301,6 +304,9 @@ async def sync_data(
                         category_tag=row_dict.get("category_tag", ""),
                         last_price=row_dict.get("last_price", 0),
                         last_discount_rate=row_dict.get("last_discount_rate", 0),
+                        attributes=row_dict.get("attributes"),
+                        sizes=row_dict.get("sizes"),
+                        review_summary=row_dict.get("review_summary"),
                     )
                     db.add(new_p)
                     merged["products"] += 1
@@ -311,10 +317,49 @@ async def sync_data(
         if "daily_metrics" in metadata.tables:
             metrics_table = metadata.tables["daily_metrics"]
             rows = sqlite_session.execute(select(metrics_table)).fetchall()
-            # TODO: product_id mapping (SQLite → PostgreSQL)
-            merged["metrics"] = len(rows)
-        
-        sqlite_session.close()
+            
+            for row in rows:
+                m_dict = row._asdict() if hasattr(row, '_asdict') else dict(row._mapping)
+                sqlite_product_id = m_dict.get("product_id")
+                
+                # SQLite URL'sini bul
+                if "products" in metadata.tables:
+                    products_table = metadata.tables["products"]
+                    sqlite_p = sqlite_session.execute(select(products_table).where(products_table.c.id == sqlite_product_id)).first()
+                    if not sqlite_p:
+                        continue
+                    p_dict = sqlite_p._asdict() if hasattr(sqlite_p, '_asdict') else dict(sqlite_p._mapping)
+                    url = p_dict.get("url")
+                    if not url:
+                        continue
+                    
+                    # PostgreSQL'deki product_id'yi bul
+                    pg_product = db.query(PgProduct).filter(PgProduct.url == url).first()
+                    if not pg_product:
+                        continue
+                    
+                    new_m = PgMetric(
+                        product_id=pg_product.id,
+                        price=m_dict.get("price", 0),
+                        discounted_price=m_dict.get("discounted_price", 0),
+                        discount_rate=m_dict.get("discount_rate", 0),
+                        avg_rating=m_dict.get("avg_rating", 0),
+                        rating_count=m_dict.get("rating_count", 0),
+                        favorite_count=m_dict.get("favorite_count", 0),
+                        cart_count=m_dict.get("cart_count", 0),
+                        view_count=m_dict.get("view_count", 0),
+                        qa_count=m_dict.get("qa_count", 0),
+                        stock_status=m_dict.get("stock_status", True),
+                        search_term=m_dict.get("search_term", ""),
+                        search_rank=m_dict.get("search_rank"),
+                        page_number=m_dict.get("page_number"),
+                        absolute_rank=m_dict.get("absolute_rank"),
+                        scrape_mode=m_dict.get("scrape_mode"),
+                    )
+                    db.add(new_m)
+                    merged["metrics"] += 1
+            
+            db.commit()
         sqlite_engine.dispose()
         
         logger.info(f"Agent {agent_id} sync tamamlandı: {merged}")
