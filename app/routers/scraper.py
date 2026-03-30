@@ -613,8 +613,9 @@ async def get_linker_bots(db: Session = Depends(get_db)):
 
 @router.post("/bots/{bot_id}/start")
 async def start_bot(bot_id: int, db: Session = Depends(get_db)):
-    """Botu başlatır - dosya tabanlı komut sistemi (Docker → Windows)."""
+    """Botu başlatır - hem dosya tabanlı (eski) hem agent command queue (yeni) sistemi."""
     from app.models.scraping_task import ScrapingTask
+    from app.models.agent import Agent, AgentCommand
     import json, os
     
     task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
@@ -625,41 +626,66 @@ async def start_bot(bot_id: int, db: Session = Depends(get_db)):
     task.is_active = True
     db.commit()
     
-    # Write command file for Windows launcher service
-    scrapper_dir = get_scrapper_dir()
-    commands_dir = scrapper_dir / "commands"
-    commands_dir.mkdir(parents=True, exist_ok=True)
-    
-    cmd_file = commands_dir / f"start_{bot_id}.json"
-    
     # Read mode from search_params (linker/worker/normal)
     bot_mode = "normal"
     if task.search_params and task.search_params.get("mode"):
         bot_mode = task.search_params["mode"]
+    
+    keyword = task.search_params.get("search_term", "") if task.search_params else ""
+    max_pages = task.search_params.get("page_limit", 50) if task.search_params else 50
     
     # Get source_task_id for worker bots
     source_task_id = None
     if task.search_params and task.search_params.get("source_task_id"):
         source_task_id = task.search_params["source_task_id"]
     
-    with open(cmd_file, "w") as f:
-        cmd_data = {
-            "type": "START",
-            "task_id": bot_id,
-            "target_url": task.target_url,
-            "task_name": task.task_name,
-            "max_pages": task.search_params.get("page_limit", 50) if task.search_params else 50,
-            "mode": bot_mode,
-            "force": True
-        }
-        if source_task_id:
-            cmd_data["source_task_id"] = source_task_id
-        json.dump(cmd_data, f)
-    
-    # Force dosyası yaz — Scheduler zaman penceresini es geçsin
-    # Bu sayede gece bile olsa bot hemen başlar
-    force_file = scrapper_dir / f"bot_{bot_id}.force"
-    force_file.write_text("1")
+    cmd_data = {
+        "type": "START",
+        "task_id": bot_id,
+        "target_url": task.target_url,
+        "task_name": task.task_name,
+        "max_pages": max_pages,
+        "mode": bot_mode,
+        "force": True
+    }
+    if source_task_id:
+        cmd_data["source_task_id"] = source_task_id
+
+    # ── YENİ: Agent Command Queue (agent.py heartbeat ile alır) ──────────
+    try:
+        active_agents = db.query(Agent).filter(
+            Agent.is_active == True,
+            Agent.status != "offline"
+        ).all()
+        for agent in active_agents:
+            agent_cmd = AgentCommand(
+                agent_id=agent.id,
+                command="scrape",
+                params={
+                    "keyword": keyword,
+                    "mode": bot_mode,
+                    "max_pages": max_pages,
+                    "task_id": bot_id,
+                }
+            )
+            db.add(agent_cmd)
+        db.commit()
+        logger.info(f"Agent command queue'ya eklendi: {len(active_agents)} agent")
+    except Exception as e:
+        logger.warning(f"Agent queue yazılamadı (eski sistem devreye girecek): {e}")
+
+    # ── ESKİ: Dosya tabanlı komut sistemi (geriye uyumluluk) ─────────────
+    try:
+        scrapper_dir = get_scrapper_dir()
+        commands_dir = scrapper_dir / "commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        cmd_file = commands_dir / f"start_{bot_id}.json"
+        with open(cmd_file, "w") as f:
+            json.dump(cmd_data, f)
+        force_file = scrapper_dir / f"bot_{bot_id}.force"
+        force_file.write_text("1")
+    except Exception as e:
+        logger.warning(f"Komut dosyası yazılamadı: {e}")
     
     return {"success": True, "message": f"Bot {task.task_name} başlatma komutu gönderildi"}
 
@@ -668,41 +694,84 @@ async def start_bot(bot_id: int, db: Session = Depends(get_db)):
 async def worker_start_bot(bot_id: int, db: Session = Depends(get_db)):
     """Botu sadece kuyruk eritme (worker) modunda başlatır."""
     from app.models.scraping_task import ScrapingTask
+    from app.models.agent import Agent, AgentCommand
     import json, os
     
     task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Bot bulunamadı")
     
-    # Write command file for Windows launcher service with type WORKER
-    scrapper_dir = get_scrapper_dir()
-    commands_dir = scrapper_dir / "commands"
-    commands_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Get source_task_id for worker bots
+    # Review botları için özel handling: WORKER → review_dom moduna çevir
+    bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+    is_review_bot = bot_mode == "review"
+
+    keyword = task.search_params.get("search_term", "") if task.search_params else ""
     source_task_id = None
     if task.search_params and task.search_params.get("source_task_id"):
         source_task_id = task.search_params["source_task_id"]
+
+    # ── YENİ: Agent Command Queue ─────────────────────────────────────────
+    try:
+        active_agents = db.query(Agent).filter(
+            Agent.is_active == True,
+            Agent.status != "offline"
+        ).all()
+        for agent in active_agents:
+            agent_cmd = AgentCommand(
+                agent_id=agent.id,
+                command="scrape",
+                params={
+                    "keyword": keyword,
+                    "mode": "review_dom" if is_review_bot else "worker",
+                    "max_pages": task.search_params.get("page_limit", 50) if task.search_params else 50,
+                    "task_id": bot_id,
+                }
+            )
+            db.add(agent_cmd)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Agent queue yazılamadı: {e}")
+
+    # ── ESKİ: Dosya tabanlı ───────────────────────────────────────────────
+    try:
+        scrapper_dir = get_scrapper_dir()
+        commands_dir = scrapper_dir / "commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        
+        if is_review_bot:
+            # Review bot → review_dom modunda START komutu gönder
+            cmd_file = commands_dir / f"start_{bot_id}.json"
+            with open(cmd_file, "w") as f:
+                json.dump({
+                    "type": "START",
+                    "task_id": bot_id,
+                    "target_url": "review://db-products",
+                    "task_name": task.task_name,
+                    "mode": "review_dom"
+                }, f)
+        else:
+            cmd_file = commands_dir / f"worker_{bot_id}.json"
+            with open(cmd_file, "w") as f:
+                json.dump({
+                    "type": "WORKER",
+                    "task_id": bot_id,
+                    "target_url": task.target_url,
+                    "task_name": task.task_name,
+                    "source_task_id": source_task_id or bot_id,
+                    "force": True
+                }, f)
+    except Exception as e:
+        logger.warning(f"Komut dosyası yazılamadı: {e}")
     
-    cmd_file = commands_dir / f"worker_{bot_id}.json"
-    with open(cmd_file, "w") as f:
-        cmd_data = {
-            "type": "WORKER",
-            "task_id": bot_id,
-            "target_url": task.target_url,
-            "task_name": task.task_name,
-            "source_task_id": source_task_id or bot_id,
-            "force": True
-        }
-        json.dump(cmd_data, f)
-    
-    return {"success": True, "message": f"Bot {task.task_name} kuyruk eritme (worker) komutu gönderildi"}
+    msg = f"Bot {task.task_name} {'DOM yorum kazıma' if is_review_bot else 'kuyruk eritme (worker)'} komutu gönderildi"
+    return {"success": True, "message": msg}
 
 
 @router.post("/bots/{bot_id}/stop")
 async def stop_bot(bot_id: int, db: Session = Depends(get_db)):
-    """Botu durdurur - dosya tabanlı komut sistemi (Docker → Windows)."""
+    """Botu durdurur - hem dosya tabanlı (eski) hem agent command queue (yeni)."""
     from app.models.scraping_task import ScrapingTask
+    from app.models.agent import Agent, AgentCommand
     import json, os
     
     task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
@@ -713,18 +782,34 @@ async def stop_bot(bot_id: int, db: Session = Depends(get_db)):
     task.is_active = False
     task.next_run_at = None
     db.commit()
-    
-    # Write command file for Windows launcher service
-    scrapper_dir = get_scrapper_dir()
-    commands_dir = scrapper_dir / "commands"
-    commands_dir.mkdir(parents=True, exist_ok=True)
-    
-    cmd_file = commands_dir / f"stop_{bot_id}.json"
-    with open(cmd_file, "w") as f:
-        json.dump({
-            "type": "STOP",
-            "task_id": bot_id
-        }, f)
+
+    # ── YENİ: Agent Command Queue ─────────────────────────────────────────
+    try:
+        active_agents = db.query(Agent).filter(
+            Agent.is_active == True,
+            Agent.status != "offline"
+        ).all()
+        for agent in active_agents:
+            agent_cmd = AgentCommand(
+                agent_id=agent.id,
+                command="stop",
+                params={"task_id": bot_id}
+            )
+            db.add(agent_cmd)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Agent stop queue yazılamadı: {e}")
+
+    # ── ESKİ: Dosya tabanlı ───────────────────────────────────────────────
+    try:
+        scrapper_dir = get_scrapper_dir()
+        commands_dir = scrapper_dir / "commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        cmd_file = commands_dir / f"stop_{bot_id}.json"
+        with open(cmd_file, "w") as f:
+            json.dump({"type": "STOP", "task_id": bot_id}, f)
+    except Exception as e:
+        logger.warning(f"Stop dosyası yazılamadı: {e}")
     
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
 
