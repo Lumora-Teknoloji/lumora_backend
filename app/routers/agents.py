@@ -278,9 +278,16 @@ async def sync_data(
         
         # Scrapper modellerini import et (farklı Base!)
         from sqlalchemy import MetaData, Table, select
+        from sqlalchemy.exc import DatabaseError, OperationalError
         metadata = MetaData()
-        metadata.reflect(bind=sqlite_engine)
         
+        try:
+            metadata.reflect(bind=sqlite_engine)
+        except (DatabaseError, OperationalError) as e:
+            logger.warning(f"Agent {agent_id} geçersiz/bozuk veritabanı gönderdi. Atlanıyor. Detay: {e}")
+            sqlite_engine.dispose()
+            raise HTTPException(400, "Yüklenen dosya geçerli bir SQLite veritabanı değil veya anlık olarak bozuk.")
+            
         merged = {"products": 0, "metrics": 0}
         
         # 3. Products tablosunu merge et
