@@ -264,8 +264,14 @@ async def sync_data(
     tmp_path = os.path.join(tmp_dir, "agent_upload.db")
     
     try:
+        content = await file.read()
+        
+        # Eğer uzantı .gz ise, GZIP ile sıkıştırılmış veriyi bellekte aç
+        if file.filename and file.filename.endswith(".gz"):
+            import gzip
+            content = gzip.decompress(content)
+            
         with open(tmp_path, "wb") as f:
-            content = await file.read()
             f.write(content)
         
         # 2. SQLite'ı aç ve verileri oku
