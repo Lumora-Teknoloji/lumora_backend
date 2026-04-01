@@ -113,8 +113,9 @@ def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(agent)
 
-    # Durumu güncelle
-    agent.status = req.status
+    # Durumu güncelle (idle → standby geriye uyumluluk)
+    normalized_status = "standby" if req.status == "idle" else req.status
+    agent.status = normalized_status
     agent.current_task = req.current_task
     agent.stats = req.stats
     agent.last_heartbeat = datetime.utcnow()
@@ -307,10 +308,15 @@ async def sync_data(
             for row in rows:
                 row_dict = row._asdict() if hasattr(row, '_asdict') else dict(row._mapping)
                 url = row_dict.get("url")
+                product_code = row_dict.get("product_code")
                 if not url:
                     continue
                 
+                # Önce URL ile, sonra product_code ile ara (UniqueViolation önleme)
                 existing = db.query(PgProduct).filter(PgProduct.url == url).first()
+                if not existing and product_code:
+                    existing = db.query(PgProduct).filter(PgProduct.product_code == str(product_code)).first()
+                
                 if existing:
                     # Güncelle
                     for key in ["name", "brand", "seller", "category", "category_tag",
@@ -321,11 +327,14 @@ async def sync_data(
                             if key == "image_url" and row_dict[key] == "" and getattr(existing, "image_url", ""):
                                 continue
                             setattr(existing, key, row_dict[key])
+                    # URL değişmişse güncelle
+                    if existing.url != url:
+                        existing.url = url
                     existing.last_scraped_at = datetime.utcnow()
                 else:
                     # Yeni ekle
                     new_p = PgProduct(
-                        product_code=row_dict.get("product_code"),
+                        product_code=product_code,
                         url=url,
                         name=row_dict.get("name", ""),
                         brand=row_dict.get("brand", ""),

@@ -664,7 +664,7 @@ async def start_bot(bot_id: int, db: Session = Depends(get_db)):
                 params={
                     "keyword": keyword,
                     "mode": bot_mode,
-                    "max_pages": max_pages,
+                    "page_limit": max_pages,
                     "task_id": bot_id,
                 }
             )
@@ -814,6 +814,42 @@ async def stop_bot(bot_id: int, db: Session = Depends(get_db)):
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
 
 
+@router.post("/bots/{bot_id}/cancel")
+async def cancel_bot(bot_id: int, db: Session = Depends(get_db)):
+    """Botu iptal eder — aktif kazımayı durdurur, yarım kalan veriyi sync eder."""
+    from app.models.scraping_task import ScrapingTask
+    from app.models.agent import Agent, AgentCommand
+    
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Bot bulunamadı")
+    
+    # DB'de deaktif et
+    task.is_active = False
+    task.next_run_at = None
+    db.commit()
+
+    # Agent Command Queue'ya cancel komutu ekle
+    try:
+        active_agents = db.query(Agent).filter(
+            Agent.is_active == True,
+            Agent.status != "offline"
+        ).all()
+        for agent in active_agents:
+            agent_cmd = AgentCommand(
+                agent_id=agent.id,
+                command="cancel",
+                params={"task_id": bot_id}
+            )
+            db.add(agent_cmd)
+        db.commit()
+        logger.info(f"Cancel komutu {len(active_agents)} agent'a gönderildi (bot: {bot_id})")
+    except Exception as e:
+        logger.warning(f"Agent cancel queue yazılamadı: {e}")
+
+    return {"success": True, "message": f"Bot {task.task_name} iptal edildi"}
+
+
 @router.post("/bots/{bot_id}/speed-mode")
 async def toggle_speed_mode(bot_id: int, minutes: int = 30, db: Session = Depends(get_db)):
     """Hız modunu aktif/deaktif eder. Max 30 dakika, sonra otomatik güvenli moda döner."""
@@ -924,6 +960,25 @@ async def delete_bot(bot_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Bot bulunamadı")
         
         task_name = task.task_name
+
+        # Agent'lara cancel komutu gönder (aktif kazıma varsa iptal etsin)
+        try:
+            from app.models.agent import Agent, AgentCommand
+            active_agents = db.query(Agent).filter(
+                Agent.is_active == True,
+                Agent.status != "offline"
+            ).all()
+            for agent in active_agents:
+                agent_cmd = AgentCommand(
+                    agent_id=agent.id,
+                    command="cancel",
+                    params={"task_id": bot_id}
+                )
+                db.add(agent_cmd)
+            if active_agents:
+                db.commit()
+        except Exception as e:
+            logger.warning(f"Delete sırasında agent cancel gönderilemedi: {e}")
         
         # 0. Çalışıyorsa ÖNCE durdur (orphan process önleme)
         scrapper_dir = get_scrapper_dir()

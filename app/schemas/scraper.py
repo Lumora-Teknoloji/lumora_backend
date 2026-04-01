@@ -58,7 +58,7 @@ class CreateTaskRequest(BaseModel):
     target_platform: str = "Trendyol"
     search_term: str = ""
     mode: str = "normal"  # linker, worker, normal
-    page_limit: int = 50  # max pages for linker
+    page_limit: int = 50  # Sayfa limiti (ürün sayısı DEĞİL, sayfa sayısı)
     source_task_id: Optional[int] = None  # worker: which linker bot's queue to use
     start_time: Optional[str] = "09:00"
     end_time: Optional[str] = "18:00"
