@@ -251,6 +251,23 @@ async def get_bots_status(db: Session = Depends(get_db)):
                     actual_status = "worker_running"
             except:
                 pass
+        else:
+            # PID file doesn't exist, check if an agent is running this task remotely/locally via Agent Queue
+            try:
+                from app.models.agent import Agent
+                active_agent = db.query(Agent).filter(
+                    Agent.is_active == True,
+                    Agent.status == "busy", # or Agent.current_task != None
+                    Agent.current_task.like(f"%{task.task_name}%")
+                ).first()
+                if active_agent:
+                    bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+                    if bot_mode == "worker" or (active_agent.current_task and "worker" in active_agent.current_task.lower()):
+                        actual_status = "worker_running"
+                    else:
+                        actual_status = "running"
+            except Exception as e:
+                logger.warning(f"Error checking agent status for task {task.id}: {e}")
         
         # Override with is_active flag from DB
         if task.is_active and actual_status == "stopped":
