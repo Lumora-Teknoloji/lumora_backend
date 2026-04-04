@@ -10,10 +10,11 @@ LangChain Backend — Intelligence Proxy Router
 """
 from typing import Optional, Literal
 import httpx
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
 
 from app.services.intelligence.intelligence_client import intelligence_client
+from app.middleware.rate_limit import limiter
 
 router = APIRouter(prefix="/intelligence", tags=["Intelligence"])
 
@@ -77,7 +78,8 @@ async def intelligence_predict(
 
 
 @router.post("/analyze", summary="Tekil ürün analizi")
-async def intelligence_analyze(request: AnalyzeRequest):
+@limiter.limit("20/minute")
+async def intelligence_analyze(request: Request, analyze_req: AnalyzeRequest = Depends()):
     """
     Tekil ürün için trend analizi.
     Ürün bulunamazsa 404, servis kapalıysa 503 döner.
@@ -122,7 +124,8 @@ async def intelligence_feedback(request: FeedbackRequest):
 
 
 @router.post("/trigger", summary="Manuel analiz tetikle")
-async def intelligence_trigger(request: TriggerRequest):
+@limiter.limit("5/minute")
+async def intelligence_trigger(request: Request, trigger_req: TriggerRequest = Depends()):
     """
     Intelligence servisinde manuel analiz tetikler.
     Servis kapalıysa 503 döner.
