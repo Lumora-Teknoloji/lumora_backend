@@ -25,6 +25,9 @@ class Agent(Base):
     last_heartbeat = Column(DateTime)
     registered_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
+    
+    # Schedule Configuration
+    schedule_config = Column(JSONB, default={"enabled": False, "time": "09:00", "keyword": "", "mode": "linker"})
 
 
 class AgentCommand(Base):

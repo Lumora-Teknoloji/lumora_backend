@@ -59,6 +59,12 @@ class LogBatchRequest(BaseModel):
 class AgentRenameRequest(BaseModel):
     name: str
 
+class AgentSchedulePatchRequest(BaseModel):
+    enabled: bool
+    time: str  # HH:MM
+    keyword: str
+    mode: str = "linker"
+
 # ─── Register ─────────────────────────────────────────────────────────────────
 
 @router.post("/register")
@@ -146,7 +152,7 @@ def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
         AgentCommand.status == "pending",
     ).order_by(AgentCommand.created_at.asc()).first()
 
-    response = {"ok": True, "agent_id": agent.id}
+    response = {"ok": True, "agent_id": agent.id, "schedule_config": agent.schedule_config}
 
     if pending_cmd:
         # Komutu teslim et
@@ -223,6 +229,26 @@ def rename_agent(agent_id: int, req: AgentRenameRequest, db: Session = Depends(g
     return {"status": "ok", "agent_id": agent.id, "display_name": agent.display_name}
 
 
+# ─── Agent Schedule ───────────────────────────────────────────────────────────
+
+@router.patch("/{agent_id}/schedule")
+def update_agent_schedule(agent_id: int, req: AgentSchedulePatchRequest, db: Session = Depends(get_db)):
+    """Agent'ın zamanlanmış görev konfigürasyonunu günceller."""
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(404, "Agent bulunamadı")
+
+    agent.schedule_config = {
+        "enabled": req.enabled,
+        "time": req.time,
+        "keyword": req.keyword,
+        "mode": req.mode
+    }
+    db.commit()
+    logger.info(f"⏱️ Agent zamanlayıcısı güncellendi: {agent.name} (ID: {agent.id}) -> {req.time} {req.enabled}")
+    return {"status": "ok", "agent_id": agent.id, "schedule_config": agent.schedule_config}
+
+
 # ─── List Agents ──────────────────────────────────────────────────────────────
 
 @router.get("/list")
@@ -246,6 +272,7 @@ def list_agents(db: Session = Depends(get_db)):
             "status": a.status if is_online else "offline",
             "current_task": a.current_task,
             "stats": a.stats or {},
+            "schedule_config": a.schedule_config or {"enabled": False, "time": "09:00", "keyword": "", "mode": "linker"},
             "last_heartbeat": a.last_heartbeat.isoformat() + "Z" if a.last_heartbeat else None,
             "registered_at": getattr(a, 'registered_at', None).isoformat() + "Z" if getattr(a, 'registered_at', None) else None,
         })
