@@ -5,7 +5,7 @@ Scraper API endpoint'leri.
 - Veri gönderimi
 - Durum sorgulama
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
@@ -32,6 +32,7 @@ from app.schemas.scraper import (
 )
 
 logger = logging.getLogger(__name__)
+from app.middleware.rate_limit import limiter
 
 router = APIRouter(prefix="/scraper", tags=["Scraper"])
 
@@ -80,8 +81,10 @@ def get_scrapper_dir() -> Path:
 # ==================== ENDPOINTS ====================
 
 @router.post("/ingest", response_model=IngestResponse)
+@limiter.limit("30/minute")
 async def ingest_scraped_products(
-    request: IngestRequest,
+    request: Request,
+    ingest_request: IngestRequest = Depends(),
     db: Session = Depends(get_db)
 ):
     """Scraper sonuçlarını toplu olarak veritabanına yazar."""
@@ -629,7 +632,8 @@ async def get_linker_bots(db: Session = Depends(get_db)):
     return linkers
 
 @router.post("/bots/{bot_id}/start")
-async def start_bot(bot_id: int, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+async def start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu başlatır - hem dosya tabanlı (eski) hem agent command queue (yeni) sistemi."""
     from app.models.scraping_task import ScrapingTask
     from app.models.agent import Agent, AgentCommand
@@ -708,7 +712,8 @@ async def start_bot(bot_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/bots/{bot_id}/worker")
-async def worker_start_bot(bot_id: int, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu sadece kuyruk eritme (worker) modunda başlatır."""
     from app.models.scraping_task import ScrapingTask
     from app.models.agent import Agent, AgentCommand
@@ -785,7 +790,8 @@ async def worker_start_bot(bot_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/bots/{bot_id}/stop")
-async def stop_bot(bot_id: int, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu durdurur - hem dosya tabanlı (eski) hem agent command queue (yeni)."""
     from app.models.scraping_task import ScrapingTask
     from app.models.agent import Agent, AgentCommand

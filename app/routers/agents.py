@@ -13,12 +13,13 @@ import tempfile
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.agent import Agent, AgentCommand, AgentLogEntry
+from app.middleware.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -61,7 +62,8 @@ class AgentRenameRequest(BaseModel):
 # ─── Register ─────────────────────────────────────────────────────────────────
 
 @router.post("/register")
-def register_agent(req: AgentRegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def register_agent(request: Request, req: AgentRegisterRequest, db: Session = Depends(get_db)):
     """Agent kaydı — ilk çalıştırmada çağrılır."""
     # Aynı isimde agent varsa güncelle
     agent = db.query(Agent).filter(Agent.name == req.name).first()
@@ -163,7 +165,8 @@ def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
 # ─── Command ──────────────────────────────────────────────────────────────────
 
 @router.post("/{agent_id}/command")
-def send_command(agent_id: int, req: CommandRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def send_command(request: Request, agent_id: int, req: CommandRequest, db: Session = Depends(get_db)):
     """Agent'a komut gönder (kuyruğa ekler, sonraki heartbeat'te teslim edilir)."""
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:
@@ -253,7 +256,9 @@ def list_agents(db: Session = Depends(get_db)):
 # ─── Data Sync ────────────────────────────────────────────────────────────────
 
 @router.post("/sync")
+@limiter.limit("5/minute")
 async def sync_data(
+    request: Request,
     file: UploadFile = File(...),
     agent_id: str = Form("unknown"),
     db: Session = Depends(get_db),
