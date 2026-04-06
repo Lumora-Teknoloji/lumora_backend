@@ -6,6 +6,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    # CSP is handled by the frontend (next.config.ts) — not set here to avoid
+    # blocking cross-origin API calls from the chatbot frontend.
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response

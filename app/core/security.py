@@ -45,9 +45,9 @@ def set_auth_cookie(response, token: str):
     response.set_cookie(
         key="access_token",
         value=token,
-        httponly=True,  # Prevents JavaScript access (XSS protection)
-        secure=False,  # Set to True in production with HTTPS
-        samesite="lax",  # CSRF protection
+        httponly=True,       # Prevents JavaScript access (XSS protection)
+        secure=settings.app_env != "development",  # True in production (HTTPS)
+        samesite="lax",      # CSRF protection (same-origin via Nginx reverse proxy)
         max_age=settings.access_token_expire_minutes * 60,
         path="/"
     )
