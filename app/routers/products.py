@@ -3,7 +3,7 @@
 Products API — Scraper verileriyle dış erişim.
 Filtreleme, sıralama, pagination destekli.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc, func
 from typing import Optional, List
@@ -14,8 +14,12 @@ from app.core.database import get_db
 from app.models.product import Product
 from app.models.daily_metric import DailyMetric
 from app.models.scraping_task import ScrapingTask
+from app.models.user_product import UserProduct
+from app.api.deps import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/products", tags=["Products"])
+
 
 # Staleness trigger cooldown — en fazla saatte 1 Intelligence tetikle
 _last_staleness_trigger = None
@@ -288,6 +292,125 @@ async def get_data_quality(db: Session = Depends(get_db)):
     )
 
 
+# ==================== PRODUCTION LIST ====================
+
+class ProductionListOut(BaseModel):
+    """Kullanıcının üretim listesindeki bir kayıt."""
+    list_id: int
+    product_id: int
+    added_at: Optional[datetime] = None
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    category: Optional[str] = None
+    image_url: Optional[str] = None
+    last_price: Optional[float] = None
+    trend_direction: Optional[str] = None
+    trend_score: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/production-list", response_model=List[ProductionListOut])
+def get_production_list(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Kullanıcının üretim listesini döner."""
+    rows = (
+        db.query(UserProduct)
+        .filter(UserProduct.user_id == current_user.id, UserProduct.product_id != None)
+        .order_by(desc(UserProduct.created_at))
+        .all()
+    )
+    result = []
+    for row in rows:
+        p = db.get(Product, row.product_id)
+        if not p:
+            continue
+        result.append(ProductionListOut(
+            list_id=row.id,
+            product_id=p.id,
+            added_at=row.created_at,
+            name=p.name,
+            brand=p.brand,
+            category=p.category,
+            image_url=p.image_url,
+            last_price=p.last_price,
+            trend_direction=p.trend_direction,
+            trend_score=p.trend_score,
+        ))
+    return result
+
+
+class AddToProductionListRequest(BaseModel):
+    product_id: int
+
+
+@router.post("/production-list", response_model=ProductionListOut, status_code=status.HTTP_201_CREATED)
+def add_to_production_list(
+    body: AddToProductionListRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Veritabanındaki bir ürünü kullanıcının üretim listesine ekler."""
+    p = db.get(Product, body.product_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
+
+    existing = db.query(UserProduct).filter(
+        UserProduct.user_id == current_user.id,
+        UserProduct.product_id == body.product_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Bu ürün zaten listenizde")
+
+    entry = UserProduct(
+        user_id=current_user.id,
+        product_id=p.id,
+        name=p.name or "İsimsiz",
+        category=p.category,
+        brand=p.brand,
+        price=p.last_price,
+        image_url=p.image_url,
+        is_watching=True,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+
+    return ProductionListOut(
+        list_id=entry.id,
+        product_id=p.id,
+        added_at=entry.created_at,
+        name=p.name,
+        brand=p.brand,
+        category=p.category,
+        image_url=p.image_url,
+        last_price=p.last_price,
+        trend_direction=p.trend_direction,
+        trend_score=p.trend_score,
+    )
+
+
+@router.delete("/production-list/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_from_production_list(
+    list_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Üretim listesinden bir kaydı siler."""
+    entry = db.query(UserProduct).filter(
+        UserProduct.id == list_id,
+        UserProduct.user_id == current_user.id,
+    ).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Kayıt bulunamadı")
+    db.delete(entry)
+    db.commit()
+    return
+
+
 @router.get("/{product_id}", response_model=ProductOut)
 async def get_product(product_id: int, db: Session = Depends(get_db)):
     """Tek ürün detayı."""
@@ -384,6 +507,5 @@ async def get_report_summary(
         "unique_sellers": result[8],
         "top_brands": [{"brand": r[0], "count": r[1]} for r in top_brands],
     }
-
 
 
