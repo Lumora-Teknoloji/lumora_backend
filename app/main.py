@@ -65,6 +65,10 @@ app.include_router(intelligence_router, prefix=api_prefix)
 app.include_router(dashboard_router, prefix=api_prefix)
 app.include_router(agents_router, prefix=api_prefix)
 
+# Redis Queue Router (yeni stateless bot mimarisi)
+from .routers.redis_queue import router as redis_queue_router
+app.include_router(redis_queue_router, prefix=f"{api_prefix}/redis")
+
 # Debug routes only in development
 if settings.app_env == "development":
     for route in app.routes:

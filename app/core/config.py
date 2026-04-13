@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     scraper_min_delay: float = 2.0  # Min seconds between requests
     scraper_max_delay: float = 5.0  # Max seconds between requests
 
+    # Redis (yeni bot mimarisi için)
+    redis_url: str = "redis://localhost:6379"
+
+    # Agent Secret (scrapper ↔ backend kimlik doğrulama)
+    agent_secret: str = ""
+
     # Lumora Intelligence Mikro Servis
     intelligence_url: str = "http://localhost:8001"
     intelligence_internal_key: str = "lumora-internal-dev-key"
