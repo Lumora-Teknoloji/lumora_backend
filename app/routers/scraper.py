@@ -84,25 +84,25 @@ def get_scrapper_dir() -> Path:
 @limiter.limit("30/minute")
 async def ingest_scraped_products(
     request: Request,
-    ingest_request: IngestRequest = Depends(),
+    ingest_request: IngestRequest,
     db: Session = Depends(get_db)
 ):
     """Scraper sonuçlarını toplu olarak veritabanına yazar."""
-    if not request.products:
+    if not ingest_request.products:
         raise HTTPException(status_code=400, detail="Ürün listesi boş olamaz")
     
     service = TrendyolScraperService(db)
     
     try:
-        products_data = [p.model_dump() for p in request.products]
-        stats = service.process_scraped_batch(products_data, request.task_id)
+        products_data = [p.model_dump() for p in ingest_request.products]
+        stats = service.process_scraped_batch(products_data, ingest_request.task_id)
         
         return IngestResponse(
             success=True,
             inserted=stats["inserted"],
             updated=stats["updated"],
             errors=stats["errors"],
-            message=f"Toplam {len(request.products)} ürün işlendi."
+            message=f"Toplam {len(ingest_request.products)} ürün işlendi."
         )
     except Exception as e:
         db.rollback()
@@ -223,9 +223,42 @@ async def list_active_tasks(db: Session = Depends(get_db)):
 
 @router.get("/bots/status")
 async def get_bots_status(db: Session = Depends(get_db)):
-    """Tüm botların durumunu listeler (frontend için)."""
+    \"\"\"Tüm botların durumunu listeler (frontend için).\"\"\"
     tasks = db.query(ScrapingTask).all()
+    task_ids = [t.id for t in tasks]
     
+    # ── BULK AGGREGATIONS TO PREVENT N+1 ──
+    queue_counts = {}; pending_counts = {}; linker_speeds = {}; product_speeds = {}
+    log_sums = {}; product_counts = {}; active_agent_tasks = []
+    
+    if task_ids:
+        tid_tuple = tuple(task_ids)
+        # 1. Queue sums
+        for r in db.execute(text("SELECT task_id, status, COUNT(*) FROM scraping_queue WHERE task_id IN :tids GROUP BY task_id, status"), {"tids": tid_tuple}).fetchall():
+            queue_counts[r[0]] = queue_counts.get(r[0], 0) + r[2]
+            if r[1] == 'pending': pending_counts[r[0]] = r[2]
+            
+        from datetime import timedelta, timezone
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+        
+        # 2. Speeds
+        for r in db.execute(text("SELECT task_id, COUNT(*) FROM scraping_queue WHERE task_id IN :tids AND created_at >= :since GROUP BY task_id"), {"tids": tid_tuple, "since": one_hour_ago}).fetchall():
+            linker_speeds[r[0]] = r[1]
+        for r in db.execute(text("SELECT task_id, COUNT(id) FROM products WHERE task_id IN :tids AND last_scraped_at >= :since GROUP BY task_id"), {"tids": tid_tuple, "since": one_hour_ago}).fetchall():
+            product_speeds[r[0]] = r[1]
+            
+        # 3. Log sums
+        for r in db.execute(text("SELECT task_id, COALESCE(SUM(COALESCE(products_added, 0) + COALESCE(products_updated, 0)), 0), COALESCE(SUM(ip_rotations), 0) FROM scraping_logs WHERE task_id IN :tids GROUP BY task_id"), {"tids": tid_tuple}).fetchall():
+            log_sums[r[0]] = {"scraped": r[1] or 0, "ips": r[2] or 0}
+            
+        # 4. Product baseline
+        for r in db.execute(text("SELECT task_id, COUNT(id) FROM products WHERE task_id IN :tids GROUP BY task_id"), {"tids": tid_tuple}).fetchall():
+            product_counts[r[0]] = r[1]
+            
+        # 5. Pre-fetch agents
+        from app.models.agent import Agent
+        active_agent_tasks = [a.current_task.lower() for a in db.query(Agent).filter(Agent.is_active == True, Agent.status.in_(["busy", "scraping", "active"])).all() if a.current_task]
+
     bots = []
     for task in tasks:
         # Get latest log for this task
@@ -245,136 +278,76 @@ async def get_bots_status(db: Session = Depends(get_db)):
             try:
                 with open(pid_file, "r") as f:
                     pid = int(f.read().strip())
-                # PID dosyası varsa running kabul et (Windows service yönetiyor)
-                actual_status = "running"
+                    
+                import os
+                is_running = False
+                try:
+                    os.kill(pid, 0)
+                    is_running = True
+                except OSError:
+                    pass
+                except AttributeError:
+                    # Windows'ta os.kill(pid, 0) çalışmazsa psutil ile fallback
+                    import psutil
+                    is_running = psutil.pid_exists(pid)
                 
-                # Check for worker marker
-                worker_marker = scrapper_dir / f"bot_{task.id}.worker"
-                if worker_marker.exists():
-                    actual_status = "worker_running"
-            except:
+                if is_running:
+                    actual_status = "running"
+                    worker_marker = scrapper_dir / f"bot_{task.id}.worker"
+                    if worker_marker.exists():
+                        actual_status = "worker_running"
+                else:
+                    # PID dosyası var ama process yok — sessizce kapanmış (Sessiz kill)
+                    pid_file.unlink(missing_ok=True)
+                    actual_status = "stopped"
+            except Exception as e:
+                # Dosya okunamadıysa veya silinemiyorsa
                 pass
         else:
             # PID file doesn't exist, check if an agent is running this task remotely/locally via Agent Queue
-            try:
-                from app.models.agent import Agent
-                active_agent = db.query(Agent).filter(
-                    Agent.is_active == True,
-                    Agent.status == "busy", # or Agent.current_task != None
-                    Agent.current_task.like(f"%{task.task_name}%")
-                ).first()
-                if active_agent:
-                    bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
-                    if bot_mode == "worker" or (active_agent.current_task and "worker" in active_agent.current_task.lower()):
-                        actual_status = "worker_running"
-                    else:
-                        actual_status = "running"
-            except Exception as e:
-                logger.warning(f"Error checking agent status for task {task.id}: {e}")
+            if any(task.task_name and task.task_name.lower() in agent_task for agent_task in active_agent_tasks):
+                bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+                if bot_mode == "worker":
+                    actual_status = "worker_running"
+                else:
+                    actual_status = "running"
         
         # Override with is_active flag from DB
         if task.is_active and actual_status == "stopped":
             actual_status = "idle"  # Aktif ama henüz çalışmıyor
         
-        # Count products scraped — bot'un o anki oturumunda işlediği ürün sayısı
-        try:
-            from app.models.product import Product
-            bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
-            
-            if bot_mode == "linker":
-                # Linker bot: count total queue items (links found) instead of products
-                total_queue = db.execute(
-                    text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid"),
-                    {"tid": task.id}
-                ).scalar() or 0
-                scraped_count = total_queue
-            else:
-                # Worker/Normal: TÜM oturumların toplam (added + updated) sayısı
-                # Bot durdurup başlatınca sıfırlanmaz
-                result = db.execute(
-                    text("""
-                        SELECT COALESCE(SUM(COALESCE(products_added, 0) + COALESCE(products_updated, 0)), 0)
-                        FROM scraping_logs WHERE task_id = :tid
-                    """),
-                    {"tid": task.id}
-                ).scalar()
-                scraped_count = result or 0
-                
-                if scraped_count == 0:
-                    # Hiç log yoksa ürün sayısından göster (fallback)
-                    scraped_count = db.query(func.count(Product.id)).filter(Product.task_id == task.id).scalar() or 0
-        except Exception as e:
-            logger.warning(f"Scraped count error for task {task.id}: {e}")
-            scraped_count = 0
-        
-        # Count errors — aktif oturumdaki hatalar (tüm oturumların toplamı değil)
-        error_count = 0
-        try:
-            # Önce aktif (running) log'a bak
-            err_log = db.query(ScrapingLog).filter(
-                ScrapingLog.task_id == task.id,
-                ScrapingLog.status == "running"
-            ).order_by(desc(ScrapingLog.started_at)).first()
-            
-            if not err_log:
-                # Aktif log yoksa en son log'u al
-                err_log = db.query(ScrapingLog).filter(
-                    ScrapingLog.task_id == task.id
-                ).order_by(desc(ScrapingLog.started_at)).first()
-            
-            if err_log:
-                error_count = err_log.errors or 0
-        except:
-            pass
-            
-        # Calculate Speed (Items per minute in the last hour)
-        try:
-            from datetime import timedelta, timezone
-            now_aware = datetime.now(timezone.utc)
-            one_hour_ago = now_aware - timedelta(hours=1)
-            
-            if bot_mode == "linker":
-                # Linker: count recently added queue items
-                try:
-                    recent_count = db.execute(
-                        text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid AND created_at >= :since"),
-                        {"tid": task.id, "since": one_hour_ago}
-                    ).scalar() or 0
-                except:
-                    db.rollback()
-                    recent_count = 0
-            else:
-                recent_count_query = db.query(func.count(Product.id)).filter(
-                    Product.task_id == task.id,
-                    Product.last_scraped_at >= one_hour_ago
-                )
-                recent_count = recent_count_query.scalar() or 0
-            # Speed = Items / 60 mins (average over last hour)
-            speed = round(recent_count / 60, 1) if recent_count > 0 else 0
-        except Exception as e:
-            logger.warning(f"Speed calc error for task {task.id}: {e}")
-            speed = 0
-        
-        # Count pending links in queue
-        # For worker bots, show SOURCE linker's queue count
-        queue_task_id = task.id
+        # Count products scraped
         bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+        if bot_mode == "linker":
+            scraped_count = queue_counts.get(task.id, 0)
+        else:
+            scraped_count = log_sums.get(task.id, {}).get("scraped", 0)
+            if scraped_count == 0:
+                scraped_count = product_counts.get(task.id, 0)
+        
+        # Count errors — aktif oturumdaki hatalar
+        error_count = 0
+        err_log = db.query(ScrapingLog).filter(ScrapingLog.task_id == task.id, ScrapingLog.status == "running").order_by(desc(ScrapingLog.started_at)).first()
+        if not err_log:
+            err_log = db.query(ScrapingLog).filter(ScrapingLog.task_id == task.id).order_by(desc(ScrapingLog.started_at)).first()
+        if err_log: 
+            error_count = err_log.errors or 0
+            
+        # Calculate Speed (Items per min)
+        if bot_mode == "linker":
+            recent_count = linker_speeds.get(task.id, 0)
+        else:
+            recent_count = product_speeds.get(task.id, 0)
+        speed = round(recent_count / 60, 1) if recent_count > 0 else 0
+        
+        # Count pending links
+        queue_task_id = task.id
         if bot_mode == "worker" and task.search_params and task.search_params.get("source_task_id"):
             queue_task_id = task.search_params["source_task_id"]
-        try:
-            pending_count = db.execute(
-                text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid AND status = 'pending'"),
-                {"tid": queue_task_id}
-            ).scalar() or 0
-        except:
-            pending_count = 0
-            speed = 0
-
-        # IP Change (Sum from all logs for this task)
-        try:
-            ip_change_count = db.query(func.sum(ScrapingLog.ip_rotations)).filter(ScrapingLog.task_id == task.id).scalar() or 0
-        except:
-            ip_change_count = 0
+        pending_count = pending_counts.get(queue_task_id, 0)
+        
+        # IP Change
+        ip_change_count = log_sums.get(task.id, {}).get("ips", 0)
         
         # Get last scraped product for this bot
         last_product = db.query(Product).filter(Product.task_id == task.id).order_by(desc(Product.last_scraped_at)).first()
@@ -695,19 +668,6 @@ async def start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)
     except Exception as e:
         logger.warning(f"Agent queue yazılamadı (eski sistem devreye girecek): {e}")
 
-    # ── ESKİ: Dosya tabanlı komut sistemi (geriye uyumluluk) ─────────────
-    try:
-        scrapper_dir = get_scrapper_dir()
-        commands_dir = scrapper_dir / "commands"
-        commands_dir.mkdir(parents=True, exist_ok=True)
-        cmd_file = commands_dir / f"start_{bot_id}.json"
-        with open(cmd_file, "w") as f:
-            json.dump(cmd_data, f)
-        force_file = scrapper_dir / f"bot_{bot_id}.force"
-        force_file.write_text("1")
-    except Exception as e:
-        logger.warning(f"Komut dosyası yazılamadı: {e}")
-    
     return {"success": True, "message": f"Bot {task.task_name} başlatma komutu gönderildi"}
 
 
@@ -754,37 +714,6 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
     except Exception as e:
         logger.warning(f"Agent queue yazılamadı: {e}")
 
-    # ── ESKİ: Dosya tabanlı ───────────────────────────────────────────────
-    try:
-        scrapper_dir = get_scrapper_dir()
-        commands_dir = scrapper_dir / "commands"
-        commands_dir.mkdir(parents=True, exist_ok=True)
-        
-        if is_review_bot:
-            # Review bot → review_dom modunda START komutu gönder
-            cmd_file = commands_dir / f"start_{bot_id}.json"
-            with open(cmd_file, "w") as f:
-                json.dump({
-                    "type": "START",
-                    "task_id": bot_id,
-                    "target_url": "review://db-products",
-                    "task_name": task.task_name,
-                    "mode": "review_dom"
-                }, f)
-        else:
-            cmd_file = commands_dir / f"worker_{bot_id}.json"
-            with open(cmd_file, "w") as f:
-                json.dump({
-                    "type": "WORKER",
-                    "task_id": bot_id,
-                    "target_url": task.target_url,
-                    "task_name": task.task_name,
-                    "source_task_id": source_task_id or bot_id,
-                    "force": True
-                }, f)
-    except Exception as e:
-        logger.warning(f"Komut dosyası yazılamadı: {e}")
-    
     msg = f"Bot {task.task_name} {'DOM yorum kazıma' if is_review_bot else 'kuyruk eritme (worker)'} komutu gönderildi"
     return {"success": True, "message": msg}
 

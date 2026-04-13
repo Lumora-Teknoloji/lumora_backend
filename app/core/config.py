@@ -1,5 +1,6 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import model_validator
 
 
 class Settings(BaseSettings):
@@ -52,7 +53,20 @@ class Settings(BaseSettings):
     scraper_max_delay: float = 5.0  # Max seconds between requests
 
     # Redis (yeni bot mimarisi için)
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str | None = None
+
+    @model_validator(mode='after')
+    def check_production_vars(self) -> 'Settings':
+        if self.app_env == "production":
+            if self.redis_url is None:
+                raise ValueError("REDIS_URL prod ortamında boş bırakılamaz! .env dosyasında belirtiniz.")
+            if not self.agent_secret:
+                raise ValueError("AGENT_SECRET prod ortamında zorunludur! .env dosyasında belirtiniz.")
+        
+        if self.redis_url is None:
+            self.redis_url = "redis://localhost:6379"
+            
+        return self
 
     # Agent Secret (scrapper ↔ backend kimlik doğrulama)
     agent_secret: str = ""

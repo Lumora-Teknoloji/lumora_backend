@@ -20,6 +20,18 @@ services:
     networks:
       - lumora-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: lumora-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - lumora-network
+
   backend:
     build:
       context: .
@@ -77,6 +89,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
     driver: local
 
 networks:

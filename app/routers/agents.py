@@ -130,21 +130,29 @@ def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
     agent.is_active = True
     db.commit()
 
-    # 60 dakikadır sessiz kalan agent'ları sil
-    from datetime import timedelta
-    stale_cutoff = datetime.utcnow() - timedelta(minutes=60)
-    stale_agents = db.query(Agent).filter(
-        Agent.id != agent.id,
-        Agent.last_heartbeat < stale_cutoff,
-    ).all()
-    for stale in stale_agents:
-        # İlişkili komutları ve logları da temizle
-        db.query(AgentCommand).filter(AgentCommand.agent_id == stale.id).delete()
-        db.query(AgentLogEntry).filter(AgentLogEntry.agent_id == stale.id).delete()
-        db.delete(stale)
-        logger.info(f"🧹 Sessiz agent silindi: {stale.name} (ID: {stale.id}, son sinyal: {stale.last_heartbeat})")
-    if stale_agents:
-        db.commit()
+    # 24 saattir sessiz kalan agent'ları temizle
+    # Veritabanını her heartbeat'te yormamak için sadece %5 ihtimalle çalışır
+    import random
+    if random.random() < 0.05:
+        from datetime import timedelta
+        stale_cutoff = datetime.utcnow() - timedelta(hours=24)
+        
+        # Sadece 24 saatten eski ve biz olmayan agent'ların ID'lerini al
+        stale_agents = db.query(Agent.id).filter(
+            Agent.id != agent.id,
+            Agent.last_heartbeat < stale_cutoff,
+        ).all()
+        
+        if stale_agents:
+            stale_ids = [stale.id for stale in stale_agents]
+            
+            # İlişkili verileri bulk olarak sil
+            db.query(AgentCommand).filter(AgentCommand.agent_id.in_(stale_ids)).delete(synchronize_session=False)
+            db.query(AgentLogEntry).filter(AgentLogEntry.agent_id.in_(stale_ids)).delete(synchronize_session=False)
+            db.query(Agent).filter(Agent.id.in_(stale_ids)).delete(synchronize_session=False)
+            db.commit()
+            
+            logger.info(f"🧹 {len(stale_ids)} adet sessiz (24 saat+) agent ve ilişkili verileri topluca silindi.")
 
     # Bekleyen komut var mı?
     pending_cmd = db.query(AgentCommand).filter(
@@ -327,7 +335,7 @@ async def sync_data(
             sqlite_engine.dispose()
             raise HTTPException(400, "Yüklenen dosya geçerli bir SQLite veritabanı değil veya anlık olarak bozuk.")
             
-        merged = {"products": 0, "metrics": 0}
+        merged = {"products_added": 0, "products_updated": 0, "metrics": 0}
         
         # 3. Products tablosunu merge et
         if "products" in metadata.tables:
@@ -363,6 +371,7 @@ async def sync_data(
                     if existing.url != url:
                         existing.url = url
                     existing.last_scraped_at = datetime.utcnow()
+                    merged["products_updated"] += 1
                 else:
                     # Yeni ekle
                     new_p = PgProduct(
@@ -381,7 +390,7 @@ async def sync_data(
                         review_summary=row_dict.get("review_summary"),
                     )
                     db.add(new_p)
-                    merged["products"] += 1
+                    merged["products_added"] += 1
             
             db.commit()
         

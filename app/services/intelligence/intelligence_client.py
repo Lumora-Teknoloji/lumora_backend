@@ -53,6 +53,17 @@ class IntelligenceClient:
             raise RuntimeError("IntelligenceClient henüz başlatılmadı (startup() çağrılmadı)")
         return self._client
 
+    def _handle_response(self, resp: httpx.Response):
+        """HTTP hatalarını loglar ve exception fırlatır."""
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Intelligence Service HTTP Error: {e.response.status_code} - {e.request.url}")
+            raise
+        except Exception as e:
+            logger.error(f"Intelligence Service Unexpected Error: {type(e).__name__}")
+            raise
+
     # ──────────────────────────────────────────────────────────────────────────
     # API Metodları
     # ──────────────────────────────────────────────────────────────────────────
@@ -81,7 +92,7 @@ class IntelligenceClient:
             params["category"] = category
 
         resp = await self._client_or_raise().get("/predict", params=params)
-        resp.raise_for_status()
+        self._handle_response(resp)
         return resp.json().get("results", [])
 
     async def analyze(self, product_id: int) -> AnalysisResult:
@@ -94,7 +105,7 @@ class IntelligenceClient:
         )
         if resp.status_code == 404:
             return {"error": f"product_id={product_id} bulunamadı"}
-        resp.raise_for_status()
+        self._handle_response(resp)
         return resp.json()
 
     async def feedback(
@@ -115,7 +126,7 @@ class IntelligenceClient:
                 "predicted_quantity": predicted_quantity,
             },
         )
-        resp.raise_for_status()
+        self._handle_response(resp)
         return resp.json()
 
     async def trigger(
@@ -133,7 +144,7 @@ class IntelligenceClient:
             payload["category"] = category
 
         resp = await self._client_or_raise().post("/trigger", json=payload)
-        resp.raise_for_status()
+        self._handle_response(resp)
         return resp.json()
 
     async def get_alerts(self, unread_only: bool = False, limit: int = 50) -> list[AlertItem]:

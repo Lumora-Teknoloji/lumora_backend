@@ -29,6 +29,15 @@ from typing import Optional
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
+import asyncio
+from contextlib import asynccontextmanager
+import logging
+from starlette.concurrency import run_in_threadpool
+
+from app.core.database import SessionLocal
+from app.services.data.scraper_service import TrendyolScraperService
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 
@@ -41,7 +50,83 @@ AGENT_SECRET = settings.agent_secret
 # Bu süre aşıldıktan sonra recovery job geri koyar.
 PROCESSING_TIMEOUT_S = 300  # 5 dakika
 
-router = APIRouter(tags=["Redis Queue"])
+def _sync_save_batch(batch_data: list):
+    """Senkron veritabanı işlemi (threadpool içinde çalışır)."""
+    db = SessionLocal()
+    try:
+        service = TrendyolScraperService(db)
+        # task_id None olarak geçer çünkü agent kendi context'inden bağımsız ürün yollar
+        service.process_scraped_batch(batch_data, task_id=None)
+    except Exception as e:
+        logger.error(f"results:buffer DB kayit hatasi: {e}")
+    finally:
+        db.close()
+
+async def _results_flusher_loop():
+    """results:buffer → PostgreSQL"""
+    while True:
+        try:
+            r = await get_redis()
+            batch = await r.lrange("results:buffer", 0, 99)
+            if batch:
+                parsed_batch = []
+                for raw in batch:
+                    try:
+                        parsed_batch.append(json.loads(raw))
+                    except json.JSONDecodeError:
+                        pass
+                
+                if parsed_batch:
+                    await run_in_threadpool(_sync_save_batch, parsed_batch)
+                
+                # Başarılı save sonrası kuyruğun başından batch uzunluğu kadarını sil
+                await r.ltrim("results:buffer", len(batch), -1)
+                logger.info(f"Flusher: {len(batch)} ürün başarıyla veritabanına işlendi.")
+            else:
+                await asyncio.sleep(5)  # Eğer kuyruk boşsa kısa bekle
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Flusher loop hatası: {e}")
+            await asyncio.sleep(10)
+
+async def _recovery_loop():
+    """Processing kuyruğunda askıda kalan linkleri kurtarır."""
+    while True:
+        await asyncio.sleep(300)  # 5 dakikada bir
+        try:
+            r = await get_redis()
+            processing_urls = await r.lrange("links:processing", 0, -1)
+            now = time.time()
+            recovered = 0
+            for url in processing_urls:
+                try:
+                    meta = await r.hgetall(f"processing:meta:{url}")
+                    started_at = float(meta.get("started_at", now))
+                    if now - started_at > PROCESSING_TIMEOUT_S:
+                        # Zaman aşımı — geri koy
+                        await r.lrem("links:processing", 1, url)
+                        await r.lpush("links:pending", url)
+                        await r.delete(f"processing:meta:{url}")
+                        recovered += 1
+                except Exception:
+                    pass
+            if recovered > 0:
+                logger.info(f"[Redis Queue] {recovered} zaman aşımına uğrayan işlem kurtarıldı.")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Recovery loop hatası: {e}")
+
+@asynccontextmanager
+async def redis_lifespan(app):
+    recv_task = asyncio.create_task(_recovery_loop())
+    flush_task = asyncio.create_task(_results_flusher_loop())
+    yield
+    recv_task.cancel()
+    flush_task.cancel()
+
+router = APIRouter(tags=["Redis Queue"], lifespan=redis_lifespan)
 
 # ─── Redis Bağlantı Havuzu ────────────────────────────────────────────────────
 _redis_pool: Optional[aioredis.Redis] = None
@@ -59,7 +144,9 @@ async def get_redis() -> aioredis.Redis:
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 async def verify_secret(x_agent_secret: str = Header(...)):
     if not AGENT_SECRET:
-        return  # Geliştirme ortamı — auth devre dışı
+        if settings.app_env == "production":
+            raise HTTPException(status_code=401, detail="AGENT_SECRET yapılandırılmamış")
+        return  # sadece dev'de skip
     if x_agent_secret != AGENT_SECRET:
         raise HTTPException(status_code=401, detail="Geçersiz agent anahtarı")
 
