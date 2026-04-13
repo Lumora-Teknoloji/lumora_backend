@@ -37,3 +37,11 @@ run_schema_sync.py
 # Scraper bot files (ayrı repo)
 Scrapper/
 commands/
+# AI & User Cleanups
+.idea/
+todo.md
+__pycache__/
+venv/
+.env
+.env.local
+
