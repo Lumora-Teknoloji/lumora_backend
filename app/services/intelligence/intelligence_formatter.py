@@ -87,19 +87,19 @@ def format_structured_report(
     product_table = "| # | Ürün | Skor | Fav | Sepet | Fiyat |\n|:---:|------|:---:|:---:|:---:|:---:|\n"
     for i, p in enumerate(top_products, 1):
         name = (p.get("name") or f"#{p.get('product_id', '?')}")[:35]
-        score = p.get("trend_score", 0)
-        fav = p.get("favorite_count", 0)
-        cart = p.get("cart_count", 0)
+        score = p.get("trend_score") or 0
+        fav = p.get("favorite_count") or 0
+        cart = p.get("cart_count") or 0
         price = p.get("price") or p.get("discounted_price") or 0
         label = p.get("trend_label", "")
         emoji = {"TREND": "🔥", "POTANSIYEL": "📈"}.get(label, "")
         product_table += f"| {i} | {emoji} {name} | {score:.0f} | {fav:,} | {cart:,} | {price:.0f} TL |\n"
 
     # ── 6. Engagement Metrikleri ──────────────────────────────────────────
-    total_fav = sum(p.get("favorite_count", 0) for p in predictions)
-    total_cart = sum(p.get("cart_count", 0) for p in predictions)
-    total_view = sum(p.get("view_count", 0) for p in predictions)
-    avg_eng = sum(p.get("engagement_score", 0) for p in predictions) / max(n, 1)
+    total_fav = sum((p.get("favorite_count") or 0) for p in predictions)
+    total_cart = sum((p.get("cart_count") or 0) for p in predictions)
+    total_view = sum((p.get("view_count") or 0) for p in predictions)
+    avg_eng = sum((p.get("engagement_score") or 0) for p in predictions) / max(n, 1)
 
     # ── 7. Yeni Giriş ────────────────────────────────────────────────────
     new_entrants = [p for p in predictions if p.get("is_new_entrant")]
@@ -237,11 +237,11 @@ def format_predictions_for_chat(predictions: List[Dict], category: Optional[str]
 
         # ── Performans Metrikleri ──
         perf_parts = []
-        fav = p.get("favorite_count", 0)
-        cart = p.get("cart_count", 0)
-        view = p.get("view_count", 0)
+        fav = p.get("favorite_count") or 0
+        cart = p.get("cart_count") or 0
+        view = p.get("view_count") or 0
         rating = p.get("avg_rating")
-        rating_count = p.get("rating_count", 0)
+        rating_count = p.get("rating_count") or 0
         rank = p.get("search_rank")
 
         if fav:

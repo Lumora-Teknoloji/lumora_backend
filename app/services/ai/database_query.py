@@ -26,7 +26,13 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
     - image_url: character varying
     - category: character varying (Breadcrumb format, e.g. "Trendyol > Kadın > Giyim > Pantolon")
     - last_price: double precision
-    - last_engagement_score: double precision (Represents favorites/likes)
+    - last_engagement_score: double precision (Algorithmic popularity score)
+    - rating: numeric (Product rating, 0 to 5)
+    - review_count: integer (Number of reviews/comments)
+    - favorite_count: integer (Absolute number of likes/favorites)
+    - cart_count: integer (Number of adds to cart)
+    - view_count: integer (Total views)
+    - qa_count: integer (Number of Q&As)
     - trend_score: double precision
     - dominant_color: character varying
     - fabric_type: character varying
@@ -43,11 +49,12 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
     RULES:
     1. Read-only queries only (SELECT). NEVER perform INSERT, UPDATE, DELETE, DROP.
     2. Write ONLY the raw SQL query. No explanation, no markdown blocks. Do not wrap in ```sql ... ```.
-    3. If the user asks for "most liked", "en çok beğenilen", order by last_engagement_score DESC NULLS LAST.
+    3. If the user asks for "most liked", "en çok beğenilen", or specific likes/favorites, ALWAYS include `favorite_count` in your SELECT statement and ORDER BY favorite_count DESC NULLS LAST.
     4. If the user asks for "trendy", order by trend_score DESC NULLS LAST. 
     5. If the user asks for "kadın pantolon", use category ILIKE '%Kadın%' AND category ILIKE '%Pantolon%'.
     6. Always use LIMIT 10 to prevent massive outputs unless asked otherwise.
     7. Return ONLY the raw SQL text.
+    8. SECURITY GUARDRAIL: Do not generate queries for any tables other than 'products'. If the user asks for unrelated topics (e.g., cooking recipes, personal data, system tables, passwords), return EXACTLY the string `DENIED_GUARD_TRIGGER`. Do NOT try to write SQL for unrelated requests.
     """
 
     try:
@@ -74,6 +81,13 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
         logger.info(f"🔍 Generated SQL Query: {sql_query}")
         
         # Step 2: Ensure it's a SELECT query
+        if sql_query == "DENIED_GUARD_TRIGGER":
+            return {
+                "content": "Üzgünüm, güvenlik ve gizlilik politikalarımız gereği yalnızca vitrindeki giyim ürünleri hakkında bilgi paylaşımı yapabiliyorum. Özel sistem verilerine veya alakasız konulara yanıt veremem.",
+                "image_urls": [],
+                "process_log": ["AI Guardrail Triggered: Request denied by prompt."]
+            }
+            
         if not sql_query.lower().startswith("select"):
             return {
                 "content": "Üzgünüm, güvenlik nedeniyle yalnızca SEÇME (SELECT) sorguları çalıştırabilirim.",

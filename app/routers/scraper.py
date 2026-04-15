@@ -242,7 +242,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
         one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
         
         # 2. Speeds
-        for r in db.execute(text("SELECT task_id, COUNT(*) FROM scraping_queue WHERE task_id IN :tids AND created_at >= :since GROUP BY task_id"), {"tids": tid_tuple, "since": one_hour_ago}).fetchall():
+        for r in db.execute(text("SELECT task_id, COUNT(*) FROM scraping_queue WHERE task_id IN :tids AND discovered_at >= :since GROUP BY task_id"), {"tids": tid_tuple, "since": one_hour_ago}).fetchall():
             linker_speeds[r[0]] = r[1]
         for r in db.execute(text("SELECT task_id, COUNT(id) FROM products WHERE task_id IN :tids AND last_scraped_at >= :since GROUP BY task_id"), {"tids": tid_tuple, "since": one_hour_ago}).fetchall():
             product_speeds[r[0]] = r[1]
@@ -512,7 +512,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
             "use_proxy": task.search_params.get("use_proxy", False) if task.search_params else False
         }
         bots.append(bot)
-    
+
     return bots
 
 
