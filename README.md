@@ -1,6 +1,7 @@
-# FastAPI Backend (PostgreSQL)
+# Lumora API Backend (formerly langchain-backend)
 
-FastAPI tabanlı backend servisi - PostgreSQL veritabanı, JWT kimlik doğrulama ve Socket.IO gerçek zamanlı sohbet desteği.
+FastAPI tabanlı backend servisi - PostgreSQL veritabanı, dağıtık scrapper orkestratörü, JWT kimlik doğrulama ve Socket.IO gerçek zamanlı sohbet desteği içerir.
+*Not: Repo adı/klasör adı geçmiş nedenlerle (`langchain-backend`) olsa da, içerik olarak proje LangChain bağımlılığını oldukça azaltmış güçlü bir **FastAPI + PostgreSQL Orkestratörü**dür.*
 
 ## 🚀 Hızlı Başlangıç
 
@@ -75,11 +76,18 @@ python run_server.py
 - **Health Check:** http://localhost:8000/health
 - **API Endpoint:** http://localhost:8000/api
 
-## 🔧 Temel Docker Komutları
+## 🔧 Temel Docker Komutları (Prod vs Dev)
+
+**Hangi Docker dosyasını kullanmalıyım?**
+*   **`docker-compose.yml` (PROD):** Canlı sistem veya staging için tasarlanmıştır. Port expose'ları daha güvenlidir, volume ayarları kalıcı sunucuya / PostgreSQL containerine yöneliktir.
+*   **`docker-compose.dev.yml` (DEV):** Geliştirme ortamı için. Kaynak kodunu (`app/`) container içerisine live-reload (hot-reload / uvicorn reload) sağlayacak şekilde volume (bind mount) yapar, değişiklikleri anında test etmenizi sağlar.
 
 ```bash
-# Başlat
+# Production için başlat
 docker-compose up -d
+
+# Development (Kodları anlık derleyen hot-reload modu) için başlat
+docker-compose -f docker-compose.dev.yml up -d
 
 # Durdur (veriler korunur)
 docker-compose down

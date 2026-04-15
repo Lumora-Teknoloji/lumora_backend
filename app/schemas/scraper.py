@@ -98,6 +98,7 @@ class BotStatusResponse(BaseModel):
     keyword: str
     start_time: str
     end_time: str
+    scrape_interval_hours: int = 24
     page_limit: int
     is_active: bool
     stats: dict
