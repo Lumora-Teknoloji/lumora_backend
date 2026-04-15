@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lumora-ingress
+  namespace: lumora
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  tls:
+    - hosts:
+        - lumoraboutique.com
+        - admin.lumoraboutique.com
+      secretName: lumoraboutique-tls
+  rules:
+    - host: lumoraboutique.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: lumora-backend
+                port:
+                  number: 8000
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: lumora-backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lumora-chatbot
+                port:
+                  number: 3000
+    - host: admin.lumoraboutique.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lumora-admin
+                port:
+                  number: 3000

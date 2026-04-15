@@ -8,6 +8,7 @@ import secrets
 from typing import List, Dict, Any
 from app.services.core.clients import openai_client
 from app.services.ai.intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message, extract_production_parameters
+from app.services.ai.database_query import handle_database_query
 import json
 from app.services.intelligence.intelligence_formatter import get_intelligence_context, get_structured_intelligence_context, format_structured_report
 from app.services.intelligence.intelligence_client import intelligence_client
@@ -83,6 +84,11 @@ async def generate_ai_response(
         content = await handle_general_chat(user_message, chat_history, stream_callback)
         return {"content": content, "image_urls": [], "image_links": {}, "process_log": ["Sohbet edildi."]}
 
+    # --- DATABASE_QUERY --- (Veritabanından direkt veri çekimi)
+    if intent == "DATABASE_QUERY":
+        logger.info("🗄️ DATABASE_QUERY akışı başlatıldı (Doğrudan SQL Çekimi)")
+        return await handle_database_query(user_message)
+
     # --- TREND_ANALYSIS --- (Intelligence servisinden gerçek tahmin verileri)
     if intent == "TREND_ANALYSIS":
         logger.info("📊 TREND_ANALYSIS akışı başlatıldı")
@@ -119,13 +125,11 @@ async def generate_ai_response(
             intel_context = ""
 
         if not intel_context:
-            # İç veride eşleşme yok veya güven çok düşük (<20) — fallback: MARKET_RESEARCH (Tavily)
-            logger.warning(f"İç veri yetersiz (confidence={confidence:.1f}), MARKET_RESEARCH'e (Tavily) fallback")
-            intent = "MARKET_RESEARCH"  # Aşağıdaki MARKET_RESEARCH bloğuna düşecek
-            fallback_warning = True
-        else:
-            # 3. Intelligence verileri + GPT-4o = zengin trend raporu
-            system_prompt = f"""Sen Kıdemli Moda Analisti, Trend Uzmanı ve Ürün Stratejistisin.
+            logger.warning(f"İç veri yetersiz (confidence={confidence:.1f}), kullanıcıya veri yok mesajı verilecek.")
+            intel_context = "Şu anda veritabanımızda bu filtrelere uygun yeterli ürün veya tahmin verisi bulunmamaktadır. Lütfen kullanıcıya veritabanında veri olmadığını açık ve net bir şekilde belirt. Veri uydurma."
+
+        # 3. Intelligence verileri + GPT-4o = zengin trend raporu
+        system_prompt = f"""Sen Kıdemli Moda Analisti, Trend Uzmanı ve Ürün Stratejistisin.
 Aşağıda veritabanımızdaki GERÇEK trend verileri var. Tüm yorumların bu verilere dayansın.
 
 {intel_context}
@@ -179,53 +183,53 @@ KRİTİK KURALLAR:
 - Top 5 ürün tablosunu doğrudan dahil et
 - Hayali veri UYDURMA, sadece verilen istatistikleri kullan"""
 
-            try:
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message}
-                    ],
-                    temperature=0.5
-                )
-                content = response.choices[0].message.content
-            except Exception as e:
-                logger.error(f"TREND_ANALYSIS GPT hatası: {e}")
-                content = f"## 📊 Trend Analizi\n\n{intel_context}\n\n*Detaylı yorum şu an oluşturulamadı.*"
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.5
+            )
+            content = response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"TREND_ANALYSIS GPT hatası: {e}")
+            content = f"## 📊 Trend Analizi\n\n{intel_context}\n\n*Detaylı yorum şu an oluşturulamadı.*"
 
-            # --- FAL.AI GÖRSEL ENTEGRASYONU (TREND_ANALYSIS İÇİN) ---
-            image_urls = []
-            user_needs_visuals = await loop.run_in_executor(None, check_visual_necessity, user_message)
+        # --- FAL.AI GÖRSEL ENTEGRASYONU (TREND_ANALYSIS İÇİN) ---
+        image_urls = []
+        user_needs_visuals = await loop.run_in_executor(None, check_visual_necessity, user_message)
+        
+        if bool(settings.fal_api_key) and user_needs_visuals and matched_predictions:
+            logger.info("TREND_ANALYSIS için Fal.ai görsel üretimi başlatıldı...")
             
-            if bool(settings.fal_api_key) and user_needs_visuals and matched_predictions:
-                logger.info("TREND_ANALYSIS için Fal.ai görsel üretimi başlatıldı...")
+            prompt_items = []
+            for idx, p in enumerate(matched_predictions[:3], 1):
+                name = p.get('name') or "Fashion trend item"
+                color = p.get('dominant_color') or ""
+                fabric = p.get('fabric_type') or ""
+                desc = " ".join([c for c in [color, fabric, name] if c])
+                base_prompt = f"Fashion product photography of {desc}"
+                enhanced = enhance_follow_up_prompt(base_prompt)
+                prompt_items.append({"model_name": name, "prompt": enhanced})
                 
-                prompt_items = []
-                for idx, p in enumerate(matched_predictions[:3], 1):
-                    name = p.get('name') or "Fashion trend item"
-                    color = p.get('dominant_color') or ""
-                    fabric = p.get('fabric_type') or ""
-                    desc = " ".join([c for c in [color, fabric, name] if c])
-                    base_prompt = f"Fashion product photography of {desc}"
-                    enhanced = enhance_follow_up_prompt(base_prompt)
-                    prompt_items.append({"model_name": name, "prompt": enhanced})
-                    
-                ai_generated = await loop.run_in_executor(None, generate_ai_images, prompt_items)
-                
-                if ai_generated:
-                    content += "\n\n### 🎨 AI Tasarım Yorumları (Fal.ai)\n"
-                    # Resimleri grid mantığına yaklaştırmak için esnek alan
-                    for item in ai_generated:
-                        if item.get("url"):
-                            content += f"\n**{item.get('model_name')}:**\n![{item.get('model_name')}]({item['url']})\n"
-                            image_urls.append(item["url"])
+            ai_generated = await loop.run_in_executor(None, generate_ai_images, prompt_items)
+            
+            if ai_generated:
+                content += "\n\n### 🎨 AI Tasarım Yorumları (Fal.ai)\n"
+                # Resimleri grid mantığına yaklaştırmak için esnek alan
+                for item in ai_generated:
+                    if item.get("url"):
+                        content += f"\n**{item.get('model_name')}:**\n![{item.get('model_name')}]({item['url']})\n"
+                        image_urls.append(item["url"])
 
-            return {
-                "content": content,
-                "image_urls": image_urls,
-                "image_links": {},
-                "process_log": [f"Intelligence trend analizi tamamlandı (kategori={category or 'hepsi'})."]
-            }
+        return {
+            "content": content,
+            "image_urls": image_urls,
+            "image_links": {},
+            "process_log": [f"Intelligence trend analizi tamamlandı (kategori={category or 'hepsi'})."]
+        }
 
     # --- IMAGE_GENERATION durumu - Yeni görsel üretimi ---
     if intent == "IMAGE_GENERATION":

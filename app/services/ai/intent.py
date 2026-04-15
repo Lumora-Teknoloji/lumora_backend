@@ -61,7 +61,11 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     5. FOLLOW_UP: User refers to specific data in a PREVIOUS report (non-image related).
        Examples: "Bu fiyat neden yüksek?", "Kumaşı değiştir", "Daha fazla detay ver"
     
-    6. GENERAL_CHAT: ALL of the following cases:
+    6. DATABASE_QUERY: User explicitly asks for raw data, statistics, or lists from the existing internal database without trend interpretations.
+       Examples: "en çok beğenilen kadın pantolon", "veritabanımdaki en iyi 5 elbise", "hangi ürünler var", "top 5 favori"
+       KEY SIGNAL: Words like "en çok beğenilen", "veritabanında", "top", "göster", "listele" and asking for items directly.
+
+    7. GENERAL_CHAT: ALL of the following cases:
        - Greetings: "Merhaba", "Selam", "Nasılsın"
        - Questions ending with "?" that ask for permission or preference
        - Messages containing: "konuşalım mı", "ne dersin", "isteklerime göre", "sana göre"
@@ -96,6 +100,7 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
         if "TREND" in intent and "ANALYSIS" in intent: return "TREND_ANALYSIS"
         if "TREND" in intent: return "TREND_ANALYSIS"
         if "MARKET" in intent: return "MARKET_RESEARCH"
+        if "DATABASE" in intent: return "DATABASE_QUERY"
         if "FOLLOW" in intent: return "FOLLOW_UP"
         if "GENERAL" in intent: return "GENERAL_CHAT"
         return "GENERAL_CHAT"  # Güvenli varsayılan: sohbet et, rapor üretme

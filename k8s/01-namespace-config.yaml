@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lumora
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lumora-config
+  namespace: lumora
+data:
+  APP_ENV: "production"
+  PORT: "8000"
+  POSTGRESQL_HOST: "lumora-postgres"
+  POSTGRESQL_PORT: "5432"
+  REDIS_URL: "redis://lumora-redis:6379"
+  NEXT_PUBLIC_API_URL: "http://api.lumora.local/api"
+  BACKEND_URL: "http://lumora-backend:8000"
+  TZ: "Europe/Istanbul"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lumora-secret
+  namespace: lumora
+type: Opaque"q
+stringData:
+  # Lütfen canlı sunucuda bunları kendi zor şifrelerinizle değiştirin
+  POSTGRESQL_DATABASE: "lumora_db"
+  POSTGRESQL_USERNAME: "postgres"
+  POSTGRESQL_PASSWORD: "postgres_secure_password"
+  AGENT_SECRET: "my_very_secure_agent_secret"

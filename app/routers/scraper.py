@@ -223,7 +223,7 @@ async def list_active_tasks(db: Session = Depends(get_db)):
 
 @router.get("/bots/status")
 async def get_bots_status(db: Session = Depends(get_db)):
-    \"\"\"Tüm botların durumunu listeler (frontend için).\"\"\"
+    """Tüm botların durumunu listeler (frontend için)."""
     tasks = db.query(ScrapingTask).all()
     task_ids = [t.id for t in tasks]
     

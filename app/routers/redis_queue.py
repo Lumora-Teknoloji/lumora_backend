@@ -177,7 +177,8 @@ async def queue_pop(req: PopRequest, x_bot_id: str = Header(...)):
     url = await r.brpoplpush("links:pending", "links:processing", timeout=req.timeout)
 
     if url is None:
-        return {"url": None}, 204  # Kuyruk boş
+        from fastapi import Response
+        return Response(status_code=204)  # Kuyruk boş
 
     # İşlem başlangıç zamanını kaydet (timeout recovery için)
     await r.hset(f"processing:meta:{url}", mapping={
