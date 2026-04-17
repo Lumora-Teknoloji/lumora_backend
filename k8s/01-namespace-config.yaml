@@ -10,12 +10,43 @@ metadata:
   namespace: lumora
 data:
   APP_ENV: "production"
+  NODE_ENV: "production"
   PORT: "8000"
-  POSTGRESQL_HOST: "lumora-postgres"
+  
+  POSTGRESQL_HOST: "159.195.68.219"
   POSTGRESQL_PORT: "5432"
+  POSTGRESQL_DATABASE: "lumora_db"
+  POSTGRESQL_USERNAME: "postgres"
+  
   REDIS_URL: "redis://lumora-redis:6379"
-  NEXT_PUBLIC_API_URL: "http://api.lumora.local/api"
+  
+  NEXT_PUBLIC_BACKEND_URL: "https://lumoraboutique.com/api"
+  NEXT_PUBLIC_API_URL: "https://lumoraboutique.com/api"
+  
   BACKEND_URL: "http://lumora-backend:8000"
+  VPS_BACKEND_URL: "http://lumora-backend:8000/api"
+  VPS_URL: "http://lumora-backend:8000/api"
+  
+  JWT_ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "120"
+  CORS_ORIGINS: "*"
+  ALLOWED_HOSTS: "*"
+  
+  INTELLIGENCE_HOST: "0.0.0.0"
+  INTELLIGENCE_PORT: "8001"
+  INTELLIGENCE_URL: "http://lumora-intelligence:8001"
+  BACKEND_CALLBACK_URL: "http://lumora-backend:8000/api/intelligence/callback"
+
+  NIGHTLY_BATCH_HOUR: "2"
+  NIGHTLY_BATCH_MINUTE: "0"
+  WEEKLY_RETRAIN_DAY: "sun"
+  WEEKLY_RETRAIN_HOUR: "3"
+  CATBOOST_ITERATIONS: "500"
+  CATBOOST_LEARNING_RATE: "0.05"
+  CATBOOST_DEPTH: "6"
+  MIN_DAYS_FOR_CATBOOST: "30"
+  
+  PROXY_ENABLED: "false"
   TZ: "Europe/Istanbul"
 ---
 apiVersion: v1
@@ -23,10 +54,16 @@ kind: Secret
 metadata:
   name: lumora-secret
   namespace: lumora
-type: Opaque"q
+type: Opaque
 stringData:
-  # Lütfen canlı sunucuda bunları kendi zor şifrelerinizle değiştirin
-  POSTGRESQL_DATABASE: "lumora_db"
-  POSTGRESQL_USERNAME: "postgres"
-  POSTGRESQL_PASSWORD: "postgres_secure_password"
-  AGENT_SECRET: "my_very_secure_agent_secret"
+  POSTGRESQL_PASSWORD: "Lumora2026!"
+  DATABASE_URL: "postgresql://postgres:Lumora2026!@159.195.68.219:5432/lumora_db"
+  
+  JWT_SECRET: "603ba02f4ad52f39928727d6062b608ef2d0e2d0dc508faf305123e0d2100d5d"
+  AGENT_SECRET: "763b827abfadede9f7ff02327592d64e67b7e0a33f641543"
+  NEXT_PUBLIC_AGENT_SECRET: "763b827abfadede9f7ff02327592d64e67b7e0a33f641543"
+  INTERNAL_API_KEY: "lumora-internal-dev-key"
+  INTELLIGENCE_INTERNAL_KEY: "lumora-internal-dev-key"
+  
+  OPENAI_API_KEY: "REDACTED_OPENAI_KEY"
+  FAL_API_KEY: "68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c"
