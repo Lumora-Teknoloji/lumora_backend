@@ -1,3 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 01-namespace-config.yaml — Namespace + ConfigMap + Secret (TEMPLATE)
+#
+# ⚠️  Bu dosya bir TEMPLATE'tir.  Secret değerlerini doldurmayın!
+#     Gerçek secret'ları aşağıdaki komutla oluşturun:
+#
+#   kubectl create secret generic lumora-secret -n lumora \
+#     --from-literal=POSTGRESQL_DATABASE=lumora_db \
+#     --from-literal=POSTGRESQL_USERNAME=postgres \
+#     --from-literal=POSTGRESQL_PASSWORD='<GERÇEK_ŞIFRE>' \
+#     --from-literal=DATABASE_URL='postgresql://postgres:<GERÇEK_ŞIFRE>@lumora-postgres:5432/lumora_db' \
+#     --from-literal=JWT_SECRET='<GERÇEK_JWT_SECRET>' \
+#     --from-literal=AGENT_SECRET='<GERÇEK_AGENT_SECRET>' \
+#     --from-literal=NEXT_PUBLIC_AGENT_SECRET='<GERÇEK_AGENT_SECRET>' \
+#     --from-literal=INTERNAL_API_KEY='<GERÇEK_INTERNAL_KEY>' \
+#     --from-literal=INTELLIGENCE_INTERNAL_KEY='<GERÇEK_INTERNAL_KEY>' \
+#     --from-literal=OPENAI_API_KEY='<GERÇEK_OPENAI_KEY>' \
+#     --from-literal=FAL_API_KEY='<GERÇEK_FAL_KEY>'
+# ─────────────────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -13,7 +32,8 @@ data:
   NODE_ENV: "production"
   PORT: "8000"
   
-  POSTGRESQL_HOST: "159.195.68.219"
+  # Fix #3: K8s iç DNS kullan (eski: 159.195.68.219)
+  POSTGRESQL_HOST: "lumora-postgres"
   POSTGRESQL_PORT: "5432"
   POSTGRESQL_DATABASE: "lumora_db"
   POSTGRESQL_USERNAME: "postgres"
@@ -29,8 +49,10 @@ data:
   
   JWT_ALGORITHM: "HS256"
   ACCESS_TOKEN_EXPIRE_MINUTES: "120"
-  CORS_ORIGINS: "*"
-  ALLOWED_HOSTS: "*"
+
+  # Fix #4: CORS — sadece izin verilen domainler
+  CORS_ORIGINS: "https://lumoraboutique.com,https://www.lumoraboutique.com,https://admin.lumoraboutique.com"
+  ALLOWED_HOSTS: "lumoraboutique.com,admin.lumoraboutique.com"
   
   INTELLIGENCE_HOST: "0.0.0.0"
   INTELLIGENCE_PORT: "8001"
@@ -48,22 +70,3 @@ data:
   
   PROXY_ENABLED: "false"
   TZ: "Europe/Istanbul"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: lumora-secret
-  namespace: lumora
-type: Opaque
-stringData:
-  POSTGRESQL_PASSWORD: "Lumora2026!"
-  DATABASE_URL: "postgresql://postgres:Lumora2026!@159.195.68.219:5432/lumora_db"
-  
-  JWT_SECRET: "603ba02f4ad52f39928727d6062b608ef2d0e2d0dc508faf305123e0d2100d5d"
-  AGENT_SECRET: "763b827abfadede9f7ff02327592d64e67b7e0a33f641543"
-  NEXT_PUBLIC_AGENT_SECRET: "763b827abfadede9f7ff02327592d64e67b7e0a33f641543"
-  INTERNAL_API_KEY: "lumora-internal-dev-key"
-  INTELLIGENCE_INTERNAL_KEY: "lumora-internal-dev-key"
-  
-  OPENAI_API_KEY: "REDACTED_OPENAI_KEY"
-  FAL_API_KEY: "68a9e3a1-59b0-4df4-8c4e-cfce378a2641:535db392c23ce433b7002e71a920c69c"

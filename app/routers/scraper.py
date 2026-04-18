@@ -151,24 +151,28 @@ async def create_scraping_task(
         
         # YENI: Eger is_active ise aninda tetikle (Immediate Run on Create)
         if request.is_active and request.search_term:
-            def run_linker(kw: str, pages: int, t_id: int):
-                import subprocess, sys, os
-                try:
-                    s_dir = get_scrapper_dir()
-                    linker_script = s_dir / "vps" / "linker_service.py"
-                    if linker_script.exists():
-                        logger.info(f"YENI GOREV! Linker anlık tetikleniyor: {kw}")
-                        subprocess.Popen([
-                            sys.executable, str(linker_script),
-                            kw,
-                            "--pages", str(pages),
-                            "--task-id", str(t_id),
-                            "--force"
-                        ], env=os.environ.copy())
-                except Exception as e:
-                    logger.error(f"New task linker trigger hatası: {e}")
-            
-            background_tasks.add_task(run_linker, request.search_term, request.page_limit, new_task.id)
+            from app.models.agent import Agent, AgentCommand
+            try:
+                active_agents = db.query(Agent).filter(
+                    Agent.is_active == True,
+                    Agent.status != "offline"
+                ).all()
+                if active_agents:
+                    agent_cmd = AgentCommand(
+                        agent_id=active_agents[0].id,
+                        command="scrape",
+                        params={
+                            "keyword": request.search_term,
+                            "mode": request.mode,
+                            "page_limit": request.page_limit,
+                            "task_id": new_task.id,
+                        }
+                    )
+                    db.add(agent_cmd)
+                    db.commit()
+                    logger.info(f"Agent command queue'ya eklendi: Yeni gorev: {request.search_term}")
+            except Exception as e:
+                logger.error(f"Agent command trigger hatası: {e}")
         
         return TaskResponse(
             id=new_task.id,
@@ -230,23 +234,27 @@ async def update_task_status(
         page_limit = task.search_params.get("page_limit", 50) if task.search_params else 50
         
         if keyword:
-            def run_linker(kw: str, pages: int):
-                import subprocess, sys, os
-                try:
-                    s_dir = get_scrapper_dir()
-                    linker_script = s_dir / "vps" / "linker_service.py"
-                    if linker_script.exists():
-                        logger.info(f"PLAY BUTONU! Linker anlık tetikleniyor: {kw}")
-                        subprocess.Popen([
-                            sys.executable, str(linker_script),
-                            kw,
-                            "--pages", str(pages),
-                            "--force"
-                        ], env=os.environ.copy())
-                except Exception as e:
-                    logger.error(f"Play trigger linker hatası: {e}")
-            
-            background_tasks.add_task(run_linker, keyword, page_limit)
+            from app.models.agent import Agent, AgentCommand
+            try:
+                active_agents = db.query(Agent).filter(
+                    Agent.is_active == True,
+                    Agent.status != "offline"
+                ).all()
+                if active_agents:
+                    agent_cmd = AgentCommand(
+                        agent_id=active_agents[0].id,
+                        command="scrape",
+                        params={
+                            "keyword": keyword,
+                            "mode": "normal",
+                            "page_limit": page_limit,
+                            "task_id": task_id,
+                        }
+                    )
+                    db.add(agent_cmd)
+                    db.commit()
+            except Exception as e:
+                logger.error(f"Agent command trigger hatası: {e}")
     
     return {"success": True, "task_id": task_id, "new_status": status}
 

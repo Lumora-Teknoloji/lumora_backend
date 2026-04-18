@@ -4,8 +4,11 @@ metadata:
   name: lumora-ingress
   namespace: lumora
   annotations:
+    # Fix #5: Sadece Traefik annotation'ları (nginx karışıklığı temizlendi)
     kubernetes.io/ingress.class: "traefik"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    traefik.ingress.kubernetes.io/buffering: |
+      maxrequestbodybytes: 52428800
+    traefik.ingress.kubernetes.io/custom-request-headers: "X-Forwarded-Proto:https"
 spec:
   tls:
     - hosts:
@@ -23,13 +26,8 @@ spec:
                 name: lumora-backend
                 port:
                   number: 8000
-          - path: /socket.io/
-            pathType: Prefix
-            backend:
-              service:
-                name: lumora-backend
-                port:
-                  number: 8000
+          # Fix #6: Duplicate /socket.io path kaldırıldı
+          # /socket.io Prefix olarak zaten /socket.io/ veya /socket.io/xyz'i kapsar
           - path: /socket.io
             pathType: Prefix
             backend:

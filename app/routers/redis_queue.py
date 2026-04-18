@@ -30,7 +30,6 @@ import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 import asyncio
-from contextlib import asynccontextmanager
 import logging
 from starlette.concurrency import run_in_threadpool
 
@@ -51,7 +50,8 @@ AGENT_SECRET = settings.agent_secret
 PROCESSING_TIMEOUT_S = 300  # 5 dakika
 
 def _sync_save_batch(batch_data: list):
-    """Senkron veritabanı işlemi (threadpool içinde çalışır)."""
+    """Senkron veritabanı işlemi (threadpool içinde çalışır).
+    Exception fırlatırsa flusher loop veriyi buffer'a geri yazar."""
     db = SessionLocal()
     try:
         service = TrendyolScraperService(db)
@@ -59,15 +59,26 @@ def _sync_save_batch(batch_data: list):
         service.process_scraped_batch(batch_data, task_id=None)
     except Exception as e:
         logger.error(f"results:buffer DB kayit hatasi: {e}")
+        raise  # Flusher loop'un haberi olsun — veriyi geri yazsın
     finally:
         db.close()
 
 async def _results_flusher_loop():
-    """results:buffer → PostgreSQL (Internal Default Flusher)"""
+    """results:buffer → PostgreSQL (Internal Default Flusher)
+    
+    Atomik pipeline ile lrange+ltrim aynı anda çalışır — race condition yok.
+    DB save başarısız olursa veriler buffer'a geri yazılır — veri kaybı yok.
+    """
+    FLUSHER_BATCH = 100
     while True:
         try:
             r = await get_redis()
-            batch = await r.lrange("results:buffer", 0, 99)
+            # Atomik pipeline: lrange + ltrim aynı anda — araya başka komut giremez
+            pipe = r.pipeline()
+            pipe.lrange("results:buffer", 0, FLUSHER_BATCH - 1)
+            pipe.ltrim("results:buffer", FLUSHER_BATCH, -1)
+            batch, _ = await pipe.execute()
+
             if batch:
                 parsed_batch = []
                 for raw in batch:
@@ -77,13 +88,18 @@ async def _results_flusher_loop():
                         pass
                 
                 if parsed_batch:
-                    await run_in_threadpool(_sync_save_batch, parsed_batch)
+                    try:
+                        await run_in_threadpool(_sync_save_batch, parsed_batch)
+                    except Exception as e:
+                        # DB save başarısız — verileri buffer'a geri yaz (veri kaybını önle)
+                        logger.error(f"Flusher: DB save başarısız, {len(batch)} kayıt buffer'a geri yazılıyor: {e}")
+                        await r.rpush("results:buffer", *batch)
+                        await asyncio.sleep(10)  # DB'ye zaman ver
+                        continue
                 
-                # Başarılı save sonrası kuyruğun başından batch uzunluğu kadarını sil
-                await r.ltrim("results:buffer", len(batch), -1)
                 logger.info(f"Flusher: {len(batch)} ürün başarıyla veritabanına işlendi.")
             else:
-                await asyncio.sleep(5)  # Eğer kuyruk boşsa kısa bekle
+                await asyncio.sleep(5)  # Kuyruk boşsa kısa bekle
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -151,17 +167,10 @@ async def _retry_requeue_loop():
         except Exception as e:
             logger.error(f"Retry requeue loop hatası: {e}")
 
-@asynccontextmanager
-async def redis_lifespan(app):
-    recv_task = asyncio.create_task(_recovery_loop())
-    flush_task = asyncio.create_task(_results_flusher_loop())
-    retry_task = asyncio.create_task(_retry_requeue_loop())
-    yield
-    recv_task.cancel()
-    flush_task.cancel()
-    retry_task.cancel()
+# NOT: APIRouter lifespan parametresini desteklemez — sessizce yok sayar.
+# Background loop'lar app/core/lifespan.py içinde başlatılır.
 
-router = APIRouter(tags=["Redis Queue"], lifespan=redis_lifespan)
+router = APIRouter(tags=["Redis Queue"])
 
 # ─── Redis Bağlantı Havuzu ────────────────────────────────────────────────────
 _redis_pool: Optional[aioredis.Redis] = None

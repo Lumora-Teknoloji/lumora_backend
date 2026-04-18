@@ -32,6 +32,9 @@ spec:
           ports:
             - containerPort: 5432
           env:
+            # Fix #9: Secret'taki key isimleri artık doğru eşleşiyor
+            # kubectl create secret komutunda POSTGRESQL_DATABASE ve
+            # POSTGRESQL_USERNAME key'leri oluşturulacak
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
@@ -49,6 +52,32 @@ spec:
                   key: POSTGRESQL_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+          # Fix #7: Resource limits
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          # Fix #8: Health probe
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data

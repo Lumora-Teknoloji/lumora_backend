@@ -52,8 +52,23 @@ async def lifespan(app: FastAPI):
             "Intelligence servisini ayrıca başlatmayı unutmayın."
         )
     
+    # Redis Queue background loop'ları başlat
+    # NOT: APIRouter lifespan desteklemediği için buraya taşındı (redis_queue.py'den).
+    from app.routers.redis_queue import (
+        _results_flusher_loop,
+        _recovery_loop,
+        _retry_requeue_loop,
+    )
+    redis_flusher_task = asyncio.create_task(_results_flusher_loop())
+    redis_recovery_task = asyncio.create_task(_recovery_loop())
+    redis_retry_task = asyncio.create_task(_retry_requeue_loop())
+    logger.info("✅ Redis Queue background loop'ları başlatıldı (flusher, recovery, retry)")
+
     yield
     
     # Shutdown
+    redis_flusher_task.cancel()
+    redis_recovery_task.cancel()
+    redis_retry_task.cancel()
     await intelligence_client.shutdown()
     logger.info("Application shutting down")
