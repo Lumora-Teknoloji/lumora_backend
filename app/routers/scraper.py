@@ -70,12 +70,6 @@ def get_scrapper_dir() -> Path:
     
     for path in possible_paths:
         if path.exists() and (path / "main.py").exists():
-            # Ensure commands directory exists
-            commands_dir = path / "commands"
-            try:
-                commands_dir.mkdir(parents=True, exist_ok=True)
-            except:
-                pass
             return path
         
     # Fallback
@@ -819,18 +813,7 @@ async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db))
     except Exception as e:
         logger.warning(f"Agent stop queue yazılamadı: {e}")
 
-    # ── ESKİ: Dosya tabanlı ───────────────────────────────────────────────
-    try:
-        scrapper_dir = get_scrapper_dir()
-        commands_dir = scrapper_dir / "commands"
-        commands_dir.mkdir(parents=True, exist_ok=True)
-        cmd_file = commands_dir / f"stop_{bot_id}.json"
-        with open(cmd_file, "w") as f:
-            json.dump({"type": "STOP", "task_id": bot_id}, f)
-    except Exception as e:
-        logger.warning(f"Stop dosyası yazılamadı: {e}")
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
-
 
 @router.post("/bots/{bot_id}/reset")
 @limiter.limit("5/minute")
