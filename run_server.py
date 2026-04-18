@@ -10,5 +10,7 @@ if __name__ == "__main__":
         limit_concurrency=settings.max_connections,
         timeout_keep_alive=settings.connection_timeout,
         reload=settings.app_env == "development",
-        log_level="info"
+        log_level="info",
+        proxy_headers=True,
+        forwarded_allow_ips="*"
     )

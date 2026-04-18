@@ -5,7 +5,7 @@ Scraper API endpoint'leri.
 - Veri gönderimi
 - Durum sorgulama
 """
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
@@ -50,10 +50,14 @@ def get_scrapper_dir() -> Path:
     if docker_path.exists() and (docker_path / "main.py").exists():
         return docker_path
     
-    # Linux Remote Server
-    linux_path = Path("/var/www/scrapper/Scrapper")
-    if linux_path.exists(): 
-        return linux_path
+    # 3. Local ortamda
+    local_path = Path(__file__).parent.parent.parent.parent / "scrapper"
+    if local_path.exists():
+        return local_path
+        
+    local_path_cap = Path(__file__).parent.parent.parent.parent / "Scrapper"
+    if local_path_cap.exists():
+        return local_path_cap
 
     # Yerel Windows ortamında
     # scraper.py -> routers -> app -> LangChain_backend -> (Project Root)
@@ -112,6 +116,7 @@ async def ingest_scraped_products(
 @router.post("/tasks", response_model=TaskResponse)
 async def create_scraping_task(
     request: CreateTaskRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """Yeni scraping görevi oluşturur."""
@@ -129,11 +134,10 @@ async def create_scraping_task(
             source = db.query(ScrapingTask).filter(ScrapingTask.id == request.source_task_id).first()
             if source:
                 base_url = source.target_url or target_url
-                # Append worker identifier to avoid unique constraint on target_url
                 import time
                 target_url = f"{base_url}&worker={int(time.time())}"
         
-        # Create new task with frontend fields
+        # Create new task
         new_task = ScrapingTask(
             task_name=request.task_name,
             target_platform=request.target_platform,
@@ -141,6 +145,7 @@ async def create_scraping_task(
             target_url=target_url,
             scrape_interval_hours=request.scrape_interval,
             is_active=request.is_active,
+            status="active" if request.is_active else "stopped",
             start_time=request.start_time,
             end_time=request.end_time,
             next_run_at=datetime.now() + timedelta(hours=request.scrape_interval) if request.is_active else None
@@ -149,6 +154,27 @@ async def create_scraping_task(
         db.add(new_task)
         db.commit()
         db.refresh(new_task)
+        
+        # YENI: Eger is_active ise aninda tetikle (Immediate Run on Create)
+        if request.is_active and request.search_term:
+            def run_linker(kw: str, pages: int, t_id: int):
+                import subprocess, sys, os
+                try:
+                    s_dir = get_scrapper_dir()
+                    linker_script = s_dir / "vps" / "linker_service.py"
+                    if linker_script.exists():
+                        logger.info(f"YENI GOREV! Linker anlık tetikleniyor: {kw}")
+                        subprocess.Popen([
+                            sys.executable, str(linker_script),
+                            kw,
+                            "--pages", str(pages),
+                            "--task-id", str(t_id),
+                            "--force"
+                        ], env=os.environ.copy())
+                except Exception as e:
+                    logger.error(f"New task linker trigger hatası: {e}")
+            
+            background_tasks.add_task(run_linker, request.search_term, request.page_limit, new_task.id)
         
         return TaskResponse(
             id=new_task.id,
@@ -189,9 +215,10 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
 async def update_task_status(
     task_id: int,
     status: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """Görev durumunu günceller."""
+    """Görev durumunu günceller ve eğer başlatılıyorsa anlık tetikler."""
     task = db.query(ScrapingTask).filter(ScrapingTask.id == task_id).first()
     
     if not task:
@@ -199,6 +226,33 @@ async def update_task_status(
     
     task.is_active = (status == "active")
     db.commit()
+    
+    # Eger Play tusuna (active) basildiysa aninda tetikle
+    if task.is_active:
+        keyword = task.target_url
+        if task.search_params and "search_term" in task.search_params:
+            keyword = keyword or task.search_params.get("search_term")
+            
+        page_limit = task.search_params.get("page_limit", 50) if task.search_params else 50
+        
+        if keyword:
+            def run_linker(kw: str, pages: int):
+                import subprocess, sys, os
+                try:
+                    s_dir = get_scrapper_dir()
+                    linker_script = s_dir / "vps" / "linker_service.py"
+                    if linker_script.exists():
+                        logger.info(f"PLAY BUTONU! Linker anlık tetikleniyor: {kw}")
+                        subprocess.Popen([
+                            sys.executable, str(linker_script),
+                            kw,
+                            "--pages", str(pages),
+                            "--force"
+                        ], env=os.environ.copy())
+                except Exception as e:
+                    logger.error(f"Play trigger linker hatası: {e}")
+            
+            background_tasks.add_task(run_linker, keyword, page_limit)
     
     return {"success": True, "task_id": task_id, "new_status": status}
 
@@ -485,6 +539,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
             "name": task.task_name or "Unnamed Bot",
             "platform": task.target_platform or "Trendyol",
             "status": actual_status,
+            "task_status": getattr(task, 'status', 'stopped'),
             "keyword": task.search_params.get("search_term", "") if task.search_params else "",
             "mode": task.search_params.get("mode", "normal") if task.search_params else "normal",
             "source_task_id": source_task_id,
@@ -606,7 +661,7 @@ async def get_linker_bots(db: Session = Depends(get_db)):
 
 @router.post("/bots/{bot_id}/start")
 @limiter.limit("5/minute")
-async def start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
+async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Botu başlatır - hem dosya tabanlı (eski) hem agent command queue (yeni) sistemi."""
     from app.models.scraping_task import ScrapingTask
     from app.models.agent import Agent, AgentCommand
@@ -618,6 +673,7 @@ async def start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)
     
     # Activate in database
     task.is_active = True
+    task.status = "active"
     db.commit()
     
     # Read mode from search_params (linker/worker/normal)
@@ -642,18 +698,25 @@ async def start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)
         "mode": bot_mode,
         "force": True
     }
+    
     if source_task_id:
         cmd_data["source_task_id"] = source_task_id
 
     # ── YENİ: Agent Command Queue (agent.py heartbeat ile alır) ──────────
     try:
+        from datetime import datetime, timedelta
+        cutoff = datetime.utcnow() - timedelta(seconds=120)
+        
         active_agents = db.query(Agent).filter(
             Agent.is_active == True,
-            Agent.status != "offline"
+            Agent.last_heartbeat > cutoff
         ).all()
-        for agent in active_agents:
+        
+        if active_agents:
+            # Sadece tek bir agent'a Linker görevini gönder (diğerleri sadece scrape eder)
+            chosen_agent = active_agents[0]
             agent_cmd = AgentCommand(
-                agent_id=agent.id,
+                agent_id=chosen_agent.id,
                 command="scrape",
                 params={
                     "keyword": keyword,
@@ -663,10 +726,13 @@ async def start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)
                 }
             )
             db.add(agent_cmd)
-        db.commit()
-        logger.info(f"Agent command queue'ya eklendi: {len(active_agents)} agent")
+            db.commit()
+            logger.info(f"Agent command queue'ya eklendi: Seçilen Agent ID={chosen_agent.id}")
+        else:
+            logger.warning("Aktif agent bulunamadı! Görev hiçbir agent'a iletilemedi.")
+            
     except Exception as e:
-        logger.warning(f"Agent queue yazılamadı (eski sistem devreye girecek): {e}")
+        logger.warning(f"Agent queue yazılamadı: {e}")
 
     return {"success": True, "message": f"Bot {task.task_name} başlatma komutu gönderildi"}
 
@@ -704,7 +770,7 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
                 command="scrape",
                 params={
                     "keyword": keyword,
-                    "mode": "review_dom" if is_review_bot else "worker",
+                    "mode": "review_api" if is_review_bot else "worker",
                     "max_pages": task.search_params.get("page_limit", 50) if task.search_params else 50,
                     "task_id": bot_id,
                 }
@@ -714,7 +780,7 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
     except Exception as e:
         logger.warning(f"Agent queue yazılamadı: {e}")
 
-    msg = f"Bot {task.task_name} {'DOM yorum kazıma' if is_review_bot else 'kuyruk eritme (worker)'} komutu gönderildi"
+    msg = f"Bot {task.task_name} {'API yorum kazıma' if is_review_bot else 'kuyruk eritme (worker)'} komutu gönderildi"
     return {"success": True, "message": msg}
 
 
@@ -732,6 +798,7 @@ async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db))
     
     # Deactivate in database and clear schedule
     task.is_active = False
+    task.status = "stopped"
     task.next_run_at = None
     db.commit()
 
@@ -762,8 +829,56 @@ async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db))
             json.dump({"type": "STOP", "task_id": bot_id}, f)
     except Exception as e:
         logger.warning(f"Stop dosyası yazılamadı: {e}")
-    
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
+
+
+@router.post("/bots/{bot_id}/reset")
+@limiter.limit("5/minute")
+async def reset_bot_stats(request: Request, bot_id: int, db: Session = Depends(get_db)):
+    """Bot'un kazıma loglarını, bekleyen link kuyruğunu siler ve topladığı ürünlerin bağını kopararak sıfırlar."""
+    from app.models.scraping_task import ScrapingTask
+    from sqlalchemy import text
+    
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Bot bulunamadı")
+        
+    db.execute(text("DELETE FROM scraping_logs WHERE task_id = :tid"), {"tid": bot_id})
+    db.execute(text("DELETE FROM scraping_queue WHERE task_id = :tid"), {"tid": bot_id})
+    db.execute(text("UPDATE products SET task_id = NULL WHERE task_id = :tid"), {"tid": bot_id})
+    db.commit()
+    
+    return {"success": True, "message": f"{task.task_name} istatistikleri sıfırlandı."}
+
+
+@router.post("/bots/{bot_id}/schedule")
+@limiter.limit("5/minute")
+async def schedule_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
+    """Botu planlanmış duruma geçirir."""
+    from app.models.scraping_task import ScrapingTask
+    import datetime
+    
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Bot bulunamadı")
+    
+    task.is_active = True
+    task.status = "scheduled"
+    
+    # Calculate next_run_at based on start_time if available
+    time_val = task.start_time or "09:00"
+    try:
+        time_parts = [int(p) for p in time_val.split(":")]
+        now = datetime.datetime.now(datetime.timezone.utc)
+        start_dt = now.replace(hour=time_parts[0], minute=time_parts[1], second=0, microsecond=0)
+        if start_dt < now:
+            start_dt = start_dt + datetime.timedelta(days=1)
+        task.next_run_at = start_dt
+    except Exception:
+        pass
+        
+    db.commit()
+    return {"success": True, "message": f"Bot {task.task_name} planlandı (Beklemede)"}
 
 
 @router.post("/bots/{bot_id}/cancel")

@@ -20,7 +20,7 @@ from fastapi import HTTPException
 logger = logging.getLogger(__name__)
 
 sio = socketio.AsyncServer(
-    cors_allowed_origins=settings.allowed_origins if settings.cors_origins != "*" else "*",
+    cors_allowed_origins=lambda origin, environ: True,
     async_mode='asgi',
     logger=True,  # Debug için logging aktif
     engineio_logger=True  # Engine.IO debug için
@@ -47,11 +47,9 @@ async def get_user_from_token(token: Optional[str]) -> Optional[User]:
         return None
     
     try:
-        # Token'ı decode et
         try:
             payload = decode_token(token)
-        except HTTPException:
-            # Token geçersiz veya süresi dolmuş
+        except PydanticValidationError:
             return None
         
         user_id = payload.get("sub")
@@ -61,27 +59,30 @@ async def get_user_from_token(token: Optional[str]) -> Optional[User]:
         # Database session oluştur
         db = next(get_db())
         try:
-            user = db.get(User, int(user_id))
+            user = db.query(User).filter(User.id == int(user_id)).first()
             return user
         finally:
             db.close()
     except Exception as e:
-        logger.error(f"Token validation error: {e}")
+        logger.error(f"Socket auth error: {str(e)}")
         return None
 
 
 @sio.event
 async def connect(sid, environ, auth):
     """Client bağlandığında çağrılır."""
-    # HttpOnly cookie'den token al
     token = None
-    cookie_header = environ.get('HTTP_COOKIE', '')
-    if cookie_header:
-        import http.cookies
-        cookies = http.cookies.SimpleCookie()
-        cookies.load(cookie_header)
-        if 'access_token' in cookies:
-            token = cookies['access_token'].value
+    if auth and isinstance(auth, dict) and 'token' in auth and auth['token']:
+        token = auth['token']
+    
+    if not token:
+        cookie_header = environ.get('HTTP_COOKIE', '')
+        if cookie_header:
+            import http.cookies
+            cookies = http.cookies.SimpleCookie()
+            cookies.load(cookie_header)
+            if 'access_token' in cookies:
+                token = cookies['access_token'].value
     
     user = await get_user_from_token(token)
     

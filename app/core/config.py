@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     frontend_url: str = ""
     cors_origins: str = ""
     allowed_hosts: str = ""
+    cookie_domain: str = ""
     
     # Connection limits (DoS protection)
     max_connections: int = 200

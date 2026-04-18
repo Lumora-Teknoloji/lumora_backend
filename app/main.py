@@ -108,8 +108,8 @@ if __name__ == "__main__":
         port=settings.port,
         limit_concurrency=settings.max_connections,  # DoS protection
         timeout_keep_alive=settings.connection_timeout,  # Connection timeout
-        backlog=100,  # Connection backlog limit
-        reload=True if settings.app_env == "development" else False,
+        reload=settings.app_env == "development",
+        proxy_headers=True,
+        forwarded_allow_ips="*",
         log_level="info"
     )
-

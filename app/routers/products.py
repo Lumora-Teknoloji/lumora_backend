@@ -111,6 +111,7 @@ async def list_products(
     max_price: Optional[float] = None,
     min_rating: Optional[float] = None,
     search: Optional[str] = None,
+    today_only: bool = Query(False),
     sort_by: str = Query("last_scraped_at", enum=["last_scraped_at", "last_price", "name", "brand", "avg_sales_velocity"]),
     sort_order: str = Query("desc", enum=["asc", "desc"]),
     task_id: Optional[int] = None,
@@ -167,6 +168,11 @@ async def list_products(
         query = query.filter(Product.name.ilike(f"%{search}%"))
     if task_id is not None:
         query = query.filter(Product.task_id == task_id)
+        
+    if today_only:
+        from datetime import datetime, timezone
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        query = query.filter(Product.last_scraped_at >= today_start)
     
     # Total count
     total = query.count()

@@ -5,7 +5,7 @@ import threading
 import time
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # --- PATH SETUP ---
 from pathlib import Path
@@ -127,38 +127,34 @@ def start_bot(task_id, target_url="", max_pages=0, force=False, mode="normal", s
             return
         
     try:
-        commands_dir.mkdir(parents=True, exist_ok=True)
+        import subprocess
+
+        linker_path = scrapper_root / "vps" / "linker_service.py"
         
-        # Worker modu için ayrı komut dosyası
-        if mode == "worker":
-            cmd_file = commands_dir / f"worker_{task_id}.json"
-            cmd_data = {
-                "type": "WORKER",
-                "task_id": task_id,
-                "target_url": target_url,
-                "source_task_id": source_task_id or task_id,
-                "force": force
-            }
-        else:
-            cmd_file = commands_dir / f"start_{task_id}.json"
-            cmd_data = {
-                "type": "START",
-                "task_id": task_id,
-                "target_url": target_url,
-                "max_pages": max_pages,
-                "mode": mode,
-                "force": force
-            }
-            if source_task_id:
-                cmd_data["source_task_id"] = source_task_id
+        # Linker servisini çağır (Bot id ve keyword argümanlarıyla)
+        keyword = target_url  # target_url artık "search_term" görevini de görüyor
+        if not keyword:
+            logger.error(f"Failed to queue linker for bot {task_id}: keyword empty")
+            return False
+
+        # Eğer url http ile başlıyorsa, linker yerine doğrudan queue'ye atmamız gerekir,
+        # ancak şimdilik kullanıcıya "Kategori yaz" dediğimiz için bu senaryoyu basit bırakıyoruz.
         
-        with open(cmd_file, "w") as f:
-            json.dump(cmd_data, f)
-            
-        logger.info(f"Command queued: {'WORKER' if mode == 'worker' else 'START'} Bot {task_id} (mode={mode})")
+        cmd = [
+            sys.executable, str(linker_path),
+            str(keyword),
+            "--pages", str(max_pages),
+            "--task-id", str(task_id)
+        ]
+
+        # Linker'ı arka planda asenkron olarak başlat (blocking olmasın)
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+        logger.info(f"Linker Service executed for keyword: {keyword} (max_pages={max_pages})")
         return True
+        
     except Exception as e:
-        logger.error(f"Failed to queue start command for bot {task_id}: {e}")
+        logger.error(f"Failed to execute linker for bot {task_id}: {e}")
         return False
 
 def stop_bot(task_id, reason="Scheduler"):
@@ -198,51 +194,61 @@ def start_scheduler_thread():
                     force_file = scrapper_root / f"bot_{task.id}.force"
                     is_forced = force_file.exists()
 
-                    # 1. Eğer bot pasifse ve force değilse -> DURDUR
-                    if not task.is_active and not is_forced:
+                    # 1. Eğer bot pasifse veya durdurulduysa dokunma
+                    if task.status == "stopped" and not is_forced:
                         if status in ["running", "worker_running"]:
-                            logger.info(f"Stopping bot {task.id} (Deactivated by User and no force marker)")
-                            stop_bot(task.id, reason="Task deactivated")
+                            logger.info(f"Stopping bot {task.id} (Status changed to stopped)")
+                            stop_bot(task.id, reason="Task stopped")
                         continue
 
-                    # 2. Eğer bot WORKER modundaysa -> DOKUNMA (Bırak işini yapsın)
-                    if status == "worker_running":
-                        # logger.info(f"Bot {task.id} is in worker mode, skipping scheduler intervention.")
+                    # 2. WORKER veya ACTIVE -> DOKUNMA
+                    if status == "worker_running" or task.status == "active":
                         continue
 
-                    # 3. Zaman Penceresi Kontrolü
-                    is_in_window = False
-                    if start < end:
-                        is_in_window = start <= now_str < end
-                    else: 
-                        # Cross-midnight (e.g. 22:00 to 06:00)
-                        is_in_window = now_str >= start or now_str < end
-                    
                     if is_forced:
-                        # Manuel başlatılmışsa dokunma, bırak çalışsın
                         continue
 
-                    # 4. Bekleyen Komut Kontrolü (Double-start engelleme)
-                    # Eğer hala işlenmemiş bir komut dosyası varsa scheduler müdahale etmesin
-                    start_cmd = commands_dir / f"start_{task.id}.json"
-                    stop_cmd = commands_dir / f"stop_{task.id}.json"
-                    worker_cmd = commands_dir / f"worker_{task.id}.json"
-                    if start_cmd.exists() or stop_cmd.exists() or worker_cmd.exists():
-                        # logger.info(f"Bot {task.id} için bekleyen komut var, pas geçiliyor.")
-                        continue
-
-                    if is_in_window:
-                        if status == "stopped":
-                            bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
-                            page_limit = task.search_params.get("page_limit", 50) if task.search_params else 50
-                            src_task_id = task.search_params.get("source_task_id") if task.search_params else None
-                            logger.info(f"Starting bot {task.id} (Schedule Match: {start}-{end}, mode={bot_mode})")
-                            start_bot(task.id, task.target_url, max_pages=page_limit, mode=bot_mode, source_task_id=src_task_id)
-                    else:
-                        # Zaman dışı ve force değilse -> DURDUR
-                        if status == "running":
-                            logger.info(f"Stopping bot {task.id} (Schedule Ended: {start}-{end})")
-                            stop_bot(task.id, reason="Schedule ended")
+                    # 3. Eğer bot "scheduled" ise zamanını kontrol et
+                    if task.status == "scheduled":
+                        now_dt = datetime.now(timezone.utc)
+                        # next_run_at utc timezone degilse fix
+                        next_run = task.next_run_at
+                        if next_run:
+                            if next_run.tzinfo is None:
+                                next_run = next_run.replace(tzinfo=timezone.utc)
+                                
+                            if now_dt >= next_run:
+                                bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"
+                                page_limit = task.search_params.get("page_limit", 50) if task.search_params else 50
+                                src_task_id = task.search_params.get("source_task_id") if task.search_params else None
+                                logger.info(f"Starting scheduled bot {task.id} (mode={bot_mode})")
+                                
+                                keyword = task.target_url
+                                if task.search_params and "search_term" in task.search_params:
+                                    keyword = keyword or task.search_params.get("search_term")
+                                    
+                                success = start_bot(task.id, keyword, max_pages=page_limit, mode=bot_mode, source_task_id=src_task_id)
+                                
+                                if success:
+                                    # DB'de status='active' yapip bir sonraki calismayi ayarla
+                                    session = get_db_session()
+                                    try:
+                                        from app.models.scraping_task import ScrapingTask
+                                        db_task = session.query(ScrapingTask).filter(ScrapingTask.id == task.id).first()
+                                        if db_task:
+                                            db_task.last_run_at = datetime.utcnow()
+                                            db_task.status = "active"
+                                            # Bir sonraki calismayi 24 saat sonraya kur eger interval varsa
+                                            interval = db_task.scrape_interval_hours or 24
+                                            if interval > 0:
+                                                db_task.next_run_at = now_dt + timedelta(hours=interval)
+                                            else:
+                                                db_task.next_run_at = None
+                                            session.commit()
+                                    except Exception as dbe:
+                                        logger.error(f"Failed to update task {task.id}: {dbe}")
+                                    finally:
+                                        session.close()
 
             except Exception as e:
                 logger.error(f"Scheduler loop error: {e}")

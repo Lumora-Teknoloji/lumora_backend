@@ -23,6 +23,13 @@ spec:
                 name: lumora-backend
                 port:
                   number: 8000
+          - path: /socket.io/
+            pathType: Prefix
+            backend:
+              service:
+                name: lumora-backend
+                port:
+                  number: 8000
           - path: /socket.io
             pathType: Prefix
             backend:

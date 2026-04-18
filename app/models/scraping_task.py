@@ -21,7 +21,8 @@ class ScrapingTask(Base):
     
     # Zamanlama ve Otomasyon
     scrape_interval_hours = Column(Integer, default=24) # Kaç saatte bir çalışacak?
-    is_active = Column(Boolean, default=True) # Görev durdurulabilir
+    is_active = Column(Boolean, default=True) # Backward compatibility or strict boolean
+    status = Column(String(50), default="stopped") # "active", "stopped", "scheduled"
     
     last_run_at = Column(DateTime(timezone=True))
     next_run_at = Column(DateTime(timezone=True)) # Bir sonraki çalışma zamanı

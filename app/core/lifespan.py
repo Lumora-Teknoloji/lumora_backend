@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Uygulama yaşam döngüsü yöneticisi."""
     # Startup
-    # Validate required API keys (only in production)
-    if settings.app_env == "production" and not settings.openai_api_key:
-        logger.error("❌ OPENAI_API_KEY is not configured!")
-        raise ValueError("Missing required API key: OPENAI_API_KEY")
-    elif not settings.openai_api_key:
-        logger.warning("⚠️  OPENAI_API_KEY not set — AI features disabled (development mode)")
+    # OPENAI key yoksa uygulamayı crash etmek yerine AI özelliklerini devre dışı bırakıp çalışmaya devam et.
+    # (Login/REST endpoints çalışmaya devam etmeli; realtime akış da try/except ile fallback üretiyor.)
+    if not settings.openai_api_key:
+        if settings.app_env == "production":
+            logger.error("❌ OPENAI_API_KEY is not configured! AI features will be disabled.")
+        else:
+            logger.warning("⚠️ OPENAI_API_KEY not set — AI features disabled.")
     
     logger.info("✅ Startup checks passed")
     

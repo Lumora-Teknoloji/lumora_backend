@@ -6,27 +6,27 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models import Conversation, Message, User
 from app.schemas.ai import ConversationCreate, ConversationUpdate, ConversationOut, ConversationWithMessages, MessageOut
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_active_user
 from app.core.exceptions import ConversationNotFoundError, ForbiddenError
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
 
-@router.get("/", response_model=List[ConversationOut])
-def list_conversations(
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+@router.get("", response_model=List[ConversationOut])
+def read_conversations(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
-    """Kullanıcının tüm konuşmalarını listeler."""
-    conversations = (
-        db.query(Conversation)
-        .filter(Conversation.user_id == current_user.id)
-        .order_by(Conversation.created_at.desc())
-        .all()
-    )
+    """
+    Kullanıcının sohbetlerini listeler.
+    """
+    conversations = db.query(Conversation).filter(Conversation.user_id == current_user.id).order_by(Conversation.updated_at.desc()).offset(skip).limit(limit).all()
     return conversations
 
 
-@router.post("/", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)
 def create_conversation(
     payload: ConversationCreate,
     db: Session = Depends(get_db),

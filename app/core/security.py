@@ -42,6 +42,7 @@ def decode_token(token: str) -> Dict[str, Any]:
 
 def set_auth_cookie(response, token: str):
     """Set JWT token as HttpOnly cookie for XSS protection"""
+    cookie_domain = settings.cookie_domain.strip() or None
     response.set_cookie(
         key="access_token",
         value=token,
@@ -49,11 +50,13 @@ def set_auth_cookie(response, token: str):
         secure=settings.app_env != "development",  # True in production (HTTPS)
         samesite="lax",      # CSRF protection (same-origin via Nginx reverse proxy)
         max_age=settings.access_token_expire_minutes * 60,
-        path="/"
+        path="/",
+        domain=cookie_domain,
     )
 
 
 def clear_auth_cookie(response):
     """Clear authentication cookie on logout"""
-    response.delete_cookie(key="access_token", path="/")
+    cookie_domain = settings.cookie_domain.strip() or None
+    response.delete_cookie(key="access_token", path="/", domain=cookie_domain)
 
