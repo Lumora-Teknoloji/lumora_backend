@@ -63,7 +63,7 @@ def _sync_save_batch(batch_data: list):
         db.close()
 
 async def _results_flusher_loop():
-    """results:buffer → PostgreSQL"""
+    """results:buffer → PostgreSQL (Internal Default Flusher)"""
     while True:
         try:
             r = await get_redis()
@@ -170,11 +170,12 @@ class HeartbeatRequest(BaseModel):
 @router.post("/queue/pop", dependencies=[Depends(verify_secret)])
 async def queue_pop(req: PopRequest, x_bot_id: str = Header(...)):
     """
-    Atomik BRPOPLPUSH: links:pending → links:processing.
-    Kuyruk boşsa timeout süresince bloklar.
+    Atomik RPOPLPUSH: links:pending → links:processing.
+    Kuyruk boşsa beklemez, hemen None döner.
+    Botlar bekleme işlemini Python tarafında yapacak (Race Condition Önleme).
     """
     r = await get_redis()
-    url = await r.brpoplpush("links:pending", "links:processing", timeout=req.timeout)
+    url = await r.rpoplpush("links:pending", "links:processing")
 
     if url is None:
         from fastapi import Response
@@ -187,7 +188,10 @@ async def queue_pop(req: PopRequest, x_bot_id: str = Header(...)):
     })
     await r.expire(f"processing:meta:{url}", PROCESSING_TIMEOUT_S * 2)
 
-    return {"url": url}
+    # Görev ID'sini al
+    task_id = await r.hget("links:task_map", url)
+
+    return {"url": url, "task_id": int(task_id) if task_id else None}
 
 
 @router.post("/queue/push_result", dependencies=[Depends(verify_secret)])
@@ -231,7 +235,40 @@ async def queue_fail(req: FailRequest):
     return {"ok": True}
 
 
-@router.get("/queue/stats", dependencies=[Depends(verify_secret)])
+class PushLinksRequest(BaseModel):
+    urls: list[str]
+    task_id: Optional[int] = None
+
+@router.post("/queue/push_links", dependencies=[Depends(verify_secret)])
+async def queue_push_links(req: PushLinksRequest):
+    """Linker tarafından toplanan URL'leri kuyruğa ekle."""
+    if not req.urls:
+        return {"ok": True, "pushed": 0, "skipped": 0}
+
+    r = await get_redis()
+    
+    unique_urls = []
+    skipped = 0
+    for url in req.urls:
+        if await r.sismember("scraped:urls", url):
+            skipped += 1
+        else:
+            unique_urls.append(url)
+            
+    if not unique_urls:
+         return {"ok": True, "pushed": 0, "skipped": skipped}
+         
+    await r.lpush("links:pending", *unique_urls)
+    
+    if req.task_id:
+        mapping = {url: str(req.task_id) for url in unique_urls}
+        if mapping:
+            await r.hset("links:task_map", mapping=mapping)
+            
+    return {"ok": True, "pushed": len(unique_urls), "skipped": skipped}
+
+
+@router.get("/queue/stats")
 async def queue_stats():
     """Kuyruk boyutlarını döndür — monitoring dashboard için."""
     r = await get_redis()
@@ -270,7 +307,7 @@ async def bot_heartbeat(req: HeartbeatRequest, x_bot_id: str = Header(...)):
     return {"ok": True}
 
 
-@router.get("/bots", dependencies=[Depends(verify_secret)])
+@router.get("/bots")
 async def list_bots():
     """Tüm aktif botların durumunu listele."""
     r = await get_redis()
