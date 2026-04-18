@@ -202,9 +202,9 @@ def start_scheduler_thread():
                 now = datetime.now()
                 now_str = now.strftime("%H:%M")
                 
-                from datetime import timezone
-                import zoneinfo
-                tz_ist = zoneinfo.ZoneInfo("Europe/Istanbul")
+                from datetime import timezone, timedelta
+                # Istanbul is permanently UTC+3
+                tz_ist = timezone(timedelta(hours=3), name="Europe/Istanbul")
                 
                 for task in tasks:
                     status = get_bot_status(task.id)
