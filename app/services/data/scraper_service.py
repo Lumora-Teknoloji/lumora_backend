@@ -390,11 +390,20 @@ class TrendyolScraperService:
         return metric
 
     def upsert_product(self, scraped: dict, task_id: Optional[int] = None) -> Tuple[Product, bool]:
-        """Ürün yoksa oluşturur, varsa daily_metric ekler."""
-        product_code = str(scraped.get("product_id"))
+        """Ürün yoksa oluşturur, varsa günceller ve daily_metric ekler."""
+        product_code = str(scraped.get("product_id") or scraped.get("id"))
         existing = self.get_product_by_code(product_code)
         
         if existing:
+            # Ensure missing or updated product core fields are also propagated
+            product_data = self._map_scraped_to_product(scraped, task_id)
+            for key, new_value in product_data.items():
+                # Avoid overwriting valid data with empty strings
+                if new_value is not None and new_value != "":
+                    current_val = getattr(existing, key, None)
+                    if current_val != new_value:
+                        setattr(existing, key, new_value)
+                        
             self.create_daily_metric(existing, scraped)
             return existing, False
         else:

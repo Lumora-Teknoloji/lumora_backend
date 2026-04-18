@@ -202,6 +202,10 @@ def start_scheduler_thread():
                 now = datetime.now()
                 now_str = now.strftime("%H:%M")
                 
+                import zoneinfo
+                from datetime import datetime, timedelta, timezone
+                tz_ist = zoneinfo.ZoneInfo("Europe/Istanbul")
+                
                 for task in tasks:
                     status = get_bot_status(task.id)
                     start = task.start_time or "09:00"
@@ -226,12 +230,14 @@ def start_scheduler_thread():
 
                     # 3. Eğer bot "scheduled" ise zamanını kontrol et
                     if task.status == "scheduled":
-                        now_dt = datetime.now(timezone.utc)
+                        now_dt = datetime.now(tz_ist)
                         # next_run_at utc timezone degilse fix
                         next_run = task.next_run_at
                         if next_run:
                             if next_run.tzinfo is None:
-                                next_run = next_run.replace(tzinfo=timezone.utc)
+                                next_run = next_run.replace(tzinfo=timezone.utc).astimezone(tz_ist)
+                            else:
+                                next_run = next_run.astimezone(tz_ist)
                                 
                             if now_dt >= next_run:
                                 bot_mode = task.search_params.get("mode", "normal") if task.search_params else "normal"

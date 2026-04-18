@@ -236,9 +236,12 @@ async def update_task_status(
         if keyword:
             from app.models.agent import Agent, AgentCommand
             try:
+                from datetime import datetime, timedelta
+                cutoff = datetime.utcnow() - timedelta(seconds=120)
                 active_agents = db.query(Agent).filter(
                     Agent.is_active == True,
-                    Agent.status != "offline"
+                    Agent.status != "offline",
+                    Agent.last_heartbeat > cutoff
                 ).all()
                 if active_agents:
                     agent_cmd = AgentCommand(
@@ -762,9 +765,12 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
 
     # ── YENİ: Agent Command Queue ─────────────────────────────────────────
     try:
+        from datetime import datetime, timedelta
+        cutoff = datetime.utcnow() - timedelta(seconds=120)
         active_agents = db.query(Agent).filter(
             Agent.is_active == True,
-            Agent.status != "offline"
+            Agent.status != "offline",
+            Agent.last_heartbeat > cutoff
         ).all()
         for agent in active_agents:
             agent_cmd = AgentCommand(
