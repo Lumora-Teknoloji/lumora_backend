@@ -118,13 +118,48 @@ async def _recovery_loop():
         except Exception as e:
             logger.error(f"Recovery loop hatası: {e}")
 
+async def _retry_requeue_loop():
+    """links:retry kuyruğundaki URL'leri periyodik olarak pending'e geri taşır."""
+    MAX_RETRIES = 3
+    while True:
+        await asyncio.sleep(60)  # Her dakika kontrol et
+        try:
+            r = await get_redis()
+            retry_len = await r.llen("links:retry")
+            if retry_len == 0:
+                continue
+            requeued = 0
+            dead = 0
+            for _ in range(retry_len):
+                url = await r.rpop("links:retry")
+                if not url:
+                    break
+                retry_key = f"retry:count:{url}"
+                count = int(await r.get(retry_key) or 0) + 1
+                if count <= MAX_RETRIES:
+                    await r.set(retry_key, count, ex=86400)
+                    await r.lpush("links:pending", url)
+                    requeued += 1
+                else:
+                    await r.lpush("links:dead_letter", url)
+                    await r.delete(retry_key)
+                    dead += 1
+            if requeued or dead:
+                logger.info(f"[Retry Loop] {requeued} URL pending'e taşındı, {dead} dead-letter'a gönderildi.")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Retry requeue loop hatası: {e}")
+
 @asynccontextmanager
 async def redis_lifespan(app):
     recv_task = asyncio.create_task(_recovery_loop())
     flush_task = asyncio.create_task(_results_flusher_loop())
+    retry_task = asyncio.create_task(_retry_requeue_loop())
     yield
     recv_task.cancel()
     flush_task.cancel()
+    retry_task.cancel()
 
 router = APIRouter(tags=["Redis Queue"], lifespan=redis_lifespan)
 

@@ -64,8 +64,9 @@ class TrendyolScraperService:
 
     def _map_scraped_to_product(self, scraped: dict, task_id: Optional[int] = None) -> dict:
         """Scraper verisini Product model alanlarına eşler."""
+        # Yeni bot image_url (tek string), eski bot Image_URLs (liste) gönderir
         image_urls = scraped.get("Image_URLs", [])
-        first_image = image_urls[0] if image_urls else None
+        first_image = image_urls[0] if image_urls else scraped.get("image_url", None)
         
         # Dinamik özellikler — scraper'dan gelen attributes varsa kullan
         raw_attributes = scraped.get("attributes", {})
@@ -117,19 +118,34 @@ class TrendyolScraperService:
             or scraped.get("category_tag")   # fallback
         )
 
+        final_task_id = task_id or scraped.get("task_id")
+
+        # Fiyat — yeni bot lowercase, eski bot PascalCase
+        try:
+            last_price = float(scraped.get("price") or scraped.get("Price") or 0) or None
+        except (ValueError, TypeError):
+            last_price = None
+        try:
+            last_discount_rate = int(scraped.get("discount_rate") or 0) or None
+        except (ValueError, TypeError):
+            last_discount_rate = None
+
         return {
-            "task_id": task_id,
-            "product_code": str(scraped.get("product_id")),
-            "name": scraped.get("ProductName"),
-            "brand": scraped.get("Brand"),
-            "seller": scraped.get("Seller"),
-            "url": scraped.get("URL"),
+            "task_id": final_task_id,
+            "product_code": str(scraped.get("product_id") or scraped.get("id")),
+            "name": scraped.get("name") or scraped.get("ProductName"),
+            "brand": scraped.get("brand") or scraped.get("Brand"),
+            "seller": scraped.get("seller") or scraped.get("Seller"),
+            "url": scraped.get("url") or scraped.get("URL"),
             "image_url": first_image,
             "category": category,
             "category_tag": scraped.get("category_tag"),
             "attributes": attributes,
             "review_summary": scraped.get("review_summary"),
             "sizes": sizes if sizes else None,
+            # Fiyat özetleri — doğrudan set et (create_daily_metric'i beklemeden)
+            "last_price": last_price,
+            "last_discount_rate": last_discount_rate,
             # Queryable stil kolonları
             "dominant_color": dominant_color,
             "fabric_type":    fabric_type,
@@ -137,40 +153,78 @@ class TrendyolScraperService:
         }
 
     def _map_scraped_to_daily_metric(self, scraped: dict, previous_metric: Optional[DailyMetric] = None) -> dict:
-        """Scraper verisini DailyMetric model alanlarına eşler."""
-        # Parse fiyatlar
+        """Scraper verisini DailyMetric model alanlarına eşler.
+        
+        İki format desteklenir:
+        - Eski Playwright scraper: PascalCase (Price, Rating, BasketCount vb.)
+        - Yeni Redis API bot: lowercase (price, rating, cart_count vb.)
+        """
+        # Parse fiyatlar — yeni bot lowercase, eski bot PascalCase gönderir
         try:
-            price = float(scraped.get("Price")) if scraped.get("Price") else None
+            raw_price = scraped.get("price") or scraped.get("Price")
+            price = float(raw_price) if raw_price else None
         except (ValueError, TypeError):
             price = None
             
         try:
-            discounted_price = float(scraped.get("Discount")) if scraped.get("Discount") else None
+            # Yeni bot org_price, eski bot Discount gönderir
+            raw_org = scraped.get("org_price") or scraped.get("Discount")
+            discounted_price = float(raw_org) if raw_org else None
         except (ValueError, TypeError):
             discounted_price = None
         
-        # İndirim oranı
-        discount_rate = metrics.calculate_discount_rate(price, discounted_price)
+        # İndirim oranı — doğrudan geldiyse kullan, yoksa hesapla
+        raw_discount_rate = scraped.get("discount_rate")
+        if raw_discount_rate is not None:
+            try:
+                discount_rate = int(raw_discount_rate)
+            except (ValueError, TypeError):
+                discount_rate = metrics.calculate_discount_rate(price, discounted_price)
+        else:
+            discount_rate = metrics.calculate_discount_rate(price, discounted_price)
         
-        # Rating
+        # Rating — yeni bot: rating/review_count, eski bot: Rating/Review Count
         try:
-            avg_rating = float(scraped.get("Rating")) if scraped.get("Rating") else None
+            raw_rating = scraped.get("rating") or scraped.get("Rating")
+            avg_rating = float(raw_rating) if raw_rating else None
         except (ValueError, TypeError):
             avg_rating = None
             
         try:
-            rating_count = int(scraped.get("Review Count", 0))
+            rating_count = int(
+                scraped.get("review_count")
+                or scraped.get("Review Count")
+                or 0
+            )
         except (ValueError, TypeError):
             rating_count = 0
         
-        # Ham metrikler
-        cart_count = self._parse_count(scraped.get("BasketCount")) or 0
-        favorite_count = self._parse_count(scraped.get("FavoriteCount")) or 0
-        view_count = self._parse_count(scraped.get("ViewCount")) or 0
-        qa_count = self._parse_qa_count(scraped.get("QACount")) or 0
+        # Ham metrikler — yeni bot integer, eski bot string+parse gerektirir
+        def _get_count(new_key, old_key):
+            val = scraped.get(new_key)
+            if val is not None:
+                try:
+                    return int(val)
+                except (ValueError, TypeError):
+                    pass
+            return self._parse_count(scraped.get(old_key)) or 0
         
-        # Mevcut beden sayısı
-        sizes = scraped.get("Size", [])
+        cart_count = _get_count("cart_count", "BasketCount")
+        favorite_count = _get_count("favorite_count", "FavoriteCount")
+        view_count = _get_count("view_count", "ViewCount")
+        
+        # qa_count — yeni bot integer, eski bot string
+        raw_qa = scraped.get("qa_count")
+        if raw_qa is not None:
+            try:
+                qa_count = int(raw_qa)
+            except (ValueError, TypeError):
+                qa_count = self._parse_qa_count(scraped.get("QACount")) or 0
+        else:
+            qa_count = self._parse_qa_count(scraped.get("QACount")) or 0
+        
+        # Mevcut beden sayısı — yeni bot sizes listesi, eski bot Size
+        sizes = scraped.get("sizes") or scraped.get("Size", [])
         available_sizes = len(sizes) if isinstance(sizes, list) else 0
         
         # ==================== HESAPLANAN SKORLAR ====================
