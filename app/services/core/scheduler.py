@@ -202,8 +202,8 @@ def start_scheduler_thread():
                 now = datetime.now()
                 now_str = now.strftime("%H:%M")
                 
+                from datetime import timezone
                 import zoneinfo
-                from datetime import datetime, timedelta, timezone
                 tz_ist = zoneinfo.ZoneInfo("Europe/Istanbul")
                 
                 for task in tasks:
