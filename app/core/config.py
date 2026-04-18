@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     # Redis (yeni bot mimarisi için)
     redis_url: str | None = None
 
+    # Agent Secret (scrapper ↔ backend kimlik doğrulama)
+    agent_secret: str = ""
+
     @model_validator(mode='after')
     def check_production_vars(self) -> 'Settings':
         if self.app_env == "production":
@@ -68,9 +71,6 @@ class Settings(BaseSettings):
             self.redis_url = "redis://localhost:6379"
             
         return self
-
-    # Agent Secret (scrapper ↔ backend kimlik doğrulama)
-    agent_secret: str = ""
 
     # Lumora Intelligence Mikro Servis
     intelligence_url: str = "http://localhost:8001"

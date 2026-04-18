@@ -182,6 +182,13 @@ async def get_redis() -> aioredis.Redis:
         _redis_pool = await aioredis.from_url(
             REDIS_URL, encoding="utf-8", decode_responses=True
         )
+    try:
+        await _redis_pool.ping()
+    except Exception:
+        await _redis_pool.close()
+        _redis_pool = await aioredis.from_url(
+            REDIS_URL, encoding="utf-8", decode_responses=True
+        )
     return _redis_pool
 
 
@@ -312,7 +319,7 @@ async def queue_push_links(req: PushLinksRequest):
     return {"ok": True, "pushed": len(unique_urls), "skipped": skipped}
 
 
-@router.get("/queue/stats")
+@router.get("/queue/stats", dependencies=[Depends(verify_secret)])
 async def queue_stats():
     """Kuyruk boyutlarını döndür — monitoring dashboard için."""
     r = await get_redis()
@@ -351,7 +358,7 @@ async def bot_heartbeat(req: HeartbeatRequest, x_bot_id: str = Header(...)):
     return {"ok": True}
 
 
-@router.get("/bots")
+@router.get("/bots", dependencies=[Depends(verify_secret)])
 async def list_bots():
     """Tüm aktif botların durumunu listele."""
     r = await get_redis()

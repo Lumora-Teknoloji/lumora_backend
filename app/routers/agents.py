@@ -10,14 +10,16 @@ import logging
 import os
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
-from app.core.database import get_db
+from app.core.config import settings
+from app.core.database import get_db, SessionLocal
 from app.models.agent import Agent, AgentCommand, AgentLogEntry
 from app.middleware.rate_limit import limiter
 
@@ -71,6 +73,9 @@ class AgentSchedulePatchRequest(BaseModel):
 @limiter.limit("10/minute")
 def register_agent(request: Request, req: AgentRegisterRequest, db: Session = Depends(get_db)):
     """Agent kaydı — ilk çalıştırmada çağrılır."""
+    if req.secret != settings.agent_secret:
+        raise HTTPException(status_code=401, detail="Geçersiz secret")
+
     # Aynı isimde agent varsa güncelle
     agent = db.query(Agent).filter(Agent.name == req.name).first()
     
@@ -79,7 +84,7 @@ def register_agent(request: Request, req: AgentRegisterRequest, db: Session = De
         agent.arch = req.arch
         agent.python_version = req.python
         agent.status = "online"
-        agent.last_heartbeat = datetime.utcnow()
+        agent.last_heartbeat = datetime.now(timezone.utc).replace(tzinfo=None)
         agent.is_active = True
         db.commit()
         logger.info(f"Agent güncellendi: {req.name} (ID: {agent.id})")
@@ -91,7 +96,7 @@ def register_agent(request: Request, req: AgentRegisterRequest, db: Session = De
             python_version=req.python,
             secret=req.secret,
             status="online",
-            last_heartbeat=datetime.utcnow(),
+            last_heartbeat=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(agent)
         db.commit()
@@ -103,11 +108,29 @@ def register_agent(request: Request, req: AgentRegisterRequest, db: Session = De
 
 # ─── Heartbeat ────────────────────────────────────────────────────────────────
 
-@router.post("/heartbeat")
-def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
-    """Agent durum bildirimi. Bekleyen komut varsa yanıtta döner."""
-    
-    # Agent'ı bul (ID veya isim ile)
+def _clean_stale_agents(agent_id: int):
+    db = SessionLocal()
+    try:
+        from datetime import timedelta
+        stale_cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+        stale_agents = db.query(Agent.id).filter(
+            Agent.id != agent_id,
+            Agent.last_heartbeat < stale_cutoff,
+        ).all()
+        
+        if stale_agents:
+            stale_ids = [stale.id for stale in stale_agents]
+            db.query(AgentCommand).filter(AgentCommand.agent_id.in_(stale_ids)).delete(synchronize_session=False)
+            db.query(AgentLogEntry).filter(AgentLogEntry.agent_id.in_(stale_ids)).delete(synchronize_session=False)
+            db.query(Agent).filter(Agent.id.in_(stale_ids)).delete(synchronize_session=False)
+            db.commit()
+            logger.info(f"🧹 {len(stale_ids)} adet sessiz (24 saat+) agent ve ilişkili verileri topluca silindi.")
+    except Exception as e:
+        logger.error(f"Eski agent temizleme hatası: {e}")
+    finally:
+        db.close()
+
+def _process_heartbeat(req: HeartbeatRequest, db: Session, background_tasks: BackgroundTasks):
     agent = None
     if req.agent_id:
         agent = db.query(Agent).filter(Agent.id == req.agent_id).first()
@@ -115,46 +138,20 @@ def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
         agent = db.query(Agent).filter(Agent.name == req.name).first()
     
     if not agent:
-        # Auto-register
-        agent = Agent(name=req.name or "unknown", status="online")
-        db.add(agent)
-        db.commit()
-        db.refresh(agent)
+        return None
 
-    # Durumu güncelle (idle → standby geriye uyumluluk)
     normalized_status = "standby" if req.status == "idle" else req.status
     agent.status = normalized_status
     agent.current_task = req.current_task
     agent.stats = req.stats
-    agent.last_heartbeat = datetime.utcnow()
+    agent.last_heartbeat = datetime.now(timezone.utc).replace(tzinfo=None)
     agent.is_active = True
     db.commit()
 
-    # 24 saattir sessiz kalan agent'ları temizle
-    # Veritabanını her heartbeat'te yormamak için sadece %5 ihtimalle çalışır
     import random
     if random.random() < 0.05:
-        from datetime import timedelta
-        stale_cutoff = datetime.utcnow() - timedelta(hours=24)
-        
-        # Sadece 24 saatten eski ve biz olmayan agent'ların ID'lerini al
-        stale_agents = db.query(Agent.id).filter(
-            Agent.id != agent.id,
-            Agent.last_heartbeat < stale_cutoff,
-        ).all()
-        
-        if stale_agents:
-            stale_ids = [stale.id for stale in stale_agents]
-            
-            # İlişkili verileri bulk olarak sil
-            db.query(AgentCommand).filter(AgentCommand.agent_id.in_(stale_ids)).delete(synchronize_session=False)
-            db.query(AgentLogEntry).filter(AgentLogEntry.agent_id.in_(stale_ids)).delete(synchronize_session=False)
-            db.query(Agent).filter(Agent.id.in_(stale_ids)).delete(synchronize_session=False)
-            db.commit()
-            
-            logger.info(f"🧹 {len(stale_ids)} adet sessiz (24 saat+) agent ve ilişkili verileri topluca silindi.")
+        background_tasks.add_task(_clean_stale_agents, agent.id)
 
-    # Bekleyen komut var mı?
     pending_cmd = db.query(AgentCommand).filter(
         AgentCommand.agent_id == agent.id,
         AgentCommand.status == "pending",
@@ -163,25 +160,29 @@ def heartbeat(req: HeartbeatRequest, db: Session = Depends(get_db)):
     response = {"ok": True, "agent_id": agent.id, "schedule_config": agent.schedule_config}
 
     if pending_cmd:
-        # Komutu teslim et
         response["command"] = {
             "id": pending_cmd.id,
             "type": pending_cmd.command,
             **pending_cmd.params,
         }
         pending_cmd.status = "delivered"
-        pending_cmd.delivered_at = datetime.utcnow()
+        pending_cmd.delivered_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
 
+    return response
+
+@router.post("/heartbeat")
+async def heartbeat(req: HeartbeatRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Agent durum bildirimi. Bekleyen komut varsa yanıtta döner."""
+    response = await run_in_threadpool(_process_heartbeat, req, db, background_tasks)
+    if response is None:
+        raise HTTPException(status_code=401, detail="Agent bulunamadı veya kayıtsız")
     return response
 
 
 # ─── Command ──────────────────────────────────────────────────────────────────
 
-@router.post("/{agent_id}/command")
-@limiter.limit("10/minute")
-def send_command(request: Request, agent_id: int, req: CommandRequest, db: Session = Depends(get_db)):
-    """Agent'a komut gönder (kuyruğa ekler, sonraki heartbeat'te teslim edilir)."""
+def _process_send_command(agent_id: int, req: CommandRequest, db: Session):
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:
         raise HTTPException(404, "Agent bulunamadı")
@@ -196,6 +197,12 @@ def send_command(request: Request, agent_id: int, req: CommandRequest, db: Sessi
     db.refresh(cmd)
 
     return {"command_id": cmd.id, "status": "queued", "agent": agent.name}
+
+@router.post("/{agent_id}/command")
+@limiter.limit("10/minute")
+async def send_command(request: Request, agent_id: int, req: CommandRequest, db: Session = Depends(get_db)):
+    """Agent'a komut gönder (kuyruğa ekler, sonraki heartbeat'te teslim edilir)."""
+    return await run_in_threadpool(_process_send_command, agent_id, req, db)
 
 
 # ─── Delete Agent ─────────────────────────────────────────────────────────────
@@ -269,7 +276,7 @@ def list_agents(db: Session = Depends(get_db)):
         # 2 dakikadan fazla heartbeat yoksa offline say
         is_online = False
         if a.last_heartbeat:
-            diff = (datetime.utcnow() - a.last_heartbeat).total_seconds()
+            diff = (datetime.now(timezone.utc).replace(tzinfo=None) - a.last_heartbeat).total_seconds()
             is_online = diff < 120
         
         result.append({
@@ -290,54 +297,28 @@ def list_agents(db: Session = Depends(get_db)):
 
 # ─── Data Sync ────────────────────────────────────────────────────────────────
 
-@router.post("/sync")
-@limiter.limit("5/minute")
-async def sync_data(
-    request: Request,
-    file: UploadFile = File(...),
-    agent_id: str = Form("unknown"),
-    db: Session = Depends(get_db),
-):
-    """Agent'ın local SQLite verisini alır ve PostgreSQL'e merge eder."""
+def _process_sync_data(tmp_path: str, agent_id: str, db: Session):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker as sm
     
-    # 1. Gelen dosyayı geçici dizine kaydet
-    tmp_dir = tempfile.mkdtemp()
-    tmp_path = os.path.join(tmp_dir, "agent_upload.db")
+    sqlite_engine = create_engine(f"sqlite:///{tmp_path}")
+    SSession = sm(bind=sqlite_engine)
+    sqlite_session = SSession()
+    
+    from sqlalchemy import MetaData, Table, select
+    from sqlalchemy.exc import DatabaseError, OperationalError
+    metadata = MetaData()
     
     try:
-        content = await file.read()
+        metadata.reflect(bind=sqlite_engine)
+    except (DatabaseError, OperationalError) as e:
+        logger.warning(f"Agent {agent_id} geçersiz/bozuk veritabanı gönderdi. Atlanıyor. Detay: {e}")
+        sqlite_engine.dispose()
+        raise HTTPException(400, "Yüklenen dosya geçerli bir SQLite veritabanı değil veya anlık olarak bozuk.")
         
-        # Eğer uzantı .gz ise, GZIP ile sıkıştırılmış veriyi bellekte aç
-        if file.filename and file.filename.endswith(".gz"):
-            import gzip
-            content = gzip.decompress(content)
-            
-        with open(tmp_path, "wb") as f:
-            f.write(content)
-        
-        # 2. SQLite'ı aç ve verileri oku
-        from sqlalchemy import create_engine
-        from sqlalchemy.orm import sessionmaker as sm
-        
-        sqlite_engine = create_engine(f"sqlite:///{tmp_path}")
-        SSession = sm(bind=sqlite_engine)
-        sqlite_session = SSession()
-        
-        # Scrapper modellerini import et (farklı Base!)
-        from sqlalchemy import MetaData, Table, select
-        from sqlalchemy.exc import DatabaseError, OperationalError
-        metadata = MetaData()
-        
-        try:
-            metadata.reflect(bind=sqlite_engine)
-        except (DatabaseError, OperationalError) as e:
-            logger.warning(f"Agent {agent_id} geçersiz/bozuk veritabanı gönderdi. Atlanıyor. Detay: {e}")
-            sqlite_engine.dispose()
-            raise HTTPException(400, "Yüklenen dosya geçerli bir SQLite veritabanı değil veya anlık olarak bozuk.")
-            
-        merged = {"products_added": 0, "products_updated": 0, "metrics": 0}
-        
-        # 3. Products tablosunu merge et
+    merged = {"products_added": 0, "products_updated": 0, "metrics": 0}
+    
+    try:
         if "products" in metadata.tables:
             products_table = metadata.tables["products"]
             rows = sqlite_session.execute(select(products_table)).fetchall()
@@ -352,28 +333,23 @@ async def sync_data(
                 if not url:
                     continue
                 
-                # Önce URL ile, sonra product_code ile ara (UniqueViolation önleme)
                 existing = db.query(PgProduct).filter(PgProduct.url == url).first()
                 if not existing and product_code:
                     existing = db.query(PgProduct).filter(PgProduct.product_code == str(product_code)).first()
                 
                 if existing:
-                    # Güncelle
                     for key in ["name", "brand", "seller", "category", "category_tag",
                                 "image_url", "last_price", "last_discount_rate",
                                 "attributes", "review_summary", "sizes"]:
                         if key in row_dict and row_dict[key] is not None:
-                            # if it's empty string and it's image_url, don't override a good image_url with an empty one
                             if key == "image_url" and row_dict[key] == "" and getattr(existing, "image_url", ""):
                                 continue
                             setattr(existing, key, row_dict[key])
-                    # URL değişmişse güncelle
                     if existing.url != url:
                         existing.url = url
-                    existing.last_scraped_at = datetime.utcnow()
+                    existing.last_scraped_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     merged["products_updated"] += 1
                 else:
-                    # Yeni ekle
                     new_p = PgProduct(
                         product_code=product_code,
                         url=url,
@@ -392,9 +368,6 @@ async def sync_data(
                     db.add(new_p)
                     merged["products_added"] += 1
             
-            db.commit()
-        
-        # 4. Daily metrics tablosunu merge et
         if "daily_metrics" in metadata.tables:
             metrics_table = metadata.tables["daily_metrics"]
             rows = sqlite_session.execute(select(metrics_table)).fetchall()
@@ -403,7 +376,6 @@ async def sync_data(
                 m_dict = row._asdict() if hasattr(row, '_asdict') else dict(row._mapping)
                 sqlite_product_id = m_dict.get("product_id")
                 
-                # SQLite URL'sini bul
                 if "products" in metadata.tables:
                     products_table = metadata.tables["products"]
                     sqlite_p = sqlite_session.execute(select(products_table).where(products_table.c.id == sqlite_product_id)).first()
@@ -414,7 +386,6 @@ async def sync_data(
                     if not url:
                         continue
                     
-                    # PostgreSQL'deki product_id'yi bul
                     pg_product = db.query(PgProduct).filter(PgProduct.url == url).first()
                     if not pg_product:
                         continue
@@ -439,13 +410,50 @@ async def sync_data(
                     )
                     db.add(new_m)
                     merged["metrics"] += 1
-            
-            db.commit()
+        
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
         sqlite_engine.dispose()
+        
+    return merged
+
+@router.post("/sync")
+@limiter.limit("5/minute")
+async def sync_data(
+    request: Request,
+    file: UploadFile = File(...),
+    agent_id: str = Form("unknown"),
+    db: Session = Depends(get_db),
+):
+    """Agent'ın local SQLite verisini alır ve PostgreSQL'e merge eder."""
+    
+    # 1. Gelen dosyayı geçici dizine kaydet
+    tmp_dir = tempfile.mkdtemp()
+    tmp_path = os.path.join(tmp_dir, "agent_upload.db")
+    
+    try:
+        content = await file.read()
+        if len(content) > 50 * 1024 * 1024:
+            raise HTTPException(413, "Dosya çok büyük (Max 50MB)")
+        
+        # Eğer uzantı .gz ise, GZIP ile sıkıştırılmış veriyi bellekte aç
+        if file.filename and file.filename.endswith(".gz"):
+            import gzip
+            content = gzip.decompress(content)
+            
+        with open(tmp_path, "wb") as f:
+            f.write(content)
+        
+        merged = await run_in_threadpool(_process_sync_data, tmp_path, agent_id, db)
         
         logger.info(f"Agent {agent_id} sync tamamlandı: {merged}")
         return {"status": "ok", "merged": merged}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Sync hatası: {e}")
         raise HTTPException(500, f"Sync hatası: {str(e)}")
@@ -454,9 +462,21 @@ async def sync_data(
 
 # ─── Agent Logs ───────────────────────────────────────────────────────────────
 
-@router.post("/logs")
-def ingest_logs(req: LogBatchRequest, db: Session = Depends(get_db)):
-    """Agent'ın batch halinde log göndermesi."""
+def _clean_old_logs():
+    db = SessionLocal()
+    try:
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+        old = db.query(AgentLogEntry).filter(AgentLogEntry.timestamp < cutoff).delete()
+        if old:
+            logger.info(f"TTL temizliği: {old} eski log silindi")
+        db.commit()
+    except Exception as e:
+        logger.error(f"Log TTL temizleme hatası: {e}")
+    finally:
+        db.close()
+
+def _process_ingest_logs(req: LogBatchRequest, db: Session, background_tasks: BackgroundTasks):
     if not req.logs:
         return {"status": "ok", "ingested": 0}
 
@@ -467,9 +487,9 @@ def ingest_logs(req: LogBatchRequest, db: Session = Depends(get_db)):
             try:
                 ts = datetime.fromisoformat(entry.timestamp)
             except (ValueError, TypeError):
-                ts = datetime.utcnow()
+                ts = datetime.now(timezone.utc).replace(tzinfo=None)
         else:
-            ts = datetime.utcnow()
+            ts = datetime.now(timezone.utc).replace(tzinfo=None)
 
         log_row = AgentLogEntry(
             agent_id=req.agent_id,
@@ -481,16 +501,15 @@ def ingest_logs(req: LogBatchRequest, db: Session = Depends(get_db)):
         db.add(log_row)
         count += 1
 
-    # TTL: 7 günden eski logları temizle
-    from datetime import timedelta
-    cutoff = datetime.utcnow() - timedelta(days=7)
-    old = db.query(AgentLogEntry).filter(AgentLogEntry.timestamp < cutoff).delete()
-    if old:
-        logger.info(f"TTL temizliği: {old} eski log silindi")
-
     db.commit()
+    background_tasks.add_task(_clean_old_logs)
     logger.debug(f"Agent {req.agent_id} → {count} log kaydedildi")
     return {"status": "ok", "ingested": count}
+
+@router.post("/logs")
+async def ingest_logs(req: LogBatchRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Agent'ın batch halinde log göndermesi."""
+    return await run_in_threadpool(_process_ingest_logs, req, db, background_tasks)
 
 
 @router.get("/{agent_id}/logs")

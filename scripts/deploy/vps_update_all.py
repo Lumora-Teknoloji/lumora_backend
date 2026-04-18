@@ -20,7 +20,7 @@ for dir in */; do
 done
 
 echo "🔨 Building backend and intelligence on VPS..."
-echo '2001Bedir..' | sudo -S docker build -t lumora-backend:latest ./lumora-backend
+echo '2001Bedir..' | sudo -S docker build -t lumora-backend:latest -f ./lumora-backend/docker/Dockerfile ./lumora-backend
 echo '2001Bedir..' | sudo -S docker build -t lumora-intelligence:latest ./lumora-intelligence
 
 cat << 'SHELL_EOF' > /tmp/import_image.sh

@@ -19,6 +19,15 @@ from .core.logging import setup_logging
 from .core.static import mount_static_files
 from .core.errors import add_exception_handlers
 
+# Router Imports
+from .routers.scraper import router as scraper_router
+from .routers.bot_commands import router as bot_commands_router
+from .routers.products import router as products_router
+from .routers.intelligence import router as intelligence_router
+from .routers.dashboard import router as dashboard_router
+from .routers.agents import router as agents_router
+from .routers.redis_queue import router as redis_queue_router
+
 # Setup Logging
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -51,13 +60,7 @@ app.include_router(users.router, prefix=api_prefix)
 app.include_router(conversations.router, prefix=api_prefix)
 app.include_router(messages.router, prefix=api_prefix)
 
-# Scraper Router
-from .routers.scraper import router as scraper_router
-from .routers.bot_commands import router as bot_commands_router
-from .routers.products import router as products_router
-from .routers.intelligence import router as intelligence_router
-from .routers.dashboard import router as dashboard_router
-from .routers.agents import router as agents_router
+# App Routers
 app.include_router(scraper_router, prefix=api_prefix)
 app.include_router(bot_commands_router, prefix=api_prefix)
 app.include_router(products_router, prefix=api_prefix)
@@ -66,7 +69,6 @@ app.include_router(dashboard_router, prefix=api_prefix)
 app.include_router(agents_router, prefix=api_prefix)
 
 # Redis Queue Router (yeni stateless bot mimarisi)
-from .routers.redis_queue import router as redis_queue_router
 app.include_router(redis_queue_router, prefix=f"{api_prefix}/redis")
 
 # Debug routes only in development
@@ -86,10 +88,36 @@ app_asgi = app  # Keep backwards compatibility for run_server.py
 add_exception_handlers(app)
 
 
+from sqlalchemy.orm import Session
+from .core.database import get_db
+from fastapi import Depends, Response
+
 @app.get("/health")
-def health_check():
+async def health_check(response: Response, db: Session = Depends(get_db)):
     """Health check endpoint."""
-    return {"status": "ok", "environment": settings.app_env}
+    status_dict = {"status": "ok", "environment": settings.app_env, "dependencies": {}}
+    
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        status_dict["dependencies"]["database"] = "ok"
+    except Exception:
+        status_dict["dependencies"]["database"] = "unreachable"
+        status_dict["status"] = "degraded"
+        
+    try:
+        from .routers.redis_queue import get_redis
+        redis_conn = await get_redis()
+        await redis_conn.ping()
+        status_dict["dependencies"]["redis"] = "ok"
+    except Exception:
+        status_dict["dependencies"]["redis"] = "unreachable"
+        status_dict["status"] = "degraded"
+        
+    if status_dict["status"] != "ok":
+        response.status_code = 503
+        
+    return status_dict
 
 
 # Wrap the final FastAPI app with Socket.IO ASGIApp

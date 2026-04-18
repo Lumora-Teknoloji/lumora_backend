@@ -70,5 +70,9 @@ async def lifespan(app: FastAPI):
     redis_flusher_task.cancel()
     redis_recovery_task.cancel()
     redis_retry_task.cancel()
+    await asyncio.gather(
+        redis_flusher_task, redis_recovery_task, redis_retry_task,
+        return_exceptions=True
+    )
     await intelligence_client.shutdown()
     logger.info("Application shutting down")

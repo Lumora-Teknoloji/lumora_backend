@@ -81,22 +81,24 @@ def fetch_tasks():
 
 # --- BOT MANAGEMENT (File-Based Bridge) ---
 def get_bot_status(task_id):
-    pid_file = scrapper_root / f"bot_{task_id}.pid"
-    worker_marker = scrapper_root / f"bot_{task_id}.worker"
-    
-    # logger.info(f"Checking status for bot {task_id}: {pid_file} (Exists: {pid_file.exists()})")
-    
-    if pid_file.exists():
-        if worker_marker.exists():
-            return "worker_running"
-        return "running"
-    return "stopped"
+    session = get_db_session()
+    try:
+        from app.models.agent import Agent
+        # Check active agents to see if this task is running
+        active_agents = session.query(Agent).filter(
+            Agent.is_active == True,
+            Agent.status.in_(["busy", "scraping", "active"])
+        ).all()
+        for a in active_agents:
+            if a.current_task and str(task_id) in a.current_task:
+                return "running"
+        return "stopped"
+    finally:
+        session.close()
 
 def start_bot(task_id, target_url="", max_pages=0, force=False, mode="normal", source_task_id=None):
-    """Write START command to file bridge"""
-    current_status = get_bot_status(task_id)
-    if current_status in ["running", "worker_running"]:
-        return
+    """Publish START command to Agent Command Queue"""
+    # URL veya diğer bilgiler eksikse veritabanından çek
     
     # URL veya diğer bilgiler eksikse veritabanından çek
     if not target_url or mode == "normal":
@@ -127,51 +129,65 @@ def start_bot(task_id, target_url="", max_pages=0, force=False, mode="normal", s
             return
         
     try:
-        import subprocess
-
-        linker_path = scrapper_root / "vps" / "linker_service.py"
-        
-        # Linker servisini çağır (Bot id ve keyword argümanlarıyla)
-        keyword = target_url  # target_url artık "search_term" görevini de görüyor
-        if not keyword:
-            logger.error(f"Failed to queue linker for bot {task_id}: keyword empty")
-            return False
-
-        # Eğer url http ile başlıyorsa, linker yerine doğrudan queue'ye atmamız gerekir,
-        # ancak şimdilik kullanıcıya "Kategori yaz" dediğimiz için bu senaryoyu basit bırakıyoruz.
-        
-        cmd = [
-            sys.executable, str(linker_path),
-            str(keyword),
-            "--pages", str(max_pages),
-            "--task-id", str(task_id)
-        ]
-
-        # Linker'ı arka planda asenkron olarak başlat (blocking olmasın)
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-
-        logger.info(f"Linker Service executed for keyword: {keyword} (max_pages={max_pages})")
-        return True
-        
+        session = get_db_session()
+        try:
+            from app.models.agent import Agent, AgentCommand
+            from datetime import datetime, timedelta, timezone
+            
+            cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=120)
+            active_agents = session.query(Agent).filter(
+                Agent.is_active == True,
+                Agent.last_heartbeat > cutoff
+            ).all()
+            
+            if active_agents:
+                chosen_agent = active_agents[0]
+                agent_cmd = AgentCommand(
+                    agent_id=chosen_agent.id,
+                    command="scrape",
+                    params={
+                        "keyword": target_url,
+                        "mode": mode,
+                        "page_limit": max_pages,
+                        "task_id": task_id,
+                    }
+                )
+                session.add(agent_cmd)
+                session.commit()
+                logger.info(f"Scheduled task {task_id} added to agent queue. Agent ID={chosen_agent.id}")
+                return True
+            else:
+                logger.warning(f"No active agents found for scheduled task {task_id}!")
+                return False
+        finally:
+            session.close()
+            
     except Exception as e:
         logger.error(f"Failed to execute linker for bot {task_id}: {e}")
         return False
 
 def stop_bot(task_id, reason="Scheduler"):
-    """Write STOP command to file bridge"""
+    """Publish STOP command to Agent Command Queue"""
     try:
-        commands_dir.mkdir(parents=True, exist_ok=True)
-        cmd_file = commands_dir / f"stop_{task_id}.json"
-        
-        with open(cmd_file, "w") as f:
-            json.dump({
-                "type": "STOP",
-                "task_id": task_id,
-                "reason": reason
-            }, f)
-            
-        logger.info(f"Command queued: STOP Bot {task_id} ({reason})")
-        return True
+        session = get_db_session()
+        try:
+            from app.models.agent import Agent, AgentCommand
+            active_agents = session.query(Agent).filter(
+                Agent.is_active == True,
+                Agent.status != "offline"
+            ).all()
+            for agent in active_agents:
+                agent_cmd = AgentCommand(
+                    agent_id=agent.id,
+                    command="stop",
+                    params={"task_id": task_id}
+                )
+                session.add(agent_cmd)
+            session.commit()
+            logger.info(f"Command queued: STOP Bot {task_id} ({reason}) to {len(active_agents)} agents")
+            return True
+        finally:
+            session.close()
     except Exception as e:
         logger.error(f"Failed to queue stop command for bot {task_id}: {e}")
         return False

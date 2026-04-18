@@ -32,8 +32,8 @@ data:
   NODE_ENV: "production"
   PORT: "8000"
   
-  # Fix #3: K8s iç DNS kullan (eski: 159.195.68.219)
-  POSTGRESQL_HOST: "lumora-postgres"
+  # Fix #3: Ana makinedeki PostgreSQL'e bağlan
+  POSTGRESQL_HOST: "159.195.68.219"
   POSTGRESQL_PORT: "5432"
   POSTGRESQL_DATABASE: "lumora_db"
   POSTGRESQL_USERNAME: "postgres"

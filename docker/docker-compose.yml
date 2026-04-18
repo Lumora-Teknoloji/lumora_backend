@@ -34,12 +34,12 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: lumora-backend
     restart: unless-stopped
     env_file:
-      - .env
+      - ../.env
     ports:
       - "${PORT:-8000}:8000"
     environment:
@@ -52,13 +52,13 @@ services:
     networks:
       - lumora-network
     volumes:
-      - .:/app
-      - ../Scrapper:/Scrapper
+      - ..:/app
+      - ../../Scrapper:/Scrapper
     command: python run_server.py
 
   admin-frontend:
     build:
-      context: ../admin_frontend
+      context: ../../admin_frontend
       dockerfile: Dockerfile
     container_name: lumora-admin
     restart: unless-stopped
@@ -74,7 +74,7 @@ services:
 
   chatbot-frontend:
     build:
-      context: ../chatbot_frontend
+      context: ../../chatbot_frontend
       dockerfile: Dockerfile
     container_name: lumora-chatbot
     restart: unless-stopped
