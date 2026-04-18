@@ -4,7 +4,6 @@ metadata:
   name: lumora-ingress
   namespace: lumora
   annotations:
-    # Fix #5: Sadece Traefik annotation'ları (nginx karışıklığı temizlendi)
     kubernetes.io/ingress.class: "traefik"
     traefik.ingress.kubernetes.io/buffering: |
       maxrequestbodybytes: 52428800

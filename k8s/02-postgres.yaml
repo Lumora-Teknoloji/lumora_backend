@@ -33,17 +33,16 @@ spec:
             - containerPort: 5432
           env:
             # Fix #9: Secret'taki key isimleri artık doğru eşleşiyor
-            # kubectl create secret komutunda POSTGRESQL_DATABASE ve
-            # POSTGRESQL_USERNAME key'leri oluşturulacak
+            # POSTGRESQL_DATABASE ve POSTGRESQL_USERNAME configMap'te tutulur.
             - name: POSTGRES_DB
               valueFrom:
-                secretKeyRef:
-                  name: lumora-secret
+                configMapKeyRef:
+                  name: lumora-config
                   key: POSTGRESQL_DATABASE
             - name: POSTGRES_USER
               valueFrom:
-                secretKeyRef:
-                  name: lumora-secret
+                configMapKeyRef:
+                  name: lumora-config
                   key: POSTGRESQL_USERNAME
             - name: POSTGRES_PASSWORD
               valueFrom:
