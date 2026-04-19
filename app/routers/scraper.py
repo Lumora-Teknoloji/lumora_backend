@@ -292,11 +292,21 @@ async def get_bots_status(db: Session = Depends(get_db)):
     
     if task_ids:
         tid_tuple = tuple(task_ids)
-        # 1. Queue sums
-        for r in db.execute(text("SELECT task_id, status, COUNT(*) FROM scraping_queue WHERE task_id IN :tids GROUP BY task_id, status"), {"tids": tid_tuple}).fetchall():
-            queue_counts[r[0]] = queue_counts.get(r[0], 0) + r[2]
-            if r[1] == 'pending': pending_counts[r[0]] = r[2]
-            
+        # 1. Queue sums (Now from Redis instead of PostgreSQL)
+        from app.routers.redis_queue import get_redis
+        r = await get_redis()
+        
+        # Sadece hizli calismak ve kuyruktaki tasklari eslestirmek icin:
+        pending_urls = await r.lrange("links:pending", 0, -1)
+        task_map = await r.hgetall("links:task_map")
+        
+        for url in pending_urls:
+            tid_str = task_map.get(url)
+            if tid_str and tid_str.isdigit():
+                tid = int(tid_str)
+                queue_counts[tid] = queue_counts.get(tid, 0) + 1
+                pending_counts[tid] = pending_counts.get(tid, 0) + 1
+                
         from datetime import timedelta, timezone
         one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
         

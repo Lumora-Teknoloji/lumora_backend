@@ -58,7 +58,7 @@ services:
 
   admin-frontend:
     build:
-      context: ../../admin_frontend
+      context: ../../admin-panel
       dockerfile: Dockerfile
     container_name: lumora-admin
     restart: unless-stopped
@@ -74,7 +74,7 @@ services:
 
   chatbot-frontend:
     build:
-      context: ../../chatbot_frontend
+      context: ../../chatbot-frontend
       dockerfile: Dockerfile
     container_name: lumora-chatbot
     restart: unless-stopped

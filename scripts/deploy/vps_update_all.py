@@ -11,10 +11,12 @@ for dir in */; do
   if [ -d "$dir/.git" ]; then
     echo "Pulling $dir"
     cd "$dir"
-    git fetch --all
-    git checkout master || git checkout main
-    git reset --hard origin/$(git branch --show-current)
-    git pull
+    git config --global --add safe.directory /var/www/lumora/$dir || true
+    echo '2001Bedir..' | sudo -S git config --global --add safe.directory '*' || true
+    echo '2001Bedir..' | sudo -S git fetch --all
+    echo '2001Bedir..' | sudo -S git checkout master || echo '2001Bedir..' | sudo -S git checkout main
+    echo '2001Bedir..' | sudo -S git reset --hard origin/$(git branch --show-current)
+    echo '2001Bedir..' | sudo -S git pull
     cd ..
   fi
 done

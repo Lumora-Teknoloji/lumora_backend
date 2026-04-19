@@ -51,15 +51,22 @@ PROCESSING_TIMEOUT_S = 300  # 5 dakika
 
 def _sync_save_batch(batch_data: list):
     """Senkron veritabanı işlemi (threadpool içinde çalışır).
-    Exception fırlatırsa flusher loop veriyi buffer'a geri yazar."""
+    Exception fırlatırsa bulk fails, ama tek tek ekleme denenir. Zehirli (silinmiş bot) çöpleri atılır."""
     db = SessionLocal()
     try:
         service = TrendyolScraperService(db)
         # task_id None olarak geçer çünkü agent kendi context'inden bağımsız ürün yollar
-        service.process_scraped_batch(batch_data, task_id=None)
-    except Exception as e:
-        logger.error(f"results:buffer DB kayit hatasi: {e}")
-        raise  # Flusher loop'un haberi olsun — veriyi geri yazsın
+        try:
+            service.process_scraped_batch(batch_data, task_id=None)
+        except Exception as e:
+            db.rollback()
+            logger.error(f"results:buffer toplu DB kayit hatasi: {e}. Tek tek deneniyor...")
+            for item in batch_data:
+                try:
+                    service.process_scraped_batch([item], task_id=None)
+                except Exception as ex:
+                    db.rollback()
+                    logger.error(f"Zehirli veri atildi (task silinmis olabilir): {ex}")
     finally:
         db.close()
 
