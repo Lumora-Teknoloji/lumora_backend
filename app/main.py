@@ -20,7 +20,10 @@ from .core.static import mount_static_files
 from .core.errors import add_exception_handlers
 
 # Router Imports
-from .routers.scraper import router as scraper_router
+from .routers.scraper_tasks import router as scraper_tasks_router
+from .routers.scraper_bots import router as scraper_bots_router
+from .routers.scraper_metrics import router as scraper_metrics_router
+from .routers.scraper_ingest import router as scraper_ingest_router
 from .routers.bot_commands import router as bot_commands_router
 from .routers.products import router as products_router
 from .routers.intelligence import router as intelligence_router
@@ -61,7 +64,10 @@ app.include_router(conversations.router, prefix=api_prefix)
 app.include_router(messages.router, prefix=api_prefix)
 
 # App Routers
-app.include_router(scraper_router, prefix=api_prefix)
+app.include_router(scraper_tasks_router, prefix=api_prefix)
+app.include_router(scraper_bots_router, prefix=api_prefix)
+app.include_router(scraper_metrics_router, prefix=api_prefix)
+app.include_router(scraper_ingest_router, prefix=api_prefix)
 app.include_router(bot_commands_router, prefix=api_prefix)
 app.include_router(products_router, prefix=api_prefix)
 app.include_router(intelligence_router, prefix=api_prefix)

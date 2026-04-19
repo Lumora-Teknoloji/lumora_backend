@@ -1,10 +1,3 @@
-# app/routers/scraper.py
-"""
-Scraper API endpoint'leri.
-- Task yönetimi
-- Veri gönderimi
-- Durum sorgulama
-"""
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -19,7 +12,6 @@ import traceback
 from pathlib import Path
 from sqlalchemy import func, desc, text
 from datetime import datetime, timezone, time, timedelta
-
 from app.core.database import get_db
 from app.services.data.scraper_service import TrendyolScraperService
 from app.models.scraping_task import ScrapingTask
@@ -30,10 +22,8 @@ from app.schemas.scraper import (
     CreateTaskRequest, TaskResponse, StatusResponse,
     BotStatusResponse, BotSettingsUpdate
 )
-
 logger = logging.getLogger(__name__)
 from app.middleware.rate_limit import limiter
-
 router = APIRouter(prefix="/scraper", tags=["Scraper"])
 
 def get_scrapper_dir() -> Path:
@@ -75,212 +65,8 @@ def get_scrapper_dir() -> Path:
     # Fallback
     return project_root / "Scrapper"
 
-
 # ==================== ENDPOINTS ====================
 
-@router.post("/ingest", response_model=IngestResponse)
-@limiter.limit("30/minute")
-async def ingest_scraped_products(
-    request: Request,
-    ingest_request: IngestRequest,
-    db: Session = Depends(get_db)
-):
-    """Scraper sonuçlarını toplu olarak veritabanına yazar."""
-    if not ingest_request.products:
-        raise HTTPException(status_code=400, detail="Ürün listesi boş olamaz")
-    
-    service = TrendyolScraperService(db)
-    
-    try:
-        products_data = [p.model_dump() for p in ingest_request.products]
-        stats = service.process_scraped_batch(products_data, ingest_request.task_id)
-        
-        return IngestResponse(
-            success=True,
-            inserted=stats["inserted"],
-            updated=stats["updated"],
-            errors=stats["errors"],
-            message=f"Toplam {len(ingest_request.products)} ürün işlendi."
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"İşlem hatası: {str(e)}")
-
-
-@router.post("/tasks", response_model=TaskResponse)
-async def create_scraping_task(
-    request: CreateTaskRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """Yeni scraping görevi oluşturur."""
-    from datetime import timedelta
-    
-    try:
-        # Build search_params
-        params = {"search_term": request.search_term, "mode": request.mode, "page_limit": request.page_limit}
-        if request.source_task_id:
-            params["source_task_id"] = request.source_task_id
-        
-        # For worker bots, copy source bot's URL if no keyword given
-        target_url = f"https://www.trendyol.com/sr?q={request.search_term}" if request.search_term else ""
-        if request.mode == "worker" and request.source_task_id:
-            source = db.query(ScrapingTask).filter(ScrapingTask.id == request.source_task_id).first()
-            if source:
-                base_url = source.target_url or target_url
-                import time
-                target_url = f"{base_url}&worker={int(time.time())}"
-        
-        # Create new task
-        new_task = ScrapingTask(
-            task_name=request.task_name,
-            target_platform=request.target_platform,
-            search_params=params,
-            target_url=target_url,
-            scrape_interval_hours=request.scrape_interval,
-            is_active=request.is_active,
-            status="active" if request.is_active else "stopped",
-            start_time=request.start_time,
-            end_time=request.end_time,
-            next_run_at=datetime.now() + timedelta(hours=request.scrape_interval) if request.is_active else None
-        )
-        
-        db.add(new_task)
-        db.commit()
-        db.refresh(new_task)
-        
-        # YENI: Eger is_active ise aninda tetikle (Immediate Run on Create)
-        if request.is_active and request.search_term:
-            from app.models.agent import Agent, AgentCommand
-            try:
-                active_agents = db.query(Agent).filter(
-                    Agent.is_active == True,
-                    Agent.status != "offline"
-                ).all()
-                if active_agents:
-                    agent_cmd = AgentCommand(
-                        agent_id=active_agents[0].id,
-                        command="scrape",
-                        params={
-                            "keyword": request.search_term,
-                            "mode": request.mode,
-                            "page_limit": request.page_limit,
-                            "task_id": new_task.id,
-                        }
-                    )
-                    db.add(agent_cmd)
-                    db.commit()
-                    logger.info(f"Agent command queue'ya eklendi: Yeni gorev: {request.search_term}")
-            except Exception as e:
-                logger.error(f"Agent command trigger hatası: {e}")
-        
-        return TaskResponse(
-            id=new_task.id,
-            search_term=request.search_term,
-            status="active" if new_task.is_active else "inactive",
-            task_type=request.target_platform
-        )
-    except Exception as e:
-        db.rollback()
-        error_msg = str(e)
-        print(f"[CREATE_TASK_ERROR] mode={request.mode} task_name={request.task_name} search_term={request.search_term} source_task_id={getattr(request, 'source_task_id', None)}")
-        print(f"[CREATE_TASK_ERROR] Full error: {repr(e)}")
-        if "unique" in error_msg.lower() or "duplicate" in error_msg.lower():
-            if request.mode == "worker":
-                raise HTTPException(status_code=400, detail=f"'{request.task_name}' isimli bir bot zaten mevcut.")
-            raise HTTPException(status_code=400, detail=f"'{request.search_term}' araması için zaten bir bot mevcut.")
-        raise HTTPException(status_code=500, detail=f"Görev oluşturma hatası: {error_msg}")
-
-
-@router.get("/tasks/{task_id}", response_model=TaskResponse)
-async def get_task(task_id: int, db: Session = Depends(get_db)):
-    """Görev detaylarını getirir."""
-    task = db.query(ScrapingTask).filter(ScrapingTask.id == task_id).first()
-    
-    if not task:
-        raise HTTPException(status_code=404, detail="Görev bulunamadı")
-    
-    return TaskResponse(
-        id=task.id,
-        search_term=task.task_name or "",
-        status="active" if task.is_active else "paused",
-        task_type=task.target_platform or "trendyol",
-        last_scraped_at=task.last_run_at
-    )
-
-
-@router.patch("/tasks/{task_id}/status")
-async def update_task_status(
-    task_id: int,
-    status: str,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """Görev durumunu günceller ve eğer başlatılıyorsa anlık tetikler."""
-    task = db.query(ScrapingTask).filter(ScrapingTask.id == task_id).first()
-    
-    if not task:
-        raise HTTPException(status_code=404, detail="Görev bulunamadı")
-    
-    task.is_active = (status == "active")
-    db.commit()
-    
-    # Eger Play tusuna (active) basildiysa aninda tetikle
-    if task.is_active:
-        keyword = task.target_url
-        if task.search_params and "search_term" in task.search_params:
-            keyword = keyword or task.search_params.get("search_term")
-            
-        page_limit = task.search_params.get("page_limit", 50) if task.search_params else 50
-        
-        if keyword:
-            from app.models.agent import Agent, AgentCommand
-            try:
-                from datetime import datetime, timedelta
-                cutoff = datetime.now(timezone.utc) - timedelta(seconds=120)
-                active_agents = db.query(Agent).filter(
-                    Agent.is_active == True,
-                    Agent.status != "offline",
-                    Agent.last_heartbeat > cutoff
-                ).all()
-                if active_agents:
-                    agent_cmd = AgentCommand(
-                        agent_id=active_agents[0].id,
-                        command="scrape",
-                        params={
-                            "keyword": keyword,
-                            "mode": "normal",
-                            "page_limit": page_limit,
-                            "task_id": task_id,
-                        }
-                    )
-                    db.add(agent_cmd)
-                    db.commit()
-            except Exception as e:
-                logger.error(f"Agent command trigger hatası: {e}")
-    
-    return {"success": True, "task_id": task_id, "new_status": status}
-
-
-@router.get("/tasks")
-async def list_active_tasks(db: Session = Depends(get_db)):
-    """Aktif görevleri listeler."""
-    tasks = db.query(ScrapingTask).all()
-    
-    return [
-        TaskResponse(
-            id=t.id,
-            search_term=t.task_name or "",
-            status="active" if t.is_active else "paused",
-            task_type=t.target_platform or "trendyol",
-            last_scraped_at=t.last_run_at
-        )
-        for t in tasks
-    ]
-
-
-
-@router.get("/bots/status")
 async def get_bots_status(db: Session = Depends(get_db)):
     """Tüm botların durumunu listeler (frontend için)."""
     tasks = db.query(ScrapingTask).all()
@@ -585,66 +371,6 @@ async def get_bots_status(db: Session = Depends(get_db)):
 
     return bots
 
-
-@router.get("/status", response_model=StatusResponse)
-async def get_scraper_status(db: Session = Depends(get_db)):
-    """Genel scraper durumunu döner."""
-    from sqlalchemy import func
-    import os
-    
-    # 1. Toplam Ürün Sayısı (Unique)
-    total_products = db.query(func.count(Product.id)).scalar() or 0
-    
-    # 2. Toplam Kazınan Veri (Tüm Zamanların Toplam Başarı İşlemi)
-    # Sadece unique ürün değil, her başarılı tarama (yeni + güncelleme) sayılır.
-    total_added = db.query(func.sum(ScrapingLog.products_added)).scalar() or 0
-    total_updated = db.query(func.sum(ScrapingLog.products_updated)).scalar() or 0
-    total_scraped = int(total_added + total_updated)
-
-    # 3. Günlük Kazınan Veri (Takvim Günü - Gece 00:00'dan Beri)
-    from datetime import time
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    daily_added = db.query(func.sum(ScrapingLog.products_added)).filter(ScrapingLog.started_at >= today_start).scalar() or 0
-    daily_updated = db.query(func.sum(ScrapingLog.products_updated)).filter(ScrapingLog.started_at >= today_start).scalar() or 0
-    daily_scraped = (daily_added or 0) + (daily_updated or 0)
-    
-    active_bots = 0
-    tasks = db.query(ScrapingTask).all()
-    scrapper_dir = get_scrapper_dir()
-    for task in tasks:
-        pid_file = scrapper_dir / f"bot_{task.id}.pid"
-        if pid_file.exists():
-            active_bots += 1
-    
-    # 5. Sistem Sağlığı (% Başarı Oranı)
-    total_errors = db.query(func.sum(ScrapingLog.errors)).scalar() or 0
-    total_attempts = total_scraped + total_errors
-    
-    health = (total_scraped / total_attempts * 100) if total_attempts > 0 else 100.0
-    if health > 100: health = 100.0
-    
-    # 6. Bekleyen Link Sayısı (Kuyruk)
-    pending_links = db.execute(text("SELECT count(*) FROM scraping_queue WHERE status = 'pending'")).scalar() or 0
-    
-    # Son tarama tarihi
-    last_log = db.query(ScrapingLog).order_by(ScrapingLog.started_at.desc()).first()
-    last_date = last_log.started_at if last_log else None
-    
-    return StatusResponse(
-        total_products=total_products,
-        total_scraped=total_scraped,
-        daily_scraped=daily_scraped,
-        active_bots=active_bots,
-        system_health=round(health, 1),
-        pending_links=pending_links,
-        last_scrape_date=last_date.isoformat() if last_date else None
-    )
-
-
-# ==================== BOT CONTROL ENDPOINTS ====================
-
-
-@router.get("/bots/linkers")
 async def get_linker_bots(db: Session = Depends(get_db)):
     """Linker botlarını listeler (Worker oluştururken kaynak seçimi için)."""
     from app.models.scraping_task import ScrapingTask
@@ -674,8 +400,6 @@ async def get_linker_bots(db: Session = Depends(get_db)):
     
     return linkers
 
-@router.post("/bots/{bot_id}/start")
-@limiter.limit("5/minute")
 async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Botu başlatır - hem dosya tabanlı (eski) hem agent command queue (yeni) sistemi."""
     from app.models.scraping_task import ScrapingTask
@@ -751,9 +475,6 @@ async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundT
 
     return {"success": True, "message": f"Bot {task.task_name} başlatma komutu gönderildi"}
 
-
-@router.post("/bots/{bot_id}/worker")
-@limiter.limit("5/minute")
 async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu sadece kuyruk eritme (worker) modunda başlatır."""
     from app.models.scraping_task import ScrapingTask
@@ -801,9 +522,6 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
     msg = f"Bot {task.task_name} {'API yorum kazıma' if is_review_bot else 'kuyruk eritme (worker)'} komutu gönderildi"
     return {"success": True, "message": msg}
 
-
-@router.post("/bots/{bot_id}/stop")
-@limiter.limit("5/minute")
 async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu durdurur - hem dosya tabanlı (eski) hem agent command queue (yeni)."""
     from app.models.scraping_task import ScrapingTask
@@ -839,8 +557,6 @@ async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db))
 
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
 
-@router.post("/bots/{bot_id}/reset")
-@limiter.limit("5/minute")
 async def reset_bot_stats(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Bot'un kazıma loglarını, bekleyen link kuyruğunu siler ve topladığı ürünlerin bağını kopararak sıfırlar."""
     from app.models.scraping_task import ScrapingTask
@@ -857,9 +573,6 @@ async def reset_bot_stats(request: Request, bot_id: int, db: Session = Depends(g
     
     return {"success": True, "message": f"{task.task_name} istatistikleri sıfırlandı."}
 
-
-@router.post("/bots/{bot_id}/schedule")
-@limiter.limit("5/minute")
 async def schedule_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu planlanmış duruma geçirir."""
     from app.models.scraping_task import ScrapingTask
@@ -887,8 +600,6 @@ async def schedule_bot(request: Request, bot_id: int, db: Session = Depends(get_
     db.commit()
     return {"success": True, "message": f"Bot {task.task_name} planlandı (Beklemede)"}
 
-
-@router.post("/bots/{bot_id}/cancel")
 async def cancel_bot(bot_id: int, db: Session = Depends(get_db)):
     """Botu iptal eder — aktif kazımayı durdurur, yarım kalan veriyi sync eder."""
     from app.models.scraping_task import ScrapingTask
@@ -923,8 +634,6 @@ async def cancel_bot(bot_id: int, db: Session = Depends(get_db)):
 
     return {"success": True, "message": f"Bot {task.task_name} iptal edildi"}
 
-
-@router.post("/bots/{bot_id}/speed-mode")
 async def toggle_speed_mode(bot_id: int, minutes: int = 30, db: Session = Depends(get_db)):
     """Hız modunu aktif/deaktif eder. Max 30 dakika, sonra otomatik güvenli moda döner."""
     from app.models.scraping_task import ScrapingTask
@@ -956,7 +665,6 @@ async def toggle_speed_mode(bot_id: int, minutes: int = 30, db: Session = Depend
         "expires_in_minutes": minutes
     }
 
-@router.post("/bots/{bot_id}/api-mode")
 async def toggle_api_mode(bot_id: int, db: Session = Depends(get_db)):
     """API modunu toggle eder (aç/kapat). DOM yerine API-first scraping."""
     from app.models.scraping_task import ScrapingTask
@@ -984,7 +692,6 @@ async def toggle_api_mode(bot_id: int, db: Session = Depends(get_db)):
         "message": f"🔌 API modu toggle edildi — {task.task_name}"
     }
 
-@router.post("/bots/{bot_id}/proxy-mode")
 async def toggle_proxy_mode(bot_id: int, db: Session = Depends(get_db)):
     """Proxy modunu toggle eder (aç/kapat). Bright Data residential proxy."""
     from app.models.scraping_task import ScrapingTask
@@ -1022,97 +729,6 @@ async def toggle_proxy_mode(bot_id: int, db: Session = Depends(get_db)):
         "message": f"🌐 Proxy modu {status_text} — {task.task_name}"
     }
 
-@router.delete("/bots/{bot_id}")
-async def delete_bot(bot_id: int, db: Session = Depends(get_db)):
-    """Botu ve onunla ilişkili tüm verileri siler."""
-    from app.models.scraping_task import ScrapingTask
-    from sqlalchemy import text
-    
-    try:
-        task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
-        if not task:
-            raise HTTPException(status_code=404, detail="Bot bulunamadı")
-        
-        task_name = task.task_name
-
-        # Agent'lara cancel komutu gönder (aktif kazıma varsa iptal etsin)
-        try:
-            from app.models.agent import Agent, AgentCommand
-            active_agents = db.query(Agent).filter(
-                Agent.is_active == True,
-                Agent.status != "offline"
-            ).all()
-            for agent in active_agents:
-                agent_cmd = AgentCommand(
-                    agent_id=agent.id,
-                    command="cancel",
-                    params={"task_id": bot_id}
-                )
-                db.add(agent_cmd)
-            if active_agents:
-                db.commit()
-        except Exception as e:
-            logger.warning(f"Delete sırasında agent cancel gönderilemedi: {e}")
-        
-        # 0. Çalışıyorsa ÖNCE durdur (orphan process önleme)
-        scrapper_dir = get_scrapper_dir()
-        pid_file = scrapper_dir / f"bot_{bot_id}.pid"
-        stop_file = scrapper_dir / f"bot_{bot_id}.stop"
-        
-        if pid_file.exists():
-            # Stop sinyali gönder
-            stop_file.write_text("1")
-            try:
-                pid = int(pid_file.read_text().strip())
-                import subprocess as sp
-                if os.name == 'nt':
-                    sp.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=10)
-                else:
-                    import signal as sig
-                    os.kill(pid, sig.SIGKILL)
-            except Exception:
-                pass
-            # Dosyaları temizle
-            for f in [pid_file, stop_file, scrapper_dir / f"bot_{bot_id}.force", scrapper_dir / f"bot_{bot_id}.worker"]:
-                try:
-                    if f.exists(): f.unlink()
-                except Exception:
-                    pass
-        
-        # İlişkili verileri manuel sil (ForeignKey hatalarını önlemek için)
-        # SIRA ÖNEMLİ: En uçtaki tablodan başlıyoruz
-        try:
-            # 1. Kuyruğu temizle (İşlenmemiş linkler gidebilir)
-            db.execute(text("DELETE FROM scraping_queue WHERE task_id = :tid"), {"tid": bot_id})
-            
-            # 2. Logları KORU ama bot ile bağını kes (Global istatistikler düşmesin diye)
-            db.execute(text("UPDATE scraping_logs SET task_id = NULL WHERE task_id = :tid"), {"tid": bot_id})
-            
-            # 3. Ürünleri KORU ama bot ile bağını kes
-            db.execute(text("UPDATE products SET task_id = NULL WHERE task_id = :tid"), {"tid": bot_id})
-            
-            db.flush()
-        except Exception as e:
-            logger.warning(f"Bağlı veriler silinirken uyarı: {e}")
-
-        # 4. Botun kendisini sil
-        db.delete(task)
-        db.commit()
-        
-        return {"success": True, "message": f"Bot {task_name} ve tüm geçmiş verileri silindi"}
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Bot silinirken bir hata oluştu: {str(e)}"
-        )
-
-
-
-@router.patch("/bots/{bot_id}/settings")
 async def update_bot_settings(
     bot_id: int,
     settings: BotSettingsUpdate,
@@ -1193,383 +809,3 @@ async def update_bot_settings(
         raise HTTPException(status_code=500, detail=str(e))
     
     return {"success": True, "message": "Bot ayarları güncellendi"}
-
-
-@router.get("/logs")
-async def get_system_logs(
-    limit: int = 100,
-    filter: Optional[str] = None,
-    bot_id: int = 0,
-    db: Session = Depends(get_db)
-):
-    """Sistem loglarını ve hataları veritabanı ve dosya sisteminden getirir."""
-    from app.models.scraping_log import ScrapingLog
-    import os
-    import glob
-    
-    # 1. Read actual text logs from file system
-    log_messages = []
-    try:
-        # Use centralized path resolution
-        base_dir = str(get_scrapper_dir())
-            
-        # Find bot log files — filter by bot_id if specified
-        if bot_id > 0:
-            log_files = [os.path.join(base_dir, f"bot_{bot_id}.log")]
-            log_files = [f for f in log_files if os.path.exists(f)]
-        else:
-            log_files = glob.glob(os.path.join(base_dir, "bot_*.log"))
-        
-        all_lines = []
-        for log_file in log_files:
-            try:
-                # Read last N lines from each file
-                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    # Simple tail implementation
-                    lines = f.readlines()
-                    all_lines.extend(lines[-limit:]) 
-            except Exception as e:
-                print(f"Error reading {log_file}: {e}")
-
-        
-        # Sort lines by timestamp [HH:MM:SS]
-        def extract_timestamp(line):
-            try:
-                # [14:30:00] ... -> 14:30:00
-                if line.startswith('['):
-                    return line.split(']')[0].strip('[')
-                return "00:00:00"
-            except Exception:
-                return "00:00:00"
-        
-        all_lines.sort(key=extract_timestamp)
-
-        # Clean and filter lines
-        # Do NOT reverse. We want [Oldest, ..., Newest] so they appear at the bottom of the terminal.
-        
-        # Filter and limit
-        for line in all_lines:
-            line = line.strip()
-            if not line: continue
-            
-            # Show meaningful logs from all bot types:
-            # 🛍️ Product scraped, ❌ Error, 🔗 Link found (Linker)
-            # 📡 Linker status, 🔍 Worker status, 🏁 Finished
-            # ⚠️ Warning, 🔄 IP rotation, 🛑 Stop signal
-            meaningful_emojis = ["🛍️", "❌", "🔗", "📡", "🔍", "🏁", "⚠️", "🔄", "🛑"]
-            if not any(emoji in line for emoji in meaningful_emojis):
-                continue
-
-            if filter and filter.lower() not in line.lower():
-                continue
-            log_messages.append(line)
-            
-        log_messages = log_messages[:limit]
-        
-    except Exception as e:
-        log_messages.append(f"Log okuma hatası: {str(e)}")
-
-    # 2. Get detailed errors from DB as before
-    detailed_errors = []
-    try:
-        from app.models.scraping_task import ScrapingTask
-        
-        # Join with ScrapingTask to get real bot name + mode
-        results = db.query(ScrapingLog, ScrapingTask.task_name, ScrapingTask.search_params).outerjoin(
-            ScrapingTask, ScrapingLog.task_id == ScrapingTask.id
-        ).filter(ScrapingLog.errors > 0).order_by(ScrapingLog.started_at.desc()).limit(20).all()
-        
-        for log, t_name, s_params in results:
-             bot_mode = s_params.get("mode", "normal") if s_params else "normal"
-             detailed_errors.append({
-                "id": log.id,
-                "task_name": t_name or f"Görev {log.task_id}",
-                "mode": bot_mode,
-                "error": log.error_details or "Hata detayı yok.",
-                "screenshot": log.screenshot_path,
-                "date": log.started_at.strftime("%d.%m.%Y %H:%M") if log.started_at else ""
-            })
-    except Exception as e:
-        logger.error(f"Error fetching detailed logs: {e}")
-            
-    return {
-        "logs": log_messages,
-        "detailed_errors": detailed_errors
-    }
-
-
-@router.get("/logs/backend")
-async def get_backend_logs(limit: int = 100):
-    """Backend servis loglarını döner."""
-    try:
-        import os
-        log_path = "backend.log"
-        if not os.path.exists(log_path):
-            return {"logs": ["Henüz backend log kaydı oluşmadı."]}
-            
-        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()
-            # Son N satırı al
-            tail_lines = [line.strip() for line in lines[-limit:] if line.strip()]
-            return {"logs": tail_lines}
-    except Exception as e:
-        return {"logs": [f"Backend log okuma hatası: {str(e)}"]}
-
-
-@router.delete("/logs/errors")
-async def clear_error_logs(db: Session = Depends(get_db)):
-    """Tüm hata kayıtlarını temizler."""
-    try:
-        from app.models.scraping_log import ScrapingLog
-        import os
-        
-        # Hatalı logları bul ve sil
-        logs = db.query(ScrapingLog).filter(ScrapingLog.errors > 0).all()
-        for log in logs:
-            # Screenshot varsa sil
-            if log.screenshot_path:
-                try:
-                    ss_path = os.path.join(str(get_scrapper_dir()), "static", "captures", log.screenshot_path)
-                    if os.path.exists(ss_path):
-                        os.remove(ss_path)
-                except Exception:
-                    pass
-            db.delete(log)
-            
-        db.commit()
-        return {"success": True, "message": "Tüm hata kayıtları temizlendi"}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.delete("/logs/{log_id}")
-async def delete_log(log_id: int, db: Session = Depends(get_db)):
-    """Tekil bir log kaydını siler."""
-    try:
-        from app.models.scraping_log import ScrapingLog
-        import os
-        
-        log = db.query(ScrapingLog).filter(ScrapingLog.id == log_id).first()
-        if not log:
-            raise HTTPException(status_code=404, detail="Log bulunamadı")
-            
-        # Screenshot varsa sil
-        if log.screenshot_path:
-            try:
-                ss_path = os.path.join(str(get_scrapper_dir()), "static", "captures", log.screenshot_path)
-                if os.path.exists(ss_path):
-                    os.remove(ss_path)
-            except Exception:
-                pass
-                
-        db.delete(log)
-        db.commit()
-        return {"success": True, "message": "Log silindi"}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/system/health")
-async def get_system_health(db: Session = Depends(get_db)):
-    """Sistem sağlığı ve istatistiklerini döner."""
-    try:
-        from app.models.product import Product
-        from app.models.scraping_task import ScrapingTask
-        from app.models.scraping_log import ScrapingLog
-
-        # DB Stats - Individual counts to avoid total failure
-        total_products = 0
-        total_tasks = 0
-        total_logs = 0
-        db_connection = "healthy"
-        
-        try:
-            total_products = db.query(Product).count()
-            total_tasks = db.query(ScrapingTask).count()
-            total_logs = db.query(ScrapingLog).count()
-        except Exception as db_e:
-            logger.error(f"DB STATS ERROR: {db_e}")
-            db_connection = "error"
-        
-        # System Info
-        try:
-            cpu_usage = psutil.cpu_percent(interval=0.1)
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
-        except Exception as sys_e:
-            logger.error(f"SYSTEM INFO ERROR: {sys_e}")
-            cpu_usage = 0
-            memory = type('obj', (object,), {'percent': 0, 'used': 0, 'total': 0})
-            disk = type('obj', (object,), {'percent': 0, 'used': 0, 'total': 0})
-
-        # Calculate Pulse Status
-        pulse_status = "healthy"
-        pulse_message = "Sistem Stabil"
-        
-        try:
-            cpu_val = float(cpu_usage)
-            mem_val = float(memory.percent)
-            
-            if db_connection != "healthy":
-                pulse_status = "error"
-                pulse_message = "Bağlantı Kesik"
-            elif cpu_val > 90 or mem_val > 95:
-                pulse_status = "critical"
-                pulse_message = "Kritik Yük!"
-            elif cpu_val > 50 or mem_val > 70:
-                pulse_status = "busy"
-                pulse_message = "Yük Altında"
-        except Exception:
-            pass
-
-        return {
-            "status": "online" if db_connection == "healthy" else "degraded",
-            "pulse": {
-                "status": pulse_status,
-                "message": pulse_message
-            },
-            "database": {
-                "connection": db_connection,
-                "total_products": total_products,
-                "total_tasks": total_tasks,
-                "total_logs": total_logs
-            },
-            "server": {
-                "cpu": f"{cpu_usage}%",
-                "memory": f"{memory.percent}% ({round(memory.used / (1024**3), 2)} GB / {round(memory.total / (1024**3), 2)} GB)",
-                "disk": f"{disk.percent}% ({round(disk.used / (1024**3), 2)} GB / {round(disk.total / (1024**3), 2)} GB)",
-                "os": platform.system(),
-            }
-        }
-    except Exception as e:
-        logger.error(f"HEALTH CHECK CRITICAL ERROR: {e}", exc_info=True)
-        return {
-            "status": "degraded",
-            "database": {
-                "connection": f"HATA: {str(e)[:20]}...",
-                "total_products": 0,
-                "total_tasks": 0,
-                "total_logs": 0
-            },
-            "server": {
-                "cpu": "0%",
-                "memory": "0%",
-                "disk": "0%",
-                "os": platform.system(),
-                "uptime": "ERR"
-            }
-        }
-
-
-@router.get("/live-products")
-async def get_live_products(
-    limit: int = 50,
-    db: Session = Depends(get_db)
-):
-    try:
-        from app.models.product import Product
-        from app.models.scraping_task import ScrapingTask
-        import traceback
-        
-        # Son eklenen ürünleri çek (en yeni en üstte)
-        # feature_vector gibi ağır/özel tipler hata verebilir, sadece ihtiyacımız olanları seçsek iyi olur ama şimdilik try-except ile görelim.
-        products = db.query(Product).order_by(Product.last_scraped_at.desc()).limit(limit).all()
-        
-        data = []
-        
-        # Task isimlerini cache'leyelim (N+1 query olmasın)
-        task_map = {}
-        tasks = db.query(ScrapingTask).all()
-        for t in tasks:
-            task_map[t.id] = t.task_name
-            
-        for p in products:
-            task_name = task_map.get(p.task_id, "Bilinmeyen Bot")
-            
-            # Fiyat formatla
-            price_val = getattr(p, "last_price", 0) or getattr(p, "price", 0)
-            price_display = f"{price_val} TL" if price_val else "Fiyat Yok"
-            
-            # Resim URL
-            image_src = getattr(p, "image_url", None) or (p.image_urls[0] if hasattr(p, "image_urls") and p.image_urls else None)
-            
-            data.append({
-                "id": p.id,
-                "name": p.name or "İsimsiz Ürün",
-                "brand": p.brand or "Marka Yok",
-                "price": price_display,
-                "url": p.url,
-                "scraped_at": p.last_scraped_at.strftime("%H:%M:%S") if p.last_scraped_at else "--:--:--",
-                "bot": task_name,
-                "platform": "Trendyol",
-                "image": image_src
-            })
-            
-        return data
-
-    except Exception as e:
-        logger.error(f"Live products error: {str(e)}")
-        traceback.print_exc()
-        return [{"id": 0, "name": "Sistem Hatası", "brand": "Hata", "price": "0 TL", "bot": "Sistem", "scraped_at": "00:00", "error": str(e)}]
-
-
-# ==================== MONITORING ====================
-
-@router.get("/monitor/check")
-async def monitor_check(db: Session = Depends(get_db)):
-    """
-    Scraper sağlık kontrolü — veri akışı durunca webhook ile bildirim gönderir.
-    Bu endpoint'i bir cron job ile çağırabilirsin (her 30dk'da bir).
-    """
-    from app.core.config import settings
-    import httpx
-    
-    threshold = settings.alert_threshold_minutes
-    
-    # Son veri ne zaman geldi?
-    latest = db.query(func.max(Product.last_scraped_at)).scalar()
-    
-    if not latest:
-        return {"status": "no_data", "message": "Veritabanında hiç veri yok"}
-    
-    # Make timezone aware for comparison
-    if latest.tzinfo is None:
-        latest = latest.replace(tzinfo=timezone.utc)
-    
-    now = datetime.now(timezone.utc)
-    minutes_since = (now - latest).total_seconds() / 60
-    
-    status_data = {
-        "status": "healthy" if minutes_since < threshold else "stale",
-        "last_data_at": latest.isoformat(),
-        "minutes_since_last_data": round(minutes_since, 1),
-        "threshold_minutes": threshold,
-    }
-    
-    # Alert if stale
-    if minutes_since >= threshold and settings.webhook_url:
-        try:
-            message = (
-                f"⚠️ SCRAPER ALERT\n"
-                f"Son veri: {round(minutes_since)} dakika önce\n"
-                f"Eşik: {threshold} dakika\n"
-                f"Kontrol edin!"
-            )
-            async with httpx.AsyncClient() as client:
-                # Discord webhook format
-                if "discord" in settings.webhook_url:
-                    await client.post(settings.webhook_url, json={"content": message})
-                # Telegram bot format
-                elif "telegram" in settings.webhook_url:
-                    await client.post(settings.webhook_url, json={"text": message})
-                else:
-                    await client.post(settings.webhook_url, json={"message": message})
-            
-            status_data["alert_sent"] = True
-        except Exception as e:
-            logger.error(f"Webhook alert error: {e}")
-            status_data["alert_error"] = str(e)
-    
-    return status_data

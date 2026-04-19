@@ -64,7 +64,7 @@ def create_day2_mock(original: dict) -> dict:
 
 
 # Import service after path is set
-from app.services.scraper_service import TrendyolScraperService
+from app.services.data.scraper_service import TrendyolScraperService
 
 
 def run_test():
