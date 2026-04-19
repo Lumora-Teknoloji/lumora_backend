@@ -258,7 +258,7 @@ def start_scheduler_thread():
                                         from app.models.scraping_task import ScrapingTask
                                         db_task = session.query(ScrapingTask).filter(ScrapingTask.id == task.id).first()
                                         if db_task:
-                                            db_task.last_run_at = datetime.utcnow()
+                                            db_task.last_run_at = datetime.now(timezone.utc)
                                             db_task.status = "active"
                                             # Bir sonraki calismayi 24 saat sonraya kur eger interval varsa
                                             interval = db_task.scrape_interval_hours or 24

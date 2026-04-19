@@ -237,7 +237,7 @@ async def update_task_status(
             from app.models.agent import Agent, AgentCommand
             try:
                 from datetime import datetime, timedelta
-                cutoff = datetime.utcnow() - timedelta(seconds=120)
+                cutoff = datetime.now(timezone.utc) - timedelta(seconds=120)
                 active_agents = db.query(Agent).filter(
                     Agent.is_active == True,
                     Agent.status != "offline",
@@ -449,7 +449,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
             try:
                 source_task = db.query(ScrapingTask).filter(ScrapingTask.id == source_task_id).first()
                 source_bot_name = source_task.task_name if source_task else None
-            except:
+            except Exception:
                 pass
         # Get pages_scraped for all bot modes (live progress tracking)
         pages_scraped = 0
@@ -467,7 +467,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
                 ).order_by(desc(ScrapingLog.started_at)).first()
                 if last_finished_log and last_finished_log.pages_scraped:
                     pages_scraped = last_finished_log.pages_scraped
-        except:
+        except Exception:
             pass
         # Derive bot_state from active log's [STATE:xxx] or [STATE:xxx:seconds] prefix
         bot_state = "idle"
@@ -498,7 +498,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
                         if len(parts) > 1:
                             try:
                                 state_countdown = int(parts[1])
-                            except:
+                            except Exception:
                                 pass
                         state_message = msg[end_idx+2:] if len(msg) > end_idx+1 else ""
                         # last_seen = when the bot wrote this message
@@ -507,7 +507,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
                     else:
                         bot_state = "scraping"
                         state_message = msg
-            except:
+            except Exception:
                 pass
         # Uptime (çalışma süresi — aktif log'un başlangıcından bu ana)
         uptime_seconds = 0
@@ -546,7 +546,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
                         ended = datetime.now(timezone.utc)
                     uptime_seconds = int((ended - started).total_seconds())
                     session_started_at = started.isoformat()
-        except:
+        except Exception:
             pass
 
         bot = {
@@ -661,7 +661,7 @@ async def get_linker_bots(db: Session = Depends(get_db)):
                     text("SELECT COUNT(*) FROM scraping_queue WHERE task_id = :tid"),
                     {"tid": task.id}
                 ).scalar() or 0
-            except:
+            except Exception:
                 queue_count = 0
             
             keyword = task.search_params.get("search_term", "") if task.search_params else ""
@@ -720,7 +720,7 @@ async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundT
     # ── YENİ: Agent Command Queue (agent.py heartbeat ile alır) ──────────
     try:
         from datetime import datetime, timedelta
-        cutoff = datetime.utcnow() - timedelta(seconds=120)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=120)
         
         active_agents = db.query(Agent).filter(
             Agent.is_active == True,
@@ -776,7 +776,7 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
     # ── YENİ: Agent Command Queue ─────────────────────────────────────────
     try:
         from datetime import datetime, timedelta
-        cutoff = datetime.utcnow() - timedelta(seconds=120)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=120)
         active_agents = db.query(Agent).filter(
             Agent.is_active == True,
             Agent.status != "offline",
@@ -1070,13 +1070,13 @@ async def delete_bot(bot_id: int, db: Session = Depends(get_db)):
                 else:
                     import signal as sig
                     os.kill(pid, sig.SIGKILL)
-            except:
+            except Exception:
                 pass
             # Dosyaları temizle
             for f in [pid_file, stop_file, scrapper_dir / f"bot_{bot_id}.force", scrapper_dir / f"bot_{bot_id}.worker"]:
                 try:
                     if f.exists(): f.unlink()
-                except:
+                except Exception:
                     pass
         
         # İlişkili verileri manuel sil (ForeignKey hatalarını önlemek için)
@@ -1239,7 +1239,7 @@ async def get_system_logs(
                 if line.startswith('['):
                     return line.split(']')[0].strip('[')
                 return "00:00:00"
-            except:
+            except Exception:
                 return "00:00:00"
         
         all_lines.sort(key=extract_timestamp)
@@ -1332,7 +1332,7 @@ async def clear_error_logs(db: Session = Depends(get_db)):
                     ss_path = os.path.join(str(get_scrapper_dir()), "static", "captures", log.screenshot_path)
                     if os.path.exists(ss_path):
                         os.remove(ss_path)
-                except:
+                except Exception:
                     pass
             db.delete(log)
             
@@ -1360,7 +1360,7 @@ async def delete_log(log_id: int, db: Session = Depends(get_db)):
                 ss_path = os.path.join(str(get_scrapper_dir()), "static", "captures", log.screenshot_path)
                 if os.path.exists(ss_path):
                     os.remove(ss_path)
-            except:
+            except Exception:
                 pass
                 
         db.delete(log)
@@ -1421,7 +1421,7 @@ async def get_system_health(db: Session = Depends(get_db)):
             elif cpu_val > 50 or mem_val > 70:
                 pulse_status = "busy"
                 pulse_message = "Yük Altında"
-        except:
+        except Exception:
             pass
 
         return {

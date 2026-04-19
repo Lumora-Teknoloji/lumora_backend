@@ -129,20 +129,27 @@ def ensure_admin_user():
     try:
         from app.models.user import User
         from app.core.security import hash_password
+        import uuid
         
         db = SessionLocal()
         try:
             admin = db.query(User).filter(User.username == "admin").first()
             if not admin:
+                # Şifreyi env variable'dan al, yoksa random UUID üret (güvenli default)
+                admin_password = os.environ.get("ADMIN_INITIAL_PASSWORD", "")
+                if not admin_password:
+                    admin_password = uuid.uuid4().hex[:16]
+                    logger.warning(f"⚠️ ADMIN_INITIAL_PASSWORD env yok — rastgele şifre üretildi: {admin_password}")
+                
                 admin = User(
                     username="admin",
                     email="admin@lumoraboutique.com",
-                    hashed_password=hash_password("admin123"),
+                    hashed_password=hash_password(admin_password),
                     full_name="System Admin"
                 )
                 db.add(admin)
                 db.commit()
-                logger.info("✅ Admin kullanıcısı oluşturuldu (admin / admin123)")
+                logger.info("✅ Admin kullanıcısı oluşturuldu")
             else:
                 logger.info("✅ Admin kullanıcısı zaten mevcut.")
         finally:

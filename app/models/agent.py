@@ -1,7 +1,7 @@
 """Agent — Dağıtık scraper agent modeli"""
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Index
 from sqlalchemy.dialects.postgresql import JSONB
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import Base
 
@@ -23,7 +23,7 @@ class Agent(Base):
     stats = Column(JSONB, default={})
     
     last_heartbeat = Column(DateTime)
-    registered_at = Column(DateTime, default=datetime.utcnow)
+    registered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
     
     # Schedule Configuration
@@ -43,7 +43,7 @@ class AgentCommand(Base):
     status = Column(String(30), default="pending")  # pending, delivered, completed, failed
     result = Column(Text)
     
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     delivered_at = Column(DateTime)
     completed_at = Column(DateTime)
 
@@ -61,4 +61,4 @@ class AgentLogEntry(Base):
     logger_name = Column(String(100))   # logger adı (LumoraAgent, agent.heartbeat vb.)
     message = Column(Text)              # log mesajı
     timestamp = Column(DateTime)        # log zamanı (agent tarafındaki)
-    received_at = Column(DateTime, default=datetime.utcnow)
+    received_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
