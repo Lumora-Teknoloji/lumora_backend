@@ -372,6 +372,7 @@ async def get_bots_status(db: Session = Depends(get_db)):
 
     return bots
 
+@router.get("/bots/linkers")
 async def get_linker_bots(db: Session = Depends(get_db)):
     """Linker botlarını listeler (Worker oluştururken kaynak seçimi için)."""
     from app.models.scraping_task import ScrapingTask
@@ -401,6 +402,7 @@ async def get_linker_bots(db: Session = Depends(get_db)):
     
     return linkers
 
+@router.post("/bots/{bot_id}/start")
 async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Botu başlatır - hem dosya tabanlı (eski) hem agent command queue (yeni) sistemi."""
     from app.models.scraping_task import ScrapingTask
@@ -445,7 +447,7 @@ async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundT
     # ── YENİ: Agent Command Queue (agent.py heartbeat ile alır) ──────────
     try:
         from datetime import datetime, timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=120)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=120)
         
         active_agents = db.query(Agent).filter(
             Agent.is_active == True,
@@ -476,6 +478,7 @@ async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundT
 
     return {"success": True, "message": f"Bot {task.task_name} başlatma komutu gönderildi"}
 
+@router.post("/bots/{bot_id}/worker")
 async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu sadece kuyruk eritme (worker) modunda başlatır."""
     from app.models.scraping_task import ScrapingTask
@@ -498,7 +501,7 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
     # ── YENİ: Agent Command Queue ─────────────────────────────────────────
     try:
         from datetime import datetime, timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=120)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=120)
         active_agents = db.query(Agent).filter(
             Agent.is_active == True,
             Agent.status != "offline",
@@ -523,6 +526,7 @@ async def worker_start_bot(request: Request, bot_id: int, db: Session = Depends(
     msg = f"Bot {task.task_name} {'API yorum kazıma' if is_review_bot else 'kuyruk eritme (worker)'} komutu gönderildi"
     return {"success": True, "message": msg}
 
+@router.post("/bots/{bot_id}/stop")
 async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu durdurur - hem dosya tabanlı (eski) hem agent command queue (yeni)."""
     from app.models.scraping_task import ScrapingTask
@@ -533,10 +537,29 @@ async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db))
     if not task:
         raise HTTPException(status_code=404, detail="Bot bulunamadı")
     
-    # Deactivate in database and clear schedule
-    task.is_active = False
-    task.status = "stopped"
-    task.next_run_at = None
+    # Eger zamanlanmis bir görevse, "scheduled" geri dönsun, iptal edilmesin.
+    if task.start_time:
+        task.status = "scheduled"
+        task.is_active = True
+        
+        # Calculate next_run_at based on start_time for the NEXT day
+        time_val = task.start_time
+        try:
+            import datetime
+            time_parts = [int(p) for p in time_val.split(":")]
+            now = datetime.datetime.now(datetime.timezone.utc)
+            start_dt = now.replace(hour=time_parts[0], minute=time_parts[1], second=0, microsecond=0)
+            if start_dt <= now:
+                start_dt = start_dt + datetime.timedelta(days=1)
+            task.next_run_at = start_dt
+        except Exception:
+            pass
+    else:
+        # Deactivate in database and clear schedule
+        task.is_active = False
+        task.status = "stopped"
+        task.next_run_at = None
+        
     db.commit()
 
     # ── YENİ: Agent Command Queue ─────────────────────────────────────────
@@ -558,6 +581,7 @@ async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db))
 
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
 
+@router.post("/bots/{bot_id}/reset")
 async def reset_bot_stats(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Bot'un kazıma loglarını, bekleyen link kuyruğunu siler ve topladığı ürünlerin bağını kopararak sıfırlar."""
     from app.models.scraping_task import ScrapingTask
@@ -574,6 +598,7 @@ async def reset_bot_stats(request: Request, bot_id: int, db: Session = Depends(g
     
     return {"success": True, "message": f"{task.task_name} istatistikleri sıfırlandı."}
 
+@router.post("/bots/{bot_id}/schedule")
 async def schedule_bot(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Botu planlanmış duruma geçirir."""
     from app.models.scraping_task import ScrapingTask
@@ -601,6 +626,7 @@ async def schedule_bot(request: Request, bot_id: int, db: Session = Depends(get_
     db.commit()
     return {"success": True, "message": f"Bot {task.task_name} planlandı (Beklemede)"}
 
+@router.post("/bots/{bot_id}/cancel")
 async def cancel_bot(bot_id: int, db: Session = Depends(get_db)):
     """Botu iptal eder — aktif kazımayı durdurur, yarım kalan veriyi sync eder."""
     from app.models.scraping_task import ScrapingTask
@@ -635,6 +661,7 @@ async def cancel_bot(bot_id: int, db: Session = Depends(get_db)):
 
     return {"success": True, "message": f"Bot {task.task_name} iptal edildi"}
 
+@router.post("/bots/{bot_id}/speed-mode")
 async def toggle_speed_mode(bot_id: int, minutes: int = 30, db: Session = Depends(get_db)):
     """Hız modunu aktif/deaktif eder. Max 30 dakika, sonra otomatik güvenli moda döner."""
     from app.models.scraping_task import ScrapingTask
@@ -666,6 +693,7 @@ async def toggle_speed_mode(bot_id: int, minutes: int = 30, db: Session = Depend
         "expires_in_minutes": minutes
     }
 
+@router.post("/bots/{bot_id}/api-mode")
 async def toggle_api_mode(bot_id: int, db: Session = Depends(get_db)):
     """API modunu toggle eder (aç/kapat). DOM yerine API-first scraping."""
     from app.models.scraping_task import ScrapingTask
@@ -693,6 +721,7 @@ async def toggle_api_mode(bot_id: int, db: Session = Depends(get_db)):
         "message": f"🔌 API modu toggle edildi — {task.task_name}"
     }
 
+@router.post("/bots/{bot_id}/proxy-mode")
 async def toggle_proxy_mode(bot_id: int, db: Session = Depends(get_db)):
     """Proxy modunu toggle eder (aç/kapat). Bright Data residential proxy."""
     from app.models.scraping_task import ScrapingTask

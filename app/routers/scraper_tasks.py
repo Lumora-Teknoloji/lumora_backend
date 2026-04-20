@@ -160,7 +160,7 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
     return TaskResponse(
         id=task.id,
         search_term=task.task_name or "",
-        status="active" if task.is_active else "paused",
+        status=task.status if task.status else ("active" if task.is_active else "stopped"),
         task_type=task.target_platform or "trendyol",
         last_scraped_at=task.last_run_at
     )
@@ -178,6 +178,7 @@ async def update_task_status(
         raise HTTPException(status_code=404, detail="Görev bulunamadı")
     
     task.is_active = (status == "active")
+    task.status = "active" if status == "active" else "stopped"
     db.commit()
     
     # Eger Play tusuna (active) basildiysa aninda tetikle
@@ -224,7 +225,7 @@ async def list_active_tasks(db: Session = Depends(get_db)):
         TaskResponse(
             id=t.id,
             search_term=t.task_name or "",
-            status="active" if t.is_active else "paused",
+            status=t.status if t.status else ("active" if t.is_active else "stopped"),
             task_type=t.target_platform or "trendyol",
             last_scraped_at=t.last_run_at
         )
