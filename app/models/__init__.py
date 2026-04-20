@@ -17,3 +17,6 @@ from .category_signal import CategoryDailySignal
 from .user_product import UserProduct
 # Distributed agents
 from .agent import Agent, AgentCommand, AgentLogEntry
+# Collections & Reactions
+from .product_collection import ProductCollection, ProductCollectionItem, ProductReaction
+

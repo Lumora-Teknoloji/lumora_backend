@@ -30,6 +30,7 @@ from .routers.intelligence import router as intelligence_router
 from .routers.dashboard import router as dashboard_router
 from .routers.agents import router as agents_router
 from .routers.redis_queue import router as redis_queue_router
+from .routers.collections import router as collections_router
 
 # Setup Logging
 setup_logging()
@@ -73,6 +74,7 @@ app.include_router(products_router, prefix=api_prefix)
 app.include_router(intelligence_router, prefix=api_prefix)
 app.include_router(dashboard_router, prefix=api_prefix)
 app.include_router(agents_router, prefix=api_prefix)
+app.include_router(collections_router, prefix=api_prefix)
 
 # Redis Queue Router (yeni stateless bot mimarisi)
 app.include_router(redis_queue_router, prefix=f"{api_prefix}/redis")
