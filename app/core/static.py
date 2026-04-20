@@ -4,7 +4,7 @@ import os
 
 def mount_static_files(app: FastAPI):
     """Statik dosyaları monte eder."""
-    from app.routers.scraper import get_scrapper_dir
+    from app.routers.scraper_bots import get_scrapper_dir
     
     # Scraper screenshotları Scrapper/static/captures altında
     static_dir = os.path.join(str(get_scrapper_dir()), "static")

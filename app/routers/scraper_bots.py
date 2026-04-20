@@ -67,6 +67,7 @@ def get_scrapper_dir() -> Path:
 
 # ==================== ENDPOINTS ====================
 
+@router.get("/bots/status")
 async def get_bots_status(db: Session = Depends(get_db)):
     """Tüm botların durumunu listeler (frontend için)."""
     tasks = db.query(ScrapingTask).all()

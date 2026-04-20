@@ -67,6 +67,7 @@ def get_scrapper_dir() -> Path:
 
 # ==================== ENDPOINTS ====================
 
+@router.get("/status", response_model=StatusResponse)
 async def get_scraper_status(db: Session = Depends(get_db)):
     """Genel scraper durumunu döner."""
     from sqlalchemy import func
@@ -120,6 +121,7 @@ async def get_scraper_status(db: Session = Depends(get_db)):
         last_scrape_date=last_date.isoformat() if last_date else None
     )
 
+@router.get("/logs")
 async def get_system_logs(
     limit: int = 100,
     filter: Optional[str] = None,
@@ -221,6 +223,7 @@ async def get_system_logs(
         "detailed_errors": detailed_errors
     }
 
+@router.get("/logs/backend")
 async def get_backend_logs(limit: int = 100):
     """Backend servis loglarını döner."""
     try:
@@ -237,6 +240,7 @@ async def get_backend_logs(limit: int = 100):
     except Exception as e:
         return {"logs": [f"Backend log okuma hatası: {str(e)}"]}
 
+@router.delete("/logs/errors")
 async def clear_error_logs(db: Session = Depends(get_db)):
     """Tüm hata kayıtlarını temizler."""
     try:
@@ -262,6 +266,7 @@ async def clear_error_logs(db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/logs/{log_id}")
 async def delete_log(log_id: int, db: Session = Depends(get_db)):
     """Tekil bir log kaydını siler."""
     try:
@@ -288,6 +293,7 @@ async def delete_log(log_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/system/health")
 async def get_system_health(db: Session = Depends(get_db)):
     """Sistem sağlığı ve istatistiklerini döner."""
     try:
@@ -378,6 +384,7 @@ async def get_system_health(db: Session = Depends(get_db)):
             }
         }
 
+@router.get("/live-products")
 async def get_live_products(
     limit: int = 50,
     db: Session = Depends(get_db)
@@ -428,6 +435,7 @@ async def get_live_products(
         traceback.print_exc()
         return [{"id": 0, "name": "Sistem Hatası", "brand": "Hata", "price": "0 TL", "bot": "Sistem", "scraped_at": "00:00", "error": str(e)}]
 
+@router.get("/monitor/check")
 async def monitor_check(db: Session = Depends(get_db)):
     """
     Scraper sağlık kontrolü — veri akışı durunca webhook ile bildirim gönderir.

@@ -45,6 +45,8 @@ services:
     environment:
       POSTGRESQL_HOST: postgres
       POSTGRESQL_PORT: 5432
+      REDIS_URL: redis://redis:6379
+      AGENT_SECRET: ${AGENT_SECRET:-change-this-to-a-strong-secret-key}
       TZ: Europe/Istanbul
     depends_on:
       postgres:
@@ -58,7 +60,7 @@ services:
 
   admin-frontend:
     build:
-      context: ../../admin-panel
+      context: ../../admin_frontend
       dockerfile: Dockerfile
     container_name: lumora-admin
     restart: unless-stopped
@@ -67,6 +69,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://backend:8000/api
       BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_AGENT_SECRET: "change-this-to-a-strong-secret-key"
     depends_on:
       - backend
     networks:
@@ -74,7 +77,7 @@ services:
 
   chatbot-frontend:
     build:
-      context: ../../chatbot-frontend
+      context: ../../chatbot_frontend
       dockerfile: Dockerfile
     container_name: lumora-chatbot
     restart: unless-stopped
