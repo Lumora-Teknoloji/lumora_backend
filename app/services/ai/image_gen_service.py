@@ -98,7 +98,7 @@ def validate_image_content_match(image_url: str, description: str) -> bool:
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": system_prompt.format(description=description)},
                 {"role": "user", "content": [
@@ -123,7 +123,7 @@ def generate_image_prompts(analysis_text: str) -> List[Dict[str, str]]:
     if not openai_client: return []
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": "Extract 5 fashion models. JSON: {'items': [{'model_name': '...', 'ref_id': 'IMG_REF_X', 'prompt': '...'}]}"},
                 {"role": "user", "content": analysis_text}
@@ -138,7 +138,7 @@ def extract_visual_style(user_text: str) -> str:
     if not openai_client: return ""
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[{"role": "user", "content": f"Extract visual style keywords from: {user_text}"}],
             max_tokens=60
         )
@@ -189,7 +189,7 @@ def extract_image_request(user_message: str) -> Dict[str, Any]:
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -239,7 +239,7 @@ def extract_previous_image_context(chat_history: List[Dict[str, str]]) -> Dict[s
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"CHAT HISTORY:\n{history_text}"}
@@ -265,7 +265,7 @@ def modify_image_prompt(original_description: str, modification_request: str) ->
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"ORIGINAL: {original_description}\nREQUEST: {modification_request}"}

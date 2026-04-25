@@ -87,7 +87,7 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[{"role": "system", "content": system_prompt}],
             temperature=0.0,
             max_tokens=20
@@ -120,7 +120,7 @@ def extract_category_from_message(message: str) -> Optional[str]:
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[{
                 "role": "system",
                 "content": """Extract the fashion product CATEGORY from the user message.
@@ -162,7 +162,7 @@ def extract_production_parameters(message: str) -> Dict[str, Any]:
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             response_format={ "type": "json_object" },
             messages=[{
                 "role": "system",
@@ -245,7 +245,7 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
             """
             
             decision = openai_client.chat.completions.create(
-                model="gpt-4o",
+                model="gemini-2.5-flash",
                 messages=[{"role": "user", "content": search_decision_prompt}],
                 temperature=0.0,
                 max_tokens=5
@@ -277,7 +277,7 @@ async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] =
                 """
                 try:
                     q_response = openai_client.chat.completions.create(
-                        model="gpt-4o",
+                        model="gemini-2.5-flash",
                         messages=[{"role": "user", "content": query_gen_prompt}],
                         temperature=0.0, max_tokens=30
                     )
@@ -396,7 +396,7 @@ Now respond to the user naturally, maintaining conversation context."""
         if stream_callback:
             # Streaming yanıt
             response_stream = openai_client.chat.completions.create(
-                model="gpt-4o",
+                model="gemini-2.5-flash",
                 messages=messages,
                 temperature=0.7,
                 stream=True
@@ -412,7 +412,7 @@ Now respond to the user naturally, maintaining conversation context."""
         else:
             # Normal yanıt
             response = openai_client.chat.completions.create(
-                model="gpt-4o",
+                model="gemini-2.5-flash",
                 messages=messages,
                 temperature=0.7
             )
@@ -444,7 +444,7 @@ async def handle_follow_up(message: str, chat_history: List[Dict[str, str]]) -> 
 
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=messages,
             temperature=0.7
         )

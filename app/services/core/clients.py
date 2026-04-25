@@ -20,8 +20,12 @@ def initialize_ai_clients():
     try:
         if settings.openai_api_key:
             # Vision işlemleri bazen uzun sürebilir, timeout artırıldı
-            openai_client = OpenAI(api_key=settings.openai_api_key, timeout=45.0)
-            logger.info("✅ OpenAI Hazır")
+            openai_client = OpenAI(
+                api_key=settings.openai_api_key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                timeout=45.0
+            )
+            logger.info("✅ OpenAI (Gemini Compatible) Hazır")
         else:
             logger.warning("⚠️ OpenAI API key bulunamadı")
             

@@ -60,7 +60,7 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
     try:
         # Step 1: Generate SQL 
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": sql_generation_prompt},
                 {"role": "user", "content": user_message}
@@ -130,7 +130,7 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
         """
         
         final_response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[{"role": "user", "content": summary_prompt}],
             temperature=0.3
         )

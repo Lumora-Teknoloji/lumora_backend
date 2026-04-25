@@ -103,7 +103,7 @@ def extract_visual_search_terms(report_text: str, user_topic: str = "") -> List[
     """
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": relevant_text}],
             response_format={"type": "json_object"}
         )
@@ -234,7 +234,7 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     try:
         formatted_prompt = system_prompt.format(user_message=user_message)
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[
                 {"role": "system", "content": formatted_prompt},
                 {"role": "user", "content": f"VERİ:\n{research_data}"}

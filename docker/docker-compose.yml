@@ -62,6 +62,8 @@ services:
     build:
       context: ../../admin_frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_AGENT_SECRET: ${AGENT_SECRET:-change-this-to-a-strong-secret-key}
     container_name: lumora-admin
     restart: unless-stopped
     ports:
@@ -69,7 +71,10 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://backend:8000/api
       BACKEND_URL: http://backend:8000
-      NEXT_PUBLIC_AGENT_SECRET: "change-this-to-a-strong-secret-key"
+      NEXT_PUBLIC_AGENT_SECRET: ${AGENT_SECRET:-change-this-to-a-strong-secret-key}
+      PORT: 3000
+    env_file:
+      - ../.env
     depends_on:
       - backend
     networks:
@@ -79,6 +84,9 @@ services:
     build:
       context: ../../chatbot_frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_URL: "http://localhost:8000"
+        NEXT_PUBLIC_API_URL: "http://localhost:8000/api"
     container_name: lumora-chatbot
     restart: unless-stopped
     ports:

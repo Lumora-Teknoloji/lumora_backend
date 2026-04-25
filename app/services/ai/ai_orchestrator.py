@@ -40,7 +40,7 @@ def check_visual_necessity(user_message: str) -> bool:
     system_prompt = "Analyze request: Concrete Fashion Item (Dress, Shoe) -> YES. Abstract (Color, Fabric) -> NO. Reply YES/NO."
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gemini-2.5-flash",
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}],
             max_tokens=5, temperature=0.0
         )
@@ -185,7 +185,7 @@ KRİTİK KURALLAR:
 
         try:
             response = openai_client.chat.completions.create(
-                model="gpt-4o",
+                model="gemini-2.5-flash",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
