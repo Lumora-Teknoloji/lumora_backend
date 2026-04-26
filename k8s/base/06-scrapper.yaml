@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lumora-scrapper
+  namespace: lumora
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: scrapper-worker
+  template:
+    metadata:
+      labels:
+        app: scrapper-worker
+    spec:
+      containers:
+        - name: scrapper
+          image: lumora-scrapper:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "redis_agent.py"]
+          envFrom:
+            - configMapRef:
+                name: lumora-config
+            - secretRef:
+                name: lumora-secret
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "300m"

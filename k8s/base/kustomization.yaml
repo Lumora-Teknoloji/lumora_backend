@@ -6,6 +6,7 @@ resources:
   - 03-redis.yaml
   - 04-backend.yaml
   - 05-frontends.yaml
+  - 06-scrapper.yaml
   - 07-intelligence.yaml
 
 secretGenerator:
