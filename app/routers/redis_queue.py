@@ -52,10 +52,25 @@ PROCESSING_TIMEOUT_S = 300  # 5 dakika
 def _sync_save_batch(batch_data: list):
     """Senkron veritabanı işlemi (threadpool içinde çalışır).
     Exception fırlatırsa bulk fails, ama tek tek ekleme denenir. Zehirli (silinmiş bot) çöpleri atılır."""
+    from app.models.scraping_task import ScrapingTask
     db = SessionLocal()
     try:
+        # ── Silinmiş task_id'leri temizle (FK violation önleme) ──────────
+        # Redis buffer'daki veriler silinmiş task'lara referans verebilir.
+        # task_id geçersizse None'a düşür — ürün yine de kaydedilir (orphan olarak).
+        valid_task_ids: set = set()
+        task_ids_to_check = {item.get("task_id") for item in batch_data if item.get("task_id")}
+        if task_ids_to_check:
+            existing = db.query(ScrapingTask.id).filter(ScrapingTask.id.in_(task_ids_to_check)).all()
+            valid_task_ids = {row.id for row in existing}
+        
+        for item in batch_data:
+            tid = item.get("task_id")
+            if tid and tid not in valid_task_ids:
+                logger.warning(f"Geçersiz task_id={tid} temizlendi (task silinmiş). Ürün orphan olarak kaydedilecek.")
+                item["task_id"] = None
+        
         service = TrendyolScraperService(db)
-        # task_id None olarak geçer çünkü agent kendi context'inden bağımsız ürün yollar
         try:
             service.process_scraped_batch(batch_data, task_id=None)
         except Exception as e:
@@ -63,10 +78,12 @@ def _sync_save_batch(batch_data: list):
             logger.error(f"results:buffer toplu DB kayit hatasi: {e}. Tek tek deneniyor...")
             for item in batch_data:
                 try:
-                    service.process_scraped_batch([item], task_id=None)
+                    # Her item için AYRI bir session kullan — birinin hatası diğerini etkilemesin
+                    service_single = TrendyolScraperService(db)
+                    service_single.process_scraped_batch([item], task_id=None)
                 except Exception as ex:
                     db.rollback()
-                    logger.error(f"Zehirli veri atildi (task silinmis olabilir): {ex}")
+                    logger.warning(f"Zehirli veri atildi: {item.get('product_id', '?')} — {type(ex).__name__}: {str(ex)[:200]}")
     finally:
         db.close()
 

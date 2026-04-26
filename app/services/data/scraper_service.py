@@ -398,6 +398,9 @@ class TrendyolScraperService:
             # Ensure missing or updated product core fields are also propagated
             product_data = self._map_scraped_to_product(scraped, task_id)
             for key, new_value in product_data.items():
+                # task_id: mevcut değeri koru, None ile ezmek FK hatası yaratır
+                if key == "task_id" and new_value is None:
+                    continue
                 # Avoid overwriting valid data with empty strings
                 if new_value is not None and new_value != "":
                     current_val = getattr(existing, key, None)
