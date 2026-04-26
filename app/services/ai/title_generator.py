@@ -3,7 +3,7 @@ AI Title Generator - Automatically generate conversation titles
 """
 import logging
 from typing import Optional
-from app.services.core.clients import openai_client
+from app.services.core.clients import openai_client, get_model_name
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ async def generate_conversation_title(user_message: str) -> str:
     try:
         # OpenAI'ye başlık oluşturma isteği gönder
         response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=get_model_name(),
             messages=[
                 {
                     "role": "system",
