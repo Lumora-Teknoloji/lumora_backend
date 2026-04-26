@@ -129,7 +129,7 @@ def ensure_admin_user():
     try:
         from app.models.user import User
         from app.core.security import hash_password
-        import uuid
+        import os, uuid
         
         db = SessionLocal()
         try:
@@ -139,7 +139,7 @@ def ensure_admin_user():
                 admin_password = os.environ.get("ADMIN_INITIAL_PASSWORD", "")
                 if not admin_password:
                     admin_password = uuid.uuid4().hex[:16]
-                    logger.warning(f"⚠️ ADMIN_INITIAL_PASSWORD env yok — rastgele şifre üretildi: {admin_password}")
+                    logger.warning("⚠️ ADMIN_INITIAL_PASSWORD env yok — rastgele şifre üretildi. Backend loglarını kontrol edin veya env'den ayarlayın.")
                 
                 admin = User(
                     username="admin",

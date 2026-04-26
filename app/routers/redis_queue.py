@@ -218,7 +218,7 @@ async def verify_secret(x_agent_secret: str = Header(...)):
         return  # sadece dev'de skip
         
     if agent_secret_value not in provided_secrets:
-        logger.error(f"DEBUG: auth failed! received='{x_agent_secret}', expected='{agent_secret_value}'")
+        logger.warning("Agent auth failed — invalid secret provided")
         raise HTTPException(status_code=401, detail="Geçersiz agent anahtarı")
 
 

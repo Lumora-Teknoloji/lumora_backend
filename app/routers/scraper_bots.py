@@ -759,6 +759,7 @@ async def toggle_proxy_mode(bot_id: int, db: Session = Depends(get_db)):
         "message": f"🌐 Proxy modu {status_text} — {task.task_name}"
     }
 
+@router.patch("/bots/{bot_id}/settings")
 async def update_bot_settings(
     bot_id: int,
     settings: BotSettingsUpdate,
