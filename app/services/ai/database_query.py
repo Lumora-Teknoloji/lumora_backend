@@ -3,7 +3,7 @@ import json
 from typing import Dict, Any, List
 from sqlalchemy import text
 from app.core.database import engine
-from app.services.core.clients import openai_client
+from app.services.core.clients import openai_client, get_model_name
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
     try:
         # Step 1: Generate SQL 
         response = openai_client.chat.completions.create(
-            model="gemini-2.5-flash",
+            model=get_model_name(),
             messages=[
                 {"role": "system", "content": sql_generation_prompt},
                 {"role": "user", "content": user_message}
@@ -130,7 +130,7 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
         """
         
         final_response = openai_client.chat.completions.create(
-            model="gemini-2.5-flash",
+            model=get_model_name(),
             messages=[{"role": "user", "content": summary_prompt}],
             temperature=0.3
         )

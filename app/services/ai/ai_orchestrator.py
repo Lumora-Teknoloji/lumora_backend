@@ -6,7 +6,7 @@ import logging
 import re
 import secrets
 from typing import List, Dict, Any
-from app.services.core.clients import openai_client
+from app.services.core.clients import openai_client, get_model_name
 from app.services.ai.intent import analyze_user_intent, handle_general_chat, handle_follow_up, extract_category_from_message, extract_production_parameters
 from app.services.ai.database_query import handle_database_query
 import json
@@ -40,7 +40,7 @@ def check_visual_necessity(user_message: str) -> bool:
     system_prompt = "Analyze request: Concrete Fashion Item (Dress, Shoe) -> YES. Abstract (Color, Fabric) -> NO. Reply YES/NO."
     try:
         response = openai_client.chat.completions.create(
-            model="gemini-2.5-flash",
+            model=get_model_name(),
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}],
             max_tokens=5, temperature=0.0
         )
@@ -185,7 +185,7 @@ KRİTİK KURALLAR:
 
         try:
             response = openai_client.chat.completions.create(
-                model="gemini-2.5-flash",
+                model=get_model_name(),
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}

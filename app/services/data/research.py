@@ -6,7 +6,7 @@ import json
 import re
 import asyncio
 from typing import List, Dict, Any
-from app.services.core.clients import tavily_client, openai_client
+from app.services.core.clients import tavily_client, openai_client, get_model_name
 from app.services.ai.image_gen_service import (
     is_quality_fashion_image,
     validate_images_with_vision,
@@ -103,7 +103,7 @@ def extract_visual_search_terms(report_text: str, user_topic: str = "") -> List[
     """
     try:
         response = openai_client.chat.completions.create(
-            model="gemini-2.5-flash",
+            model=get_model_name(),
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": relevant_text}],
             response_format={"type": "json_object"}
         )
@@ -234,7 +234,7 @@ def generate_strategic_report(user_message: str, research_data: str) -> str:
     try:
         formatted_prompt = system_prompt.format(user_message=user_message)
         response = openai_client.chat.completions.create(
-            model="gemini-2.5-flash",
+            model=get_model_name(),
             messages=[
                 {"role": "system", "content": formatted_prompt},
                 {"role": "user", "content": f"VERİ:\n{research_data}"}

@@ -14,18 +14,33 @@ openai_client: Optional[OpenAI] = None
 tavily_client: Optional[TavilyClient] = None
 
 
+def get_model_name() -> str:
+    """Girilen API anahtarına göre doğru model adını döndürür"""
+    if settings.openai_api_key and settings.openai_api_key.startswith("sk-"):
+        return "gpt-4o-mini"
+    return "gemini-2.5-flash"
+
+
 def initialize_ai_clients():
     """AI client'larını başlatır (OpenAI, Tavily)"""
     global openai_client, tavily_client
     try:
         if settings.openai_api_key:
-            # Vision işlemleri bazen uzun sürebilir, timeout artırıldı
-            openai_client = OpenAI(
-                api_key=settings.openai_api_key,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                timeout=45.0
-            )
-            logger.info("✅ OpenAI (Gemini Compatible) Hazır")
+            if settings.openai_api_key.startswith("sk-"):
+                # Native OpenAI
+                openai_client = OpenAI(
+                    api_key=settings.openai_api_key,
+                    timeout=45.0
+                )
+                logger.info("✅ OpenAI (Native) Hazır (Model: gpt-4o-mini)")
+            else:
+                # Gemini üzerinden OpenAI SDK uyumluluğu
+                openai_client = OpenAI(
+                    api_key=settings.openai_api_key,
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                    timeout=45.0
+                )
+                logger.info("✅ OpenAI (Gemini Compatible) Hazır (Model: gemini-2.5-flash)")
         else:
             logger.warning("⚠️ OpenAI API key bulunamadı")
             
