@@ -67,6 +67,7 @@ def get_scrapper_dir() -> Path:
 
 # ==================== ENDPOINTS ====================
 
+@router.post("/tasks", response_model=TaskResponse)
 async def create_scraping_task(
     request: CreateTaskRequest,
     background_tasks: BackgroundTasks,
@@ -150,6 +151,7 @@ async def create_scraping_task(
             raise HTTPException(status_code=400, detail=f"'{request.search_term}' araması için zaten bir bot mevcut.")
         raise HTTPException(status_code=500, detail=f"Görev oluşturma hatası: {error_msg}")
 
+@router.get("/tasks/{task_id}", response_model=TaskResponse)
 async def get_task(task_id: int, db: Session = Depends(get_db)):
     """Görev detaylarını getirir."""
     task = db.query(ScrapingTask).filter(ScrapingTask.id == task_id).first()
@@ -165,6 +167,7 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
         last_scraped_at=task.last_run_at
     )
 
+@router.patch("/tasks/{task_id}/status")
 async def update_task_status(
     task_id: int,
     status: str,
@@ -217,6 +220,7 @@ async def update_task_status(
     
     return {"success": True, "task_id": task_id, "new_status": status}
 
+@router.get("/tasks")
 async def list_active_tasks(db: Session = Depends(get_db)):
     """Aktif görevleri listeler."""
     tasks = db.query(ScrapingTask).all()
@@ -232,6 +236,7 @@ async def list_active_tasks(db: Session = Depends(get_db)):
         for t in tasks
     ]
 
+@router.delete("/tasks/{bot_id}")
 async def delete_bot(bot_id: int, db: Session = Depends(get_db)):
     """Botu ve onunla ilişkili tüm verileri siler."""
     from app.models.scraping_task import ScrapingTask
