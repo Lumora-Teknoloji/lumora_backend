@@ -21,7 +21,7 @@ def get_scrapper_dir() -> Path:
     
     # 2. Docker ortamında
     docker_path = Path("/Scrapper")
-    if docker_path.exists() and (docker_path / "main.py").exists():
+    if docker_path.exists() and (docker_path / "redis_agent.py").exists():
         return docker_path
     
     # Linux Remote Server
@@ -40,7 +40,7 @@ def get_scrapper_dir() -> Path:
     ]
     
     for path in possible_paths:
-        if path.exists() and (path / "main.py").exists():
+        if path.exists() and (path / "redis_agent.py").exists():
             return path
             
     # Fallback

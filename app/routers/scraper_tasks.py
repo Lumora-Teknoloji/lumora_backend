@@ -37,7 +37,7 @@ def get_scrapper_dir() -> Path:
     
     # 2. Docker ortamında
     docker_path = Path("/Scrapper")
-    if docker_path.exists() and (docker_path / "main.py").exists():
+    if docker_path.exists() and (docker_path / "redis_agent.py").exists():
         return docker_path
     
     # 3. Local ortamda
@@ -59,11 +59,32 @@ def get_scrapper_dir() -> Path:
     ]
     
     for path in possible_paths:
-        if path.exists() and (path / "main.py").exists():
+        if path.exists() and (path / "redis_agent.py").exists():
             return path
         
     # Fallback
     return project_root / "Scrapper"
+
+def get_task_progress(task_id: int, db: Session):
+    from app.models.scraping_queue import ScrapingQueue
+    from sqlalchemy import func
+    
+    stats = db.query(
+        ScrapingQueue.status, 
+        func.count(ScrapingQueue.id)
+    ).filter(ScrapingQueue.task_id == task_id).group_by(ScrapingQueue.status).all()
+    
+    queue_stats = {"pending": 0, "processing": 0, "completed": 0, "failed": 0}
+    for status, count in stats:
+        if status in queue_stats:
+            queue_stats[status] = count
+            
+    total = sum(queue_stats.values())
+    progress = 0.0
+    if total > 0:
+        progress = round((queue_stats["completed"] + queue_stats["failed"]) / total * 100, 2)
+        
+    return progress, queue_stats
 
 # ==================== ENDPOINTS ====================
 
@@ -112,14 +133,19 @@ async def create_scraping_task(
         # YENI: Eger is_active ise aninda tetikle (Immediate Run on Create)
         if request.is_active and request.search_term:
             from app.models.agent import Agent, AgentCommand
+            import random
+            from datetime import timedelta
             try:
+                cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=2)
                 active_agents = db.query(Agent).filter(
                     Agent.is_active == True,
-                    Agent.status != "offline"
+                    Agent.status != "offline",
+                    Agent.last_heartbeat >= cutoff
                 ).all()
                 if active_agents:
+                    chosen_agent = random.choice(active_agents)
                     agent_cmd = AgentCommand(
-                        agent_id=active_agents[0].id,
+                        agent_id=chosen_agent.id,
                         command="scrape",
                         params={
                             "keyword": request.search_term,
@@ -138,7 +164,9 @@ async def create_scraping_task(
             id=new_task.id,
             search_term=request.search_term,
             status="active" if new_task.is_active else "inactive",
-            task_type=request.target_platform
+            task_type=request.target_platform,
+            progress_percent=0.0,
+            queue_stats={"pending": 0, "processing": 0, "completed": 0, "failed": 0}
         )
     except Exception as e:
         db.rollback()
@@ -159,12 +187,16 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="Görev bulunamadı")
     
+    progress, queue_stats = get_task_progress(task.id, db)
+    
     return TaskResponse(
         id=task.id,
         search_term=task.task_name or "",
         status=task.status if task.status else ("active" if task.is_active else "stopped"),
         task_type=task.target_platform or "trendyol",
-        last_scraped_at=task.last_run_at
+        last_scraped_at=task.last_run_at,
+        progress_percent=progress,
+        queue_stats=queue_stats
     )
 
 @router.patch("/tasks/{task_id}/status")
@@ -225,16 +257,19 @@ async def list_active_tasks(db: Session = Depends(get_db)):
     """Aktif görevleri listeler."""
     tasks = db.query(ScrapingTask).all()
     
-    return [
-        TaskResponse(
+    result = []
+    for t in tasks:
+        progress, queue_stats = get_task_progress(t.id, db)
+        result.append(TaskResponse(
             id=t.id,
             search_term=t.task_name or "",
             status=t.status if t.status else ("active" if t.is_active else "stopped"),
             task_type=t.target_platform or "trendyol",
-            last_scraped_at=t.last_run_at
-        )
-        for t in tasks
-    ]
+            last_scraped_at=t.last_run_at,
+            progress_percent=progress,
+            queue_stats=queue_stats
+        ))
+    return result
 
 @router.delete("/tasks/{bot_id}")
 async def delete_bot(bot_id: int, db: Session = Depends(get_db)):
