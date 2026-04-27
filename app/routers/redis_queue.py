@@ -326,6 +326,7 @@ async def queue_fail(req: FailRequest):
 class PushLinksRequest(BaseModel):
     urls: list[str]
     task_id: Optional[int] = None
+    force: bool = False  # True ise scraped:urls kontrolünü atla (tekrar kazıma)
 
 @router.post("/queue/push_links", dependencies=[Depends(verify_secret)])
 async def queue_push_links(req: PushLinksRequest):
@@ -337,11 +338,16 @@ async def queue_push_links(req: PushLinksRequest):
     
     unique_urls = []
     skipped = 0
-    for url in req.urls:
-        if await r.sismember("scraped:urls", url):
-            skipped += 1
-        else:
-            unique_urls.append(url)
+    
+    if req.force:
+        # Force modu: scraped:urls kontrolünü atla — tüm URL'leri kuyruğa ekle
+        unique_urls = req.urls
+    else:
+        for url in req.urls:
+            if await r.sismember("scraped:urls", url):
+                skipped += 1
+            else:
+                unique_urls.append(url)
             
     if not unique_urls:
          return {"ok": True, "pushed": 0, "skipped": skipped}
@@ -354,6 +360,30 @@ async def queue_push_links(req: PushLinksRequest):
             await r.hset("links:task_map", mapping=mapping)
             
     return {"ok": True, "pushed": len(unique_urls), "skipped": skipped}
+
+
+@router.post("/queue/clear_scraped_urls", dependencies=[Depends(verify_secret)])
+async def clear_scraped_urls_for_task(task_id: Optional[int] = None):
+    """Bir görevin scraped:urls SET'indeki URL'lerini temizler.
+    task_id verilmezse tüm SET temizlenir.
+    Görev tekrar çalıştırıldığında aynı ürünlerin yeniden kazılabilmesi için."""
+    r = await get_redis()
+    
+    if task_id is None:
+        # Tüm SET'i temizle
+        count = await r.scard("scraped:urls")
+        await r.delete("scraped:urls")
+        return {"ok": True, "cleared": count, "scope": "all"}
+    
+    # Belirli bir görevin URL'lerini temizle
+    task_map = await r.hgetall("links:task_map")
+    task_urls = [url for url, tid in task_map.items() if tid == str(task_id)]
+    
+    cleared = 0
+    if task_urls:
+        cleared = await r.srem("scraped:urls", *task_urls)
+    
+    return {"ok": True, "cleared": cleared, "scope": f"task_{task_id}"}
 
 
 @router.get("/queue/stats", dependencies=[Depends(verify_secret)])
@@ -404,7 +434,13 @@ async def list_bots():
     for key in keys:
         bot_id = key.split(":")[1]
         data = await r.hgetall(key)
-        data["last_seen_ago"] = round(time.time() - float(data.get("last_seen", 0)))
+        last_seen_ago = round(time.time() - float(data.get("last_seen", 0)))
+        data["last_seen_ago"] = last_seen_ago
+        # Bot durumunu netleştir: 2 dakikadan fazla heartbeat yoksa offline
+        if last_seen_ago > 120:
+            data["effective_status"] = "offline"
+        else:
+            data["effective_status"] = data.get("status", "unknown")
         bots[bot_id] = data
     return bots
 

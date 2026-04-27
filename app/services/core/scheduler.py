@@ -221,8 +221,52 @@ def start_scheduler_thread():
                             stop_bot(task.id, reason="Task stopped")
                         continue
 
-                    # 2. WORKER veya ACTIVE -> DOKUNMA
-                    if status == "worker_running" or task.status == "active":
+                    # 2. WORKER çalışıyorsa dokunma
+                    if status == "worker_running":
+                        continue
+
+                    # 2b. ACTIVE ama gerçekten çalışıyor mu? (Stale detection)
+                    if task.status == "active":
+                        # 30 dakikadan fazla active ama hiçbir agent çalışmıyorsa → scheduled'a çevir
+                        if status != "running":
+                            stale_minutes = 0
+                            if task.last_run_at:
+                                last_run = task.last_run_at
+                                if last_run.tzinfo is None:
+                                    last_run = last_run.replace(tzinfo=timezone.utc)
+                                stale_minutes = (datetime.now(timezone.utc) - last_run).total_seconds() / 60
+                            
+                            if stale_minutes > 30:
+                                logger.warning(f"⚠️ Görev {task.id} {stale_minutes:.0f} dk'dır active ama çalışan agent yok → scheduled'a çevriliyor")
+                                session = get_db_session()
+                                try:
+                                    from app.models.scraping_task import ScrapingTask
+                                    db_task = session.query(ScrapingTask).filter(ScrapingTask.id == task.id).first()
+                                    if db_task and db_task.start_time:
+                                        db_task.status = "scheduled"
+                                        db_task.is_active = True
+                                        # Bir sonraki çalışma zamanını hesapla
+                                        try:
+                                            tp = [int(p) for p in db_task.start_time.split(":")]
+                                            next_dt = datetime.now(tz_ist).replace(hour=tp[0], minute=tp[1], second=0, microsecond=0)
+                                            if next_dt <= datetime.now(tz_ist):
+                                                next_dt = next_dt + timedelta(days=1)
+                                            db_task.next_run_at = next_dt
+                                        except Exception:
+                                            db_task.next_run_at = datetime.now(timezone.utc) + timedelta(hours=24)
+                                        session.commit()
+                                        logger.info(f"✅ Görev {task.id} scheduled'a çevrildi (next: {db_task.next_run_at})")
+                                    elif db_task:
+                                        # Zamanlanmamış görev: durdur
+                                        db_task.status = "stopped"
+                                        db_task.is_active = False
+                                        db_task.next_run_at = None
+                                        session.commit()
+                                        logger.info(f"✅ Görev {task.id} stopped'a çevrildi (tek seferlik, stale)")
+                                except Exception as stale_err:
+                                    logger.error(f"Stale task recovery error: {stale_err}")
+                                finally:
+                                    session.close()
                         continue
 
                     if is_forced:

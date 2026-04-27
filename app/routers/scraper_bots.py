@@ -418,6 +418,25 @@ async def start_bot(request: Request, bot_id: int, background_tasks: BackgroundT
     task.status = "active"
     db.commit()
     
+    # Görev tekrar başlatıldığında scraped:urls'den bu görevin URL'lerini temizle
+    # Böylece aynı ürünler yeniden kazılabilir
+    def _clear_scraped_urls_bg(task_id: int):
+        try:
+            import httpx
+            from app.core.config import settings as app_settings
+            secret = getattr(app_settings, 'agent_secret', '')
+            resp = httpx.post(
+                "http://127.0.0.1:8000/api/redis/queue/clear_scraped_urls",
+                params={"task_id": task_id},
+                headers={"X-Agent-Secret": secret},
+                timeout=10
+            )
+            logger.info(f"🧹 scraped:urls temizlendi (task={task_id}): {resp.json()}")
+        except Exception as e:
+            logger.warning(f"scraped:urls temizleme hatası: {e}")
+    
+    background_tasks.add_task(_clear_scraped_urls_bg, bot_id)
+    
     # Read mode from search_params (linker/worker/normal)
     bot_mode = "normal"
     if task.search_params and task.search_params.get("mode"):
@@ -580,6 +599,50 @@ async def stop_bot(request: Request, bot_id: int, db: Session = Depends(get_db))
         logger.warning(f"Agent stop queue yazılamadı: {e}")
 
     return {"success": True, "message": f"Bot {task.task_name} durduruldu ve planı temizlendi"}
+
+
+@router.post("/bots/{bot_id}/complete")
+async def complete_bot_task(request: Request, bot_id: int, db: Session = Depends(get_db)):
+    """Linker görevi tamamlandığında çağrılır.
+    Görevi 'scheduled' durumuna döndürür ve bir sonraki çalışma zamanını hesaplar.
+    /stop'dan farkı: Bu endpoint görevi durdurmaz, sadece 'tamamlandı' sinyali verir."""
+    from app.models.scraping_task import ScrapingTask
+    import datetime
+    
+    task = db.query(ScrapingTask).filter(ScrapingTask.id == bot_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Bot bulunamıdı")
+    
+    # Görev zamanlanmışsa (recurring), scheduled'a dön
+    interval = task.scrape_interval_hours or 0
+    
+    if task.start_time and interval > 0:
+        task.status = "scheduled"
+        task.is_active = True
+        task.last_run_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        
+        # Bir sonraki çalışma zamanını hesapla
+        try:
+            time_parts = [int(p) for p in task.start_time.split(":")]
+            now = datetime.datetime.now(datetime.timezone.utc)
+            start_dt = now.replace(hour=time_parts[0], minute=time_parts[1], second=0, microsecond=0)
+            if start_dt <= now:
+                start_dt = start_dt + datetime.timedelta(days=1)
+            task.next_run_at = start_dt
+        except Exception:
+            task.next_run_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=interval)
+        
+        logger.info(f"✅ Görev {bot_id} ({task.task_name}) tamamlandı → scheduled (next: {task.next_run_at})")
+    else:
+        # Tek seferlik görev: durdur
+        task.status = "stopped"
+        task.is_active = False
+        task.next_run_at = None
+        task.last_run_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        logger.info(f"✅ Görev {bot_id} ({task.task_name}) tamamlandı → stopped (tek seferlik)")
+    
+    db.commit()
+    return {"success": True, "message": f"Görev {task.task_name} tamamlandı", "new_status": task.status}
 
 @router.post("/bots/{bot_id}/reset")
 async def reset_bot_stats(request: Request, bot_id: int, db: Session = Depends(get_db)):
