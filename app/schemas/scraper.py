@@ -74,6 +74,8 @@ class TaskResponse(BaseModel):
     task_type: str
     created_at: Optional[datetime] = None
     last_scraped_at: Optional[datetime] = None
+    progress_percent: float = 0.0
+    queue_stats: Optional[dict] = None
 
 
 class StatusResponse(BaseModel):
