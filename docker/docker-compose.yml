@@ -64,12 +64,13 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_AGENT_SECRET: ${AGENT_SECRET:-change-this-to-a-strong-secret-key}
+        NEXT_PUBLIC_API_URL: "http://localhost:8000/api"
     container_name: lumora-admin
     restart: unless-stopped
     ports:
       - "3001:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:8000/api
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
       BACKEND_URL: http://backend:8000
       NEXT_PUBLIC_AGENT_SECRET: ${AGENT_SECRET:-change-this-to-a-strong-secret-key}
       PORT: 3000

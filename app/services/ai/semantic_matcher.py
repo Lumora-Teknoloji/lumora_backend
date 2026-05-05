@@ -122,7 +122,13 @@ def semantic_match_and_rank(predictions: List[Dict[str, Any]], params: Dict[str,
             score += season_match * WEIGHTS["season"]
             
         # Toplam skoru hesapla (aktif parametrelere oranla 0-1 arası)
-        normalized_score = score / sum(WEIGHTS.values()) if active_params > 0 else 0.5 # Parametre aranmıyorsa hepsine eşit davran
+        active_weight_sum = sum(
+            w for k, w in WEIGHTS.items()
+            if (k == "color" and user_color) or
+               (k == "material" and user_material) or
+               (k == "season" and user_season and user_season.lower() != "genel")
+        )
+        normalized_score = score / active_weight_sum if active_weight_sum > 0 else 0.5  # Parametre aranmıyorsa hepsine eşit davran
         
         # Eğer aktif parametreler varsa ve en az biraz (ör %20) eşleştiyse, eşleşmiş say
         if active_params == 0 or normalized_score >= 0.2:

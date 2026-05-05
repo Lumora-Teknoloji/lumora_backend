@@ -40,8 +40,7 @@ async def generate_conversation_title(user_message: str) -> str:
                 }
             ],
             max_tokens=20,
-            temperature=0.7,
-            timeout=10.0  # Hızlı yanıt
+            temperature=0.7
         )
         
         title = response.choices[0].message.content.strip()

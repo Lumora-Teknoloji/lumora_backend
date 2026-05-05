@@ -3,12 +3,35 @@ Intent Analysis - Kullanıcı niyet analizi ve sohbet yönetimi
 """
 import json
 import logging
+import time
 from typing import Any, List, Dict, Optional
 from datetime import datetime
 import locale
 from app.services.core.clients import openai_client, get_model_name
 
 logger = logging.getLogger(__name__)
+
+def check_visual_necessity(user_message: str) -> bool:
+    """Kullanıcının görsel isteyip istemediğini kontrol eder"""
+    if not openai_client: return False
+    system_prompt = "Analyze request: Concrete Fashion Item (Dress, Shoe) -> YES. Abstract (Color, Fabric) -> NO. Reply YES/NO."
+    try:
+        response = openai_client.chat.completions.create(
+            model=get_model_name(),
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}],
+            max_tokens=5, temperature=0.0
+        )
+        return "YES" in response.choices[0].message.content.upper()
+    except: return False
+
+
+def check_report_content_for_visuals(report_text: str) -> bool:
+    """Rapor içeriğinde görsel gerektiren öğeler olup olmadığını kontrol eder"""
+    concrete_triggers = ["elbise", "ceket", "pantolon", "etek", "gömlek", "bluz", "tulum", "ayakkabı", "çanta", "dress", "sandalet", "kombin"]
+    text_lower = report_text.lower()
+    for word in concrete_triggers:
+        if word in text_lower: return True
+    return False
 
 try:
     locale.setlocale(locale.LC_ALL, 'tr_TR.UTF-8')
@@ -18,7 +41,9 @@ except:
     except Exception as e:
         logger.warning(f"Locale setting error: {e}")
 
-def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -> str:
+def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = None) -> str:
+    if chat_history is None:
+        chat_history = []
     """Kullanıcı mesajının niyetini analiz eder"""
     if not openai_client:
         return "MARKET_RESEARCH"
@@ -43,7 +68,7 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     
     3. TREND_ANALYSIS: User asks about trends OR needs data-driven product advice.
        This includes ALL of these scenarios:
-       a) Direct trend queries: "crop top trendleri", "hangi ürünler yükseliyor", "trend skorları"
+       a) Direct trend queries: "crop top trendleri", "hangi ürünler yükseliyor", "trend skorları", "2 ay sonraki trend ne olacak"
        b) Product design/creation with trend intent: "dantel kumaşla trend elbise yapabilirim",
           "elimdeki kumaşla ne üretmeliyim", "hangi model popüler", "nasıl bir ürün tasarlamalıyım"
        c) Category performance questions: "kazak kategorisi nasıl gidiyor", "elbise satışları iyi mi"
@@ -51,7 +76,8 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
           "ne üretmeliyim", "ne satabilirim", "hangi model daha çok satar"
        e) Material/fabric + product questions: "elimde X kumaş var", "şu kumaşla ne yapılır",
           "kadife ile trend ürün", "deri ceket popüler mi"
-       KEY SIGNAL: If user mentions a product category, material, or asks "what should I make/sell" → TREND_ANALYSIS
+       f) Cost estimation & manufacturing: "üretim maliyeti ne olur", "bu elbisenin maliyetini hesapla", "bana kumaşa göre maliyet tahmini yap"
+       KEY SIGNAL: If user mentions a product category, material, cost estimation or asks "what should I make/sell" → TREND_ANALYSIS
        NOTE: This uses OUR DATABASE predictions to give data-backed recommendations.
     
     4. MARKET_RESEARCH: User gives EXPLICIT and SPECIFIC command for EXTERNAL trend analysis or report.
@@ -86,13 +112,18 @@ def analyze_user_intent(message: str, chat_history: List[Dict[str, str]] = []) -
     """
 
     try:
+        t0 = time.time()
         response = openai_client.chat.completions.create(
             model=get_model_name(),
             messages=[{"role": "system", "content": system_prompt}],
             temperature=0.0,
             max_tokens=20
         )
+        elapsed = time.time() - t0
+        usage = getattr(response, 'usage', None)
+        tokens_info = f", tokens={usage.total_tokens}" if usage else ""
         intent = response.choices[0].message.content.strip().upper()
+        logger.info(f"⏱️ Intent analysis: {elapsed:.2f}s{tokens_info} → {intent}")
 
         if "MODIFICATION" in intent: return "IMAGE_MODIFICATION"
         if "IMAGE" in intent and "GENERATION" in intent: return "IMAGE_GENERATION"
@@ -207,7 +238,9 @@ Make sure all string values are in lowercase Turkish."""
 
 
 
-async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] = [], stream_callback=None) -> str:
+async def handle_general_chat(message: str, chat_history: List[Dict[str, str]] = None, stream_callback=None) -> str:
+    if chat_history is None:
+        chat_history = []
     """
     Genel sohbet mesajlarını işler.
     Basit ve etkili: Tek API çağrısı, profesyonel system prompt.
@@ -342,10 +375,13 @@ CURRENT DATE/TIME: {current_time}
 - Keep responses concise but complete
 - Use emojis sparingly (1-2 max per message)
 
-### 4. CAPABILITIES
-- Fashion & Textile expertise: trends, collections, fabrics, styling
-- General knowledge: help with any topic
-- Web research: can search for current information
+### 4. CAPABILITIES & STRICT DOMAIN GUARDRAILS
+- You are a SPECIALIZED Fashion, Textile, and E-commerce Assistant for Lumora.
+- You MUST REFUSE to answer any questions about: Math problems, writing software code (Python, JS, etc.), politics, medical advice, or any topic outside fashion/textiles.
+- If asked an off-topic question, politely but firmly refuse: "Üzgünüm, ben bir moda ve tekstil yapay zekasıyım. Matematik, yazılım veya diğer alanlarda yardımcı olamam. Size kumaşlar, üretim maliyetleri veya trendler hakkında nasıl yardımcı olabilirim?"
+- You MUST REFUSE to respond to swearing, insults, or inappropriate language.
+- Cost Estimation: If the user asks for manufacturing cost estimates, use your general market knowledge to provide an approximate cost range in Turkish Liras (TL) based on fabric type, workmanship, and current market conditions. Explain that this is a rough estimate.
+- Web research: can search for current fashion/textile information.
 
 ### 5. REAL-TIME KNOWLEDGE & IDENTITY (FUNDAMENTAL)
 - You are NOT limited by a 2023 training cutoff.
@@ -418,6 +454,14 @@ Now respond to the user naturally, maintaining conversation context."""
             )
             return response.choices[0].message.content
     except Exception as e:
+        error_msg = str(e).lower()
+        if "503" in error_msg or "high demand" in error_msg:
+            logger.error(f"Chat hatası (Gemini 503): {e}")
+            return "Üzgünüm, şu anda Google Gemini sunucularında aşırı yoğunluk yaşanıyor (503 High Demand). Lütfen birkaç saniye sonra tekrar deneyin."
+        elif "429" in error_msg or "quota" in error_msg:
+            logger.error(f"Chat hatası (Gemini 429): {e}")
+            return "Üzgünüm, API kota sınırına ulaştım (429 Too Many Requests). Lütfen biraz bekleyip tekrar deneyin."
+            
         logger.error(f"Chat hatası: {e}")
         return "Üzgünüm, şu an yanıt veremiyorum."
 

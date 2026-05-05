@@ -419,13 +419,16 @@ class TrendyolScraperService:
         stats = {"inserted": 0, "updated": 0, "errors": 0}
         
         for scraped in products:
+            nested = self.db.begin_nested()
             try:
                 product, is_new = self.upsert_product(scraped, task_id)
+                nested.commit()
                 if is_new:
                     stats["inserted"] += 1
                 else:
                     stats["updated"] += 1
             except Exception as e:
+                nested.rollback()
                 logger.error(f"Ürün hatası: {scraped.get('product_id')} - {e}")
                 stats["errors"] += 1
                 continue

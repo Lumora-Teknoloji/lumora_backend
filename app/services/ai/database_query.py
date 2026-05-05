@@ -4,14 +4,22 @@ from typing import Dict, Any, List
 from sqlalchemy import text
 from app.core.database import engine
 from app.services.core.clients import openai_client, get_model_name
+import re
 
 logger = logging.getLogger(__name__)
 
-async def handle_database_query(user_message: str) -> Dict[str, Any]:
+async def handle_database_query(
+    user_message: str, 
+    chat_history: List[Dict[str, str]] = None, 
+    stream_callback: Any = None
+) -> Dict[str, Any]:
     """
     Directly queries the database for raw data using an AI-generated SQL query
     and formats the result back to the user.
     """
+    if chat_history is None:
+        chat_history = []
+        
     if not openai_client:
         return {"content": "Sistem hatası: OpenAI istemcisi eksik.", "image_urls": [], "process_log": []}
     
@@ -39,10 +47,16 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
     - fit_type: character varying
     - first_seen_at: timestamp
     """
+    
+    recent_history = chat_history[-10:] if chat_history else []
+    history_text = json.dumps(recent_history, ensure_ascii=False)
 
     sql_generation_prompt = f"""
     You are an expert Data Analyst and PostgreSQL database administrator.
-    Given the schema below, write a PostgreSQL query that answers the user's request.
+    Given the schema below and the chat history, write a PostgreSQL query that answers the user's latest request.
+    If the user refers to "bunlar", "en ucuzu", "en pahalısı" etc, look at the chat history to understand what they are referring to.
+    
+    CHAT HISTORY: {history_text}
     
     {schema_info}
     
@@ -54,7 +68,7 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
     5. If the user asks for "kadın pantolon", use category ILIKE '%Kadın%' AND category ILIKE '%Pantolon%'.
     6. Always use LIMIT 10 to prevent massive outputs unless asked otherwise.
     7. Return ONLY the raw SQL text.
-    8. SECURITY GUARDRAIL: Do not generate queries for any tables other than 'products'. If the user asks for unrelated topics (e.g., cooking recipes, personal data, system tables, passwords), return EXACTLY the string `DENIED_GUARD_TRIGGER`. Do NOT try to write SQL for unrelated requests.
+    8. SECURITY GUARDRAIL: Do not generate queries for any tables other than 'products'. If the user asks for unrelated topics (e.g., cooking recipes, math problems, software coding, system tables, passwords), return EXACTLY the string `DENIED_GUARD_TRIGGER`. Do NOT try to write SQL for unrelated requests.
     """
 
     try:
@@ -80,19 +94,43 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
         
         logger.info(f"🔍 Generated SQL Query: {sql_query}")
         
-        # Step 2: Ensure it's a SELECT query
+        # Step 2: Ensure it's a SELECT query and prevent SQL Injection
         if sql_query == "DENIED_GUARD_TRIGGER":
             return {
                 "content": "Üzgünüm, güvenlik ve gizlilik politikalarımız gereği yalnızca vitrindeki giyim ürünleri hakkında bilgi paylaşımı yapabiliyorum. Özel sistem verilerine veya alakasız konulara yanıt veremem.",
                 "image_urls": [],
+                "image_links": {},
                 "process_log": ["AI Guardrail Triggered: Request denied by prompt."]
             }
             
+        # SQL Injection & Multi-statement prevention
+        dangerous_keywords = r'\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|execute)\b'
+        
         if not sql_query.lower().startswith("select"):
             return {
                 "content": "Üzgünüm, güvenlik nedeniyle yalnızca SEÇME (SELECT) sorguları çalıştırabilirim.",
                 "image_urls": [],
+                "image_links": {},
                 "process_log": ["SQL query was not a SELECT."]
+            }
+            
+        if re.search(dangerous_keywords, sql_query, re.IGNORECASE):
+            logger.warning(f"🚨 SQL INJECTION ATTEMPT BLOCKED: {sql_query}")
+            return {
+                "content": "Güvenlik İhlali: Sorguda izin verilmeyen komutlar tespit edildi.",
+                "image_urls": [],
+                "image_links": {},
+                "process_log": ["SQL Injection attempt blocked."]
+            }
+            
+        # Noktalı virgül (;) ile başlayan veya ortasında olan çoklu sorguları engelle
+        if ";" in sql_query.rstrip(";"):
+            logger.warning(f"🚨 MULTIPLE SQL STATEMENTS BLOCKED: {sql_query}")
+            return {
+                "content": "Güvenlik İhlali: Çoklu sorgu çalıştırma girişimi engellendi.",
+                "image_urls": [],
+                "image_links": {},
+                "process_log": ["Multiple SQL statements blocked."]
             }
         
         # Step 3: Execute SQL
@@ -105,9 +143,12 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
         logger.info(f"📊 Query returned {len(data)} rows.")
         
         if not data:
+            if stream_callback:
+                await stream_callback("Bu sorguya uygun veritabanımızda herhangi bir ürün veya kayıt bulunamadı.")
             return {
                 "content": "Bu sorguya uygun veritabanımızda herhangi bir ürün veya kayıt bulunamadı.",
                 "image_urls": [],
+                "image_links": {},
                 "process_log": [f"SQL ({sql_query}) döndürdü: 0 sonuç"]
             }
 
@@ -129,13 +170,27 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
         Make it easy to read. Be objective, rely ONLY on the data provided.
         """
         
-        final_response = openai_client.chat.completions.create(
-            model=get_model_name(),
-            messages=[{"role": "user", "content": summary_prompt}],
-            temperature=0.3
-        )
-        
-        final_content = final_response.choices[0].message.content
+        if stream_callback:
+            response_stream = openai_client.chat.completions.create(
+                model=get_model_name(),
+                messages=[{"role": "user", "content": summary_prompt}],
+                temperature=0.3,
+                stream=True
+            )
+            final_content = ""
+            for chunk in response_stream:
+                if chunk.choices[0].delta.content:
+                    content_chunk = chunk.choices[0].delta.content
+                    final_content += content_chunk
+                    await stream_callback(content_chunk)
+        else:
+            final_response = openai_client.chat.completions.create(
+                model=get_model_name(),
+                messages=[{"role": "user", "content": summary_prompt}],
+                temperature=0.3
+            )
+            final_content = final_response.choices[0].message.content
+            
         return {
             "content": final_content,
             "image_urls": [],
@@ -147,5 +202,6 @@ async def handle_database_query(user_message: str) -> Dict[str, Any]:
         return {
             "content": f"Veritabanı sorgusu sırasına bir hata oluştu: {str(e)}",
             "image_urls": [],
+            "image_links": {},
             "process_log": [str(e)]
         }
