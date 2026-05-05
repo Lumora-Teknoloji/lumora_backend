@@ -224,10 +224,7 @@ from pathlib import Path
 async def verify_secret(x_agent_secret: str = Header(...)):
     provided_secrets = [s.strip() for s in x_agent_secret.split(",")]
     
-    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-    env_config = dotenv_values(env_path)
-    
-    agent_secret_value = env_config.get("AGENT_SECRET") or os.environ.get("AGENT_SECRET") or getattr(settings, "agent_secret", "")
+    agent_secret_value = getattr(settings, "agent_secret", "")
     
     if not agent_secret_value:
         if settings.app_env == "production":
