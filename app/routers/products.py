@@ -188,15 +188,31 @@ async def list_products(
     offset = (page - 1) * page_size
     products = query.offset(offset).limit(page_size).all()
     
+    # Optimize N+1 Queries
+    product_ids = [p.id for p in products]
+    task_ids = list(set([p.task_id for p in products if p.task_id]))
+    
+    task_map = {}
+    if task_ids:
+        tasks = db.query(ScrapingTask).filter(ScrapingTask.id.in_(task_ids)).all()
+        task_map = {t.id: t for t in tasks}
+        
+    metric_map = {}
+    if product_ids:
+        # DISTINCT ON product_id to get the latest metric per product efficiently in PostgreSQL
+        latest_metrics = db.query(DailyMetric).filter(
+            DailyMetric.product_id.in_(product_ids)
+        ).distinct(DailyMetric.product_id).order_by(
+            DailyMetric.product_id, desc(DailyMetric.recorded_at)
+        ).all()
+        metric_map = {m.product_id: m for m in latest_metrics}
+
     # Build response with latest metrics
     items = []
     for p in products:
-        latest_metric = db.query(DailyMetric).filter(
-            DailyMetric.product_id == p.id
-        ).order_by(desc(DailyMetric.recorded_at)).first()
+        latest_metric = metric_map.get(p.id)
+        task_obj = task_map.get(p.task_id) if p.task_id else None
         
-        # Get bot mode from ScrapingTask
-        task_obj = db.query(ScrapingTask).filter(ScrapingTask.id == p.task_id).first() if p.task_id else None
         bot_mode = None
         t_name = None
         if task_obj:
@@ -487,7 +503,7 @@ async def get_report_summary(
             WHERE dm2.product_id = p.id 
             ORDER BY dm2.recorded_at DESC LIMIT 1
         ) dm ON true
-        WHERE p.last_scraped_at >= NOW() - INTERVAL ':days days'
+        WHERE p.last_scraped_at >= NOW() - :days * INTERVAL '1 day'
     """).bindparams(days=days)).fetchone()
     
     # Top brands by product count
@@ -495,7 +511,7 @@ async def get_report_summary(
         SELECT brand, COUNT(*) AS cnt 
         FROM products 
         WHERE brand IS NOT NULL AND brand != ''
-            AND last_scraped_at >= NOW() - INTERVAL ':days days'
+            AND last_scraped_at >= NOW() - :days * INTERVAL '1 day'
         GROUP BY brand 
         ORDER BY cnt DESC LIMIT 10
     """).bindparams(days=days)).fetchall()
